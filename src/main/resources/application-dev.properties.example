@@ -1,0 +1,29 @@
+# Development Configuration Template
+# Copy this file to application-dev.properties and fill in your actual values
+# The .gitignore is already configured to ignore application-dev.properties
+
+# PostgreSQL Configuration
+# For local Docker: jdbc:postgresql://localhost:5432/coffee_db
+# For Neon: jdbc:postgresql://your-host.neon.tech:5432/coffee_db?sslmode=require
+spring.datasource.url=jdbc:postgresql://localhost:5432/coffee_db
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+
+# Perplexity API (Get your key from https://www.perplexity.ai/settings/api)
+perplexity.api.key=your_actual_api_key_here
+
+# Neo4j Configuration
+spring.neo4j.uri=bolt://localhost:7687
+spring.neo4j.authentication.username=neo4j
+spring.neo4j.authentication.password=password
+
+# Crawler Configuration (disable during development to avoid accidental crawls)
+crawler.enabled=false
+
+# Logging (Optional - uncomment for more detailed logs)
+#logging.level.com.coffee=DEBUG
+#logging.level.org.hibernate.SQL=DEBUG
+#logging.level.org.springframework.web=DEBUG
+
+# Server Port (Optional - change if 8080 is in use)
+#server.port=8081
