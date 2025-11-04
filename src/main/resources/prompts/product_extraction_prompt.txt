@@ -1,0 +1,27 @@
+Extract structured coffee product information from the following content.
+
+Brand: {BRAND_NAME}
+URL: {PRODUCT_URL}
+Content: {RAW_CONTENT}
+
+Extract and return ONLY a valid JSON object with the following schema:
+{
+  "product_name": "string (required)",
+  "origin": "string (country)",
+  "region": "string (specific region or farm)",
+  "process": "string (e.g., Washed, Natural, Honey, Anaerobic)",
+  "producer": "string (farm or producer name)",
+  "variety": "string (coffee variety/cultivar)",
+  "altitude": "string (elevation)",
+  "tasting_notes": ["array", "of", "strings"],
+  "price": number,
+  "in_stock": boolean
+}
+
+Important rules:
+1. Return ONLY the JSON object, no other text
+2. If information is not found, use null
+3. Normalize process names (e.g., "Honey Anaerobic" not "honey-anaerobic")
+4. Extract all tasting notes mentioned (e.g., "Nashi pear", "oolong", "cherimoya")
+5. Ensure product_name is always populated
+6. Clean and standardize values (proper capitalization, no extra whitespace)

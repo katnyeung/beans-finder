@@ -6,9 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -22,6 +24,7 @@ public class PerplexityApiService {
 
     private final OkHttpClient client;
     private final ObjectMapper objectMapper;
+    private String promptTemplate;
 
     @Value("${perplexity.api.key:}")
     private String apiKey;
@@ -42,6 +45,30 @@ public class PerplexityApiService {
                 .readTimeout(60, TimeUnit.SECONDS)
                 .writeTimeout(30, TimeUnit.SECONDS)
                 .build();
+        loadPromptTemplate();
+    }
+
+    /**
+     * Load the extraction prompt template from file
+     */
+    private void loadPromptTemplate() {
+        try {
+            ClassPathResource resource = new ClassPathResource("prompts/product_extraction_prompt.txt");
+            this.promptTemplate = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            log.info("Loaded prompt template from prompts/product_extraction_prompt.txt");
+        } catch (IOException e) {
+            log.error("Failed to load prompt template, using fallback", e);
+            // Fallback to basic prompt if file not found
+            this.promptTemplate = """
+                Extract structured coffee product information from the following content.
+
+                Brand: {BRAND_NAME}
+                URL: {PRODUCT_URL}
+                Content: {RAW_CONTENT}
+
+                Return a JSON object with: product_name, origin, region, process, producer, variety, altitude, tasting_notes, price, in_stock
+                """;
+        }
     }
 
     /**
@@ -91,38 +118,13 @@ public class PerplexityApiService {
     }
 
     /**
-     * Build extraction prompt for Perplexity API
+     * Build extraction prompt for Perplexity API using template from file
      */
     private String buildExtractionPrompt(String rawContent, String brandName, String productUrl) {
-        return String.format("""
-                Extract structured coffee product information from the following content.
-
-                Brand: %s
-                URL: %s
-                Content: %s
-
-                Extract and return ONLY a valid JSON object with the following schema:
-                {
-                  "product_name": "string (required)",
-                  "origin": "string (country)",
-                  "region": "string (specific region or farm)",
-                  "process": "string (e.g., Washed, Natural, Honey, Anaerobic)",
-                  "producer": "string (farm or producer name)",
-                  "variety": "string (coffee variety/cultivar)",
-                  "altitude": "string (elevation)",
-                  "tasting_notes": ["array", "of", "strings"],
-                  "price": number,
-                  "in_stock": boolean
-                }
-
-                Important rules:
-                1. Return ONLY the JSON object, no other text
-                2. If information is not found, use null
-                3. Normalize process names (e.g., "Honey Anaerobic" not "honey-anaerobic")
-                4. Extract all tasting notes mentioned (e.g., "Nashi pear", "oolong", "cherimoya")
-                5. Ensure product_name is always populated
-                6. Clean and standardize values (proper capitalization, no extra whitespace)
-                """, brandName, productUrl, rawContent);
+        return promptTemplate
+                .replace("{BRAND_NAME}", brandName)
+                .replace("{PRODUCT_URL}", productUrl)
+                .replace("{RAW_CONTENT}", rawContent);
     }
 
     /**

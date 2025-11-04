@@ -1,10 +1,12 @@
 package com.coffee.beansfinder.entity;
 
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Type;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -57,6 +59,17 @@ public class CoffeeBrand {
     @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CoffeeProduct> products = new ArrayList<>();
+
+    // JSONB array of product IDs for denormalized access
+    @Type(JsonBinaryType.class)
+    @Column(name = "products", columnDefinition = "jsonb", insertable = false, updatable = false)
+    private String productsJson;
+
+    // JSONB array for user suggestions
+    @Type(JsonBinaryType.class)
+    @Column(name = "user_suggestions", columnDefinition = "jsonb")
+    @Builder.Default
+    private String userSuggestions = "[]";
 
     @PrePersist
     protected void onCreate() {
