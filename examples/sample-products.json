@@ -1,0 +1,80 @@
+[
+  {
+    "brand": "Sweven Coffee",
+    "productName": "El Ocaso - Geisha",
+    "url": "https://swevencoffee.co.uk/products/el-ocaso-geisha",
+    "expectedData": {
+      "origin": "Colombia",
+      "region": "Quindio",
+      "process": "Honey Anaerobic",
+      "producer": "Santiago Patiño",
+      "variety": "Geisha",
+      "tastingNotes": ["Nashi pear", "oolong", "cherimoya"]
+    }
+  },
+  {
+    "brand": "Pact Coffee",
+    "productName": "Colombian Single Origin",
+    "url": "https://www.pactcoffee.com/coffees/colombia",
+    "expectedData": {
+      "origin": "Colombia",
+      "process": "Washed"
+    }
+  },
+  {
+    "brand": "Square Mile Coffee",
+    "productName": "Red Brick",
+    "url": "https://shop.squaremilecoffee.com/products/red-brick",
+    "expectedData": {
+      "origin": "Ethiopia",
+      "process": "Natural"
+    }
+  },
+  {
+    "brand": "Has Bean Coffee",
+    "productName": "Jailbreak Espresso",
+    "url": "https://www.hasbean.co.uk/products/jailbreak-espresso",
+    "expectedData": {
+      "origin": "Blend"
+    }
+  },
+  {
+    "brand": "Origin Coffee",
+    "productName": "Rwanda Simbi",
+    "url": "https://www.origincoffee.co.uk/products/rwanda-simbi",
+    "expectedData": {
+      "origin": "Rwanda",
+      "process": "Washed"
+    }
+  },
+  {
+    "brand": "Colonna Coffee",
+    "productName": "Finca Deborah Geisha",
+    "url": "https://colonnacoffee.com/products/finca-deborah-geisha",
+    "expectedData": {
+      "origin": "Panama",
+      "variety": "Geisha",
+      "process": "Washed"
+    }
+  },
+  {
+    "brand": "Assembly Coffee",
+    "productName": "Ethiopian Yirgacheffe",
+    "url": "https://assemblycoffee.co.uk/products/ethiopian-yirgacheffe",
+    "expectedData": {
+      "origin": "Ethiopia",
+      "region": "Yirgacheffe",
+      "process": "Washed"
+    }
+  },
+  {
+    "brand": "Curve Coffee",
+    "productName": "Kenyan Kiambu",
+    "url": "https://curveroasters.co.uk/collections/coffee/products/kenyan-kiambu",
+    "expectedData": {
+      "origin": "Kenya",
+      "region": "Kiambu",
+      "process": "Washed"
+    }
+  }
+]
