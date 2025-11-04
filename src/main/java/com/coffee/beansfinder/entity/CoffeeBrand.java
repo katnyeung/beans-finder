@@ -1,5 +1,6 @@
 package com.coffee.beansfinder.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -56,6 +57,7 @@ public class CoffeeBrand {
     private String robotsTxtUrl;
     private Boolean respectRobotsTxt = true;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<CoffeeProduct> products = new ArrayList<>();
