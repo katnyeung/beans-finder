@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products - Coffee Finder</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>☕ Coffee Finder</h1>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/brands.html">Brands</a>
+                <a href="/swagger-ui/index.html" target="_blank">API Docs</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <a href="/brands.html" class="btn btn-secondary">← Back to Brands</a>
+            <h2 id="brandName">Loading...</h2>
+            <p id="brandInfo"></p>
+        </div>
+
+        <div id="loading" class="loading">Loading products...</div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div class="products-grid" id="productsContainer">
+            <!-- Products will be loaded here -->
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Coffee Finder. Powered by Spring Boot & Neo4j.</p>
+        </div>
+    </footer>
+
+    <script src="/js/products.js"></script>
+</body>
+</html>

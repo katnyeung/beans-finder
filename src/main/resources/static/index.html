@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Finder - Home</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>☕ Coffee Finder</h1>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/" class="active">Home</a>
+                <a href="/brands.html">Brands</a>
+                <a href="/swagger-ui/index.html" target="_blank">API Docs</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <h2>Welcome to Coffee Finder</h2>
+            <p>Your centralized database for specialty coffee brands and products</p>
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <h3>🏢 Browse Brands</h3>
+                <p>Explore approved specialty coffee roasters from around the world</p>
+                <a href="/brands.html" class="btn btn-primary">View Brands</a>
+            </div>
+
+            <div class="feature-card">
+                <h3>☕ Discover Products</h3>
+                <p>Find detailed information about coffee products, origins, and flavor profiles</p>
+                <a href="/brands.html" class="btn btn-primary">Explore Products</a>
+            </div>
+
+            <div class="feature-card">
+                <h3>📊 Knowledge Graph</h3>
+                <p>Query relationships between origins, processes, and flavor profiles</p>
+                <a href="/swagger-ui/index.html" target="_blank" class="btn btn-primary">API Access</a>
+            </div>
+        </section>
+
+        <section class="info">
+            <h3>About This System</h3>
+            <p>
+                Coffee Finder aggregates and standardizes coffee product data from multiple roasters,
+                providing a centralized database with SCA (Specialty Coffee Association) flavor wheel
+                integration. Our knowledge graph enables complex queries like finding
+                "honey-processed Geishas with pear-like sweetness."
+            </p>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Coffee Finder. Powered by Spring Boot & Neo4j.</p>
+        </div>
+    </footer>
+</body>
+</html>

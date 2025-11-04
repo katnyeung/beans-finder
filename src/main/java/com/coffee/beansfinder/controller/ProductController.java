@@ -5,6 +5,9 @@ import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
 import com.coffee.beansfinder.repository.CoffeeProductRepository;
 import com.coffee.beansfinder.service.CrawlerService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +22,7 @@ import java.util.List;
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Products", description = "Coffee product management and queries")
 public class ProductController {
 
     private final CoffeeProductRepository productRepository;

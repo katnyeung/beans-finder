@@ -4,6 +4,10 @@ import com.coffee.beansfinder.entity.BrandApproval;
 import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
 import com.coffee.beansfinder.service.BrandApprovalService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -18,32 +22,39 @@ import java.util.List;
 @RequestMapping("/api/brands")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Brands", description = "Coffee brand management and approval workflow")
 public class BrandController {
 
     private final CoffeeBrandRepository brandRepository;
     private final BrandApprovalService approvalService;
 
-    /**
-     * Get all brands
-     */
+    @Operation(
+        summary = "Get all brands",
+        description = "Returns a list of all coffee brands (approved and pending)"
+    )
     @GetMapping
     public List<CoffeeBrand> getAllBrands() {
         return brandRepository.findAll();
     }
 
-    /**
-     * Get approved brands only
-     */
+    @Operation(
+        summary = "Get approved brands",
+        description = "Returns only approved and active coffee brands"
+    )
     @GetMapping("/approved")
     public List<CoffeeBrand> getApprovedBrands() {
         return brandRepository.findByApprovedTrue();
     }
 
-    /**
-     * Get brand by ID
-     */
+    @Operation(
+        summary = "Get brand by ID",
+        description = "Returns a specific coffee brand by its ID"
+    )
+    @ApiResponse(responseCode = "200", description = "Brand found")
+    @ApiResponse(responseCode = "404", description = "Brand not found")
     @GetMapping("/{id}")
-    public ResponseEntity<CoffeeBrand> getBrandById(@PathVariable Long id) {
+    public ResponseEntity<CoffeeBrand> getBrandById(
+            @Parameter(description = "Brand ID") @PathVariable Long id) {
         return brandRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
