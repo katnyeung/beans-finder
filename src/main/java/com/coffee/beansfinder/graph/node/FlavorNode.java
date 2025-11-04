@@ -1,4 +1,4 @@
-package com.coffee.beansfinder.neo4j;
+package com.coffee.beansfinder.graph.node;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,25 +9,21 @@ import org.springframework.data.neo4j.core.schema.Id;
 import org.springframework.data.neo4j.core.schema.Node;
 import org.springframework.data.neo4j.core.schema.Relationship;
 
-import java.util.HashSet;
-import java.util.Set;
-
 @Node("Flavor")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class FlavorNode {
 
     @Id
     @GeneratedValue
     private Long id;
 
-    private String specific; // e.g., "Nashi pear", "oolong"
-    private String scaCategory; // e.g., "Fruity", "Floral"
-    private String scaSubcategory; // e.g., "Stone Fruit", "Tea-like"
+    private String name; // Specific flavor, e.g., "Nashi pear"
+    private String scaCategory; // Primary SCA category, e.g., "Fruity"
+    private String scaSubcategory; // Subcategory, e.g., "Stone Fruit"
 
-    @Relationship(type = "BELONGS_TO_WHEEL", direction = Relationship.Direction.OUTGOING)
-    @Builder.Default
-    private Set<SCAWheelNode> scaCategories = new HashSet<>();
+    @Relationship(type = "BELONGS_TO_CATEGORY", direction = Relationship.Direction.OUTGOING)
+    private SCACategory category;
 }

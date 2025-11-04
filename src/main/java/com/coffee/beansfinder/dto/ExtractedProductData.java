@@ -7,15 +7,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ExtractionResponse {
+public class ExtractedProductData {
 
     @JsonProperty("product_name")
     private String productName;
@@ -28,15 +26,10 @@ public class ExtractionResponse {
     private String altitude;
 
     @JsonProperty("tasting_notes")
-    @Builder.Default
-    private List<String> tastingNotes = new ArrayList<>();
-
-    @JsonProperty("sca_mapping")
-    private Map<String, Object> scaMapping;
+    private List<String> tastingNotes;
 
     private BigDecimal price;
 
     @JsonProperty("in_stock")
-    @Builder.Default
-    private Boolean inStock = true;
+    private Boolean inStock;
 }

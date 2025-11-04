@@ -1,16 +1,15 @@
 package com.coffee.beansfinder.controller;
 
-import com.coffee.beansfinder.neo4j.CoffeeNode;
+import com.coffee.beansfinder.graph.node.ProductNode;
 import com.coffee.beansfinder.service.KnowledgeGraphService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 /**
- * REST API for knowledge graph queries
+ * REST API for querying the knowledge graph
  */
 @RestController
 @RequestMapping("/api/graph")
@@ -21,55 +20,54 @@ public class KnowledgeGraphController {
     private final KnowledgeGraphService graphService;
 
     /**
-     * Find products by SCA flavor category
-     * GET /api/graph/sca/{category}
-     * Example: /api/graph/sca/fruity
+     * Find products by flavor
      */
-    @GetMapping("/sca/{category}")
-    public ResponseEntity<List<CoffeeNode>> findBySCACategory(@PathVariable String category) {
-        return ResponseEntity.ok(graphService.findBySCACategory(category));
+    @GetMapping("/products/flavor/{flavorName}")
+    public List<ProductNode> findByFlavor(@PathVariable String flavorName) {
+        return graphService.findProductsByFlavor(flavorName);
     }
 
     /**
-     * Find products by specific flavor
-     * GET /api/graph/flavor/{flavor}
-     * Example: /api/graph/flavor/pear
+     * Find products by SCA category
      */
-    @GetMapping("/flavor/{flavor}")
-    public ResponseEntity<List<CoffeeNode>> findByFlavor(@PathVariable String flavor) {
-        return ResponseEntity.ok(graphService.findByFlavor(flavor));
+    @GetMapping("/products/sca-category/{categoryName}")
+    public List<ProductNode> findBySCACategory(@PathVariable String categoryName) {
+        return graphService.findProductsBySCACategory(categoryName);
     }
 
     /**
-     * Find products by variety
-     * GET /api/graph/variety/{variety}
-     * Example: /api/graph/variety/Geisha
+     * Find products by origin
      */
-    @GetMapping("/variety/{variety}")
-    public ResponseEntity<List<CoffeeNode>> findByVariety(@PathVariable String variety) {
-        return ResponseEntity.ok(graphService.findByVariety(variety));
+    @GetMapping("/products/origin/{country}")
+    public List<ProductNode> findByOrigin(@PathVariable String country) {
+        return graphService.findProductsByOrigin(country);
     }
 
     /**
-     * Find products by origin country
-     * GET /api/graph/origin/{country}
-     * Example: /api/graph/origin/Colombia
+     * Find products by process
      */
-    @GetMapping("/origin/{country}")
-    public ResponseEntity<List<CoffeeNode>> findByOrigin(@PathVariable String country) {
-        return ResponseEntity.ok(graphService.findByOrigin(country));
+    @GetMapping("/products/process/{processType}")
+    public List<ProductNode> findByProcess(@PathVariable String processType) {
+        return graphService.findProductsByProcess(processType);
     }
 
     /**
-     * Find products by process and SCA category
-     * GET /api/graph/query?process=Honey&sca=fruity
-     * Example: Find honey-processed coffees with fruity notes
+     * Complex query: Find products by process AND flavor
+     * Example: honey-processed Geishas with pear-like sweetness
      */
-    @GetMapping("/query")
-    public ResponseEntity<List<CoffeeNode>> findByProcessAndFlavor(
-        @RequestParam String process,
-        @RequestParam(name = "sca") String scaCategory
-    ) {
-        return ResponseEntity.ok(graphService.findByProcessAndFlavor(process, scaCategory));
+    @GetMapping("/products/complex")
+    public List<ProductNode> findByProcessAndFlavor(
+            @RequestParam String process,
+            @RequestParam String flavor) {
+        return graphService.findProductsByProcessAndFlavor(process, flavor);
+    }
+
+    /**
+     * Initialize SCA categories in graph
+     */
+    @PostMapping("/init-categories")
+    public String initializeCategories() {
+        graphService.initializeSCACategories();
+        return "SCA categories initialized";
     }
 }

@@ -5,34 +5,25 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @Entity
-@Table(name = "coffee_products", indexes = {
-    @Index(name = "idx_brand", columnList = "brand"),
-    @Index(name = "idx_last_update", columnList = "lastUpdateDate"),
-    @Index(name = "idx_crawl_status", columnList = "crawlStatus")
-})
+@Table(name = "coffee_products")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class CoffeeProduct {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String brand;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "brand_id", nullable = false)
+    private CoffeeBrand brand;
 
     @Column(nullable = false)
     private String productName;
@@ -44,46 +35,35 @@ public class CoffeeProduct {
     private String variety;
     private String altitude;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    @Builder.Default
-    private List<String> tastingNotes = new ArrayList<>();
+    @Column(columnDefinition = "TEXT")
+    private String tastingNotesJson; // JSON array as string
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(columnDefinition = "jsonb")
-    @Builder.Default
-    private Map<String, Object> scaFlavors = new HashMap<>();
+    @Column(columnDefinition = "TEXT")
+    private String scaFlavorsJson; // JSON object as string
 
     private String sellerUrl;
-
     private BigDecimal price;
 
     @Column(length = 3)
-    @Builder.Default
     private String currency = "GBP";
 
-    @Builder.Default
     private Boolean inStock = true;
 
     @Column(nullable = false)
-    @Builder.Default
-    private LocalDateTime lastUpdateDate = LocalDateTime.now();
+    private LocalDateTime lastUpdateDate;
 
     @Column(nullable = false)
-    @Builder.Default
-    private String crawlStatus = "pending";
+    private String crawlStatus = "pending"; // pending, in_progress, done, error
 
     @Column(columnDefinition = "TEXT")
     private String rawDescription;
 
+    @Column(columnDefinition = "TEXT")
+    private String errorMessage;
+
     @PrePersist
     protected void onCreate() {
-        if (lastUpdateDate == null) {
-            lastUpdateDate = LocalDateTime.now();
-        }
-        if (crawlStatus == null) {
-            crawlStatus = "pending";
-        }
+        lastUpdateDate = LocalDateTime.now();
     }
 
     @PreUpdate

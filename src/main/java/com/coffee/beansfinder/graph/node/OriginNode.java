@@ -1,4 +1,4 @@
-package com.coffee.beansfinder.neo4j;
+package com.coffee.beansfinder.graph.node;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,16 +8,18 @@ import org.springframework.data.neo4j.core.schema.GeneratedValue;
 import org.springframework.data.neo4j.core.schema.Id;
 import org.springframework.data.neo4j.core.schema.Node;
 
-@Node("Process")
+@Node("Origin")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ProcessNode {
+public class OriginNode {
 
     @Id
     @GeneratedValue
     private Long id;
 
-    private String type; // e.g., "Honey Anaerobic", "Washed", "Natural"
+    private String country;
+    private String region;
+    private String altitude;
 }

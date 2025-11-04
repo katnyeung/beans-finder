@@ -1,8 +1,11 @@
 package com.coffee.beansfinder.service;
 
+import com.coffee.beansfinder.dto.SCAFlavorMapping;
 import com.coffee.beansfinder.entity.CoffeeProduct;
-import com.coffee.beansfinder.neo4j.*;
-import com.coffee.beansfinder.repository.CoffeeNodeRepository;
+import com.coffee.beansfinder.graph.node.*;
+import com.coffee.beansfinder.graph.repository.*;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -10,152 +13,252 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
- * Service for managing Neo4j knowledge graph
+ * Service for managing the Neo4j knowledge graph
  */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class KnowledgeGraphService {
 
-    private final CoffeeNodeRepository coffeeNodeRepository;
-    private final SCAFlavorWheelMapper flavorMapper;
+    private final ProductNodeRepository productNodeRepository;
+    private final OriginNodeRepository originNodeRepository;
+    private final ProcessNodeRepository processNodeRepository;
+    private final FlavorNodeRepository flavorNodeRepository;
+    private final SCACategoryRepository scaCategoryRepository;
+    private final ProducerNodeRepository producerNodeRepository;
+    private final ObjectMapper objectMapper;
 
     /**
-     * Create or update a product node in the knowledge graph
+     * Create or update product in knowledge graph
      */
     @Transactional
-    public CoffeeNode createOrUpdateProductNode(CoffeeProduct product) {
-        log.info("Creating/updating knowledge graph node for product: {}", product.getId());
+    public ProductNode syncProductToGraph(CoffeeProduct product) {
+        try {
+            log.info("Syncing product to knowledge graph: {} (ID: {})",
+                    product.getProductName(), product.getId());
 
-        // Find existing node or create new one
-        CoffeeNode node = coffeeNodeRepository.findByProductId(product.getId())
-            .orElse(CoffeeNode.builder()
-                .productId(product.getId())
-                .build());
+            // Find or create product node
+            ProductNode productNode = productNodeRepository.findByProductId(product.getId())
+                    .orElse(ProductNode.builder()
+                            .productId(product.getId())
+                            .build());
 
-        // Update basic properties
-        node.setName(product.getProductName());
-        node.setBrand(product.getBrand());
-        node.setPrice(product.getPrice());
-        node.setCurrency(product.getCurrency());
+            // Update basic product info
+            productNode.setBrand(product.getBrand().getName());
+            productNode.setProductName(product.getProductName());
+            productNode.setVariety(product.getVariety());
+            productNode.setPrice(product.getPrice());
+            productNode.setCurrency(product.getCurrency());
+            productNode.setInStock(product.getInStock());
+            productNode.setLastUpdate(product.getLastUpdateDate());
 
-        // Create relationships
-        node.setOrigins(createOriginNodes(product));
-        node.setProcesses(createProcessNodes(product));
-        node.setFlavors(createFlavorNodes(product));
-        node.setVarieties(createVarietyNodes(product));
+            // Link to origin
+            if (product.getOrigin() != null) {
+                OriginNode origin = findOrCreateOrigin(
+                        product.getOrigin(),
+                        product.getRegion(),
+                        product.getAltitude());
+                productNode.setOrigin(origin);
+            }
 
-        return coffeeNodeRepository.save(node);
+            // Link to process
+            if (product.getProcess() != null) {
+                ProcessNode process = findOrCreateProcess(product.getProcess());
+                productNode.setProcess(process);
+            }
+
+            // Link to producer
+            if (product.getProducer() != null) {
+                ProducerNode producer = findOrCreateProducer(
+                        product.getProducer(),
+                        product.getOrigin());
+                productNode.setProducer(producer);
+            }
+
+            // Link to flavors
+            if (product.getScaFlavorsJson() != null && !product.getScaFlavorsJson().isEmpty()) {
+                Set<FlavorNode> flavors = createFlavorNodes(product.getScaFlavorsJson());
+                productNode.setFlavors(flavors);
+            }
+
+            // Save product node with all relationships
+            ProductNode saved = productNodeRepository.save(productNode);
+            log.info("Successfully synced product to graph: {}", saved.getProductName());
+
+            return saved;
+
+        } catch (Exception e) {
+            log.error("Failed to sync product to knowledge graph: {}", e.getMessage(), e);
+            throw new RuntimeException("Knowledge graph sync failed", e);
+        }
     }
 
-    private Set<OriginNode> createOriginNodes(CoffeeProduct product) {
-        Set<OriginNode> origins = new HashSet<>();
+    /**
+     * Find or create origin node
+     */
+    private OriginNode findOrCreateOrigin(String country, String region, String altitude) {
+        return originNodeRepository.findByCountryAndRegion(country, region)
+                .orElseGet(() -> {
+                    OriginNode origin = OriginNode.builder()
+                            .country(country)
+                            .region(region)
+                            .altitude(altitude)
+                            .build();
+                    return originNodeRepository.save(origin);
+                });
+    }
 
-        if (product.getOrigin() != null) {
-            OriginNode origin = OriginNode.builder()
-                .country(product.getOrigin())
-                .region(product.getRegion())
-                .build();
-            origins.add(origin);
+    /**
+     * Find or create process node
+     */
+    private ProcessNode findOrCreateProcess(String processType) {
+        return processNodeRepository.findByType(processType)
+                .orElseGet(() -> {
+                    ProcessNode process = ProcessNode.builder()
+                            .type(processType)
+                            .build();
+                    return processNodeRepository.save(process);
+                });
+    }
+
+    /**
+     * Find or create producer node
+     */
+    private ProducerNode findOrCreateProducer(String producerName, String country) {
+        return producerNodeRepository.findByName(producerName)
+                .orElseGet(() -> {
+                    ProducerNode producer = ProducerNode.builder()
+                            .name(producerName)
+                            .country(country)
+                            .build();
+                    return producerNodeRepository.save(producer);
+                });
+    }
+
+    /**
+     * Create flavor nodes from SCA mapping JSON
+     */
+    private Set<FlavorNode> createFlavorNodes(String scaFlavorsJson) {
+        Set<FlavorNode> flavorNodes = new HashSet<>();
+
+        try {
+            SCAFlavorMapping mapping = objectMapper.readValue(scaFlavorsJson, SCAFlavorMapping.class);
+
+            // Process each category
+            addFlavorsFromCategory(flavorNodes, mapping.getFruity(), "fruity");
+            addFlavorsFromCategory(flavorNodes, mapping.getFloral(), "floral");
+            addFlavorsFromCategory(flavorNodes, mapping.getSweet(), "sweet");
+            addFlavorsFromCategory(flavorNodes, mapping.getNutty(), "nutty");
+            addFlavorsFromCategory(flavorNodes, mapping.getSpices(), "spices");
+            addFlavorsFromCategory(flavorNodes, mapping.getRoasted(), "roasted");
+            addFlavorsFromCategory(flavorNodes, mapping.getGreen(), "green");
+            addFlavorsFromCategory(flavorNodes, mapping.getSour(), "sour");
+            addFlavorsFromCategory(flavorNodes, mapping.getOther(), "other");
+
+        } catch (Exception e) {
+            log.error("Failed to parse SCA flavors JSON: {}", e.getMessage());
         }
 
-        return origins;
+        return flavorNodes;
     }
 
-    private Set<ProcessNode> createProcessNodes(CoffeeProduct product) {
-        Set<ProcessNode> processes = new HashSet<>();
-
-        if (product.getProcess() != null) {
-            ProcessNode process = ProcessNode.builder()
-                .type(product.getProcess())
-                .build();
-            processes.add(process);
+    /**
+     * Add flavors from a specific category
+     */
+    private void addFlavorsFromCategory(Set<FlavorNode> flavorNodes, List<String> notes, String categoryName) {
+        if (notes == null || notes.isEmpty()) {
+            return;
         }
 
-        return processes;
+        // Get or create SCA category
+        SCACategory category = scaCategoryRepository.findByName(categoryName)
+                .orElseGet(() -> {
+                    SCACategory cat = SCACategory.builder()
+                            .name(categoryName)
+                            .build();
+                    return scaCategoryRepository.save(cat);
+                });
+
+        for (String noteName : notes) {
+            FlavorNode flavor = flavorNodeRepository.findByName(noteName)
+                    .orElseGet(() -> {
+                        FlavorNode newFlavor = FlavorNode.builder()
+                                .name(noteName)
+                                .scaCategory(categoryName)
+                                .category(category)
+                                .build();
+                        return flavorNodeRepository.save(newFlavor);
+                    });
+
+            flavorNodes.add(flavor);
+        }
     }
 
-    private Set<FlavorNode> createFlavorNodes(CoffeeProduct product) {
-        Set<FlavorNode> flavors = new HashSet<>();
+    /**
+     * Query products by flavor
+     */
+    public List<ProductNode> findProductsByFlavor(String flavorName) {
+        return productNodeRepository.findByFlavorNameContaining(flavorName);
+    }
 
-        if (product.getTastingNotes() != null) {
-            for (String note : product.getTastingNotes()) {
-                Map<String, String> mapping = flavorMapper.mapTastingNote(note);
+    /**
+     * Query products by SCA category
+     */
+    public List<ProductNode> findProductsBySCACategory(String categoryName) {
+        return productNodeRepository.findBySCACategory(categoryName);
+    }
 
-                FlavorNode flavor = FlavorNode.builder()
-                    .specific(note)
-                    .scaCategory(mapping.get("category"))
-                    .scaSubcategory(mapping.get("subcategory"))
-                    .build();
+    /**
+     * Query products by origin
+     */
+    public List<ProductNode> findProductsByOrigin(String country) {
+        return productNodeRepository.findByOriginCountry(country);
+    }
 
-                // Create SCA wheel relationship
-                if (mapping.get("category") != null) {
-                    SCAWheelNode scaNode = SCAWheelNode.builder()
-                        .category(mapping.get("category"))
-                        .subcategory(mapping.get("subcategory"))
+    /**
+     * Query products by process
+     */
+    public List<ProductNode> findProductsByProcess(String processType) {
+        return productNodeRepository.findByProcessType(processType);
+    }
+
+    /**
+     * Query products by process and flavor (complex query)
+     */
+    public List<ProductNode> findProductsByProcessAndFlavor(String processType, String flavorName) {
+        return productNodeRepository.findByProcessAndFlavor(processType, flavorName);
+    }
+
+    /**
+     * Delete product from graph
+     */
+    @Transactional
+    public void deleteProductFromGraph(Long productId) {
+        productNodeRepository.findByProductId(productId)
+                .ifPresent(product -> {
+                    log.info("Deleting product from graph: {}", product.getProductName());
+                    productNodeRepository.delete(product);
+                });
+    }
+
+    /**
+     * Initialize SCA categories in the graph
+     */
+    @Transactional
+    public void initializeSCACategories() {
+        String[] categories = {"fruity", "floral", "sweet", "nutty", "spices", "roasted", "green", "sour", "other"};
+
+        for (String categoryName : categories) {
+            if (scaCategoryRepository.findByName(categoryName).isEmpty()) {
+                SCACategory category = SCACategory.builder()
+                        .name(categoryName)
                         .build();
-
-                    Set<SCAWheelNode> scaCategories = new HashSet<>();
-                    scaCategories.add(scaNode);
-                    flavor.setScaCategories(scaCategories);
-                }
-
-                flavors.add(flavor);
+                scaCategoryRepository.save(category);
+                log.info("Initialized SCA category: {}", categoryName);
             }
         }
-
-        return flavors;
-    }
-
-    private Set<VarietyNode> createVarietyNodes(CoffeeProduct product) {
-        Set<VarietyNode> varieties = new HashSet<>();
-
-        if (product.getVariety() != null) {
-            VarietyNode variety = VarietyNode.builder()
-                .name(product.getVariety())
-                .build();
-            varieties.add(variety);
-        }
-
-        return varieties;
-    }
-
-    /**
-     * Query knowledge graph by SCA category
-     */
-    public List<CoffeeNode> findBySCACategory(String category) {
-        return coffeeNodeRepository.findBySCACategory(category);
-    }
-
-    /**
-     * Query knowledge graph by process and SCA category
-     */
-    public List<CoffeeNode> findByProcessAndFlavor(String process, String scaCategory) {
-        return coffeeNodeRepository.findByProcessAndSCACategory(process, scaCategory);
-    }
-
-    /**
-     * Query knowledge graph by flavor keyword
-     */
-    public List<CoffeeNode> findByFlavor(String flavor) {
-        return coffeeNodeRepository.findByFlavorContaining(flavor);
-    }
-
-    /**
-     * Query knowledge graph by variety
-     */
-    public List<CoffeeNode> findByVariety(String variety) {
-        return coffeeNodeRepository.findByVariety(variety);
-    }
-
-    /**
-     * Query knowledge graph by origin
-     */
-    public List<CoffeeNode> findByOrigin(String country) {
-        return coffeeNodeRepository.findByOriginCountry(country);
     }
 }
