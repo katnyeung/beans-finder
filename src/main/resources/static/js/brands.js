@@ -29,17 +29,16 @@ async function loadBrands() {
 
         if (brands.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <h3>No brands found</h3>
-                    <p>There are no approved brands yet.</p>
-                </div>
+                <tr>
+                    <td colspan="6" class="empty-state">No brands found</td>
+                </tr>
             `;
             return;
         }
 
         brands.forEach(brand => {
-            const card = createBrandCard(brand);
-            container.appendChild(card);
+            const row = createBrandRow(brand);
+            container.appendChild(row);
         });
 
     } catch (err) {
@@ -50,34 +49,32 @@ async function loadBrands() {
     }
 }
 
-// Create a brand card element
-function createBrandCard(brand) {
-    const card = document.createElement('div');
-    card.className = 'brand-card';
-    card.onclick = () => goToProducts(brand.id);
+// Create a brand table row element
+function createBrandRow(brand) {
+    const row = document.createElement('tr');
+    row.className = 'clickable-row';
+    row.onclick = () => goToProducts(brand.id);
 
     const statusClass = brand.approved ? 'status-approved' : 'status-pending';
-    const statusText = brand.approved ? 'Approved' : 'Pending';
+    const statusText = brand.status || 'active';
+    const lastCrawl = brand.lastCrawlDate
+        ? new Date(brand.lastCrawlDate).toLocaleDateString()
+        : 'Never';
 
-    card.innerHTML = `
-        <h3>${escapeHtml(brand.name)}</h3>
-        <div class="brand-info">
-            <div>
-                <strong>📍 Country:</strong> ${escapeHtml(brand.country || 'N/A')}
-            </div>
-            <div>
-                <strong>🌐 Website:</strong>
-                ${brand.website ? `<a href="${escapeHtml(brand.website)}" target="_blank" onclick="event.stopPropagation()">Visit</a>` : 'N/A'}
-            </div>
-            <div>
-                <strong>Status:</strong>
-                <span class="brand-status ${statusClass}">${statusText}</span>
-            </div>
-            ${brand.description ? `<div style="margin-top: 0.5rem; color: #666;">${escapeHtml(brand.description)}</div>` : ''}
-        </div>
+    row.innerHTML = `
+        <td>${brand.id}</td>
+        <td class="brand-name">${escapeHtml(brand.name)}</td>
+        <td>${escapeHtml(brand.country || 'N/A')}</td>
+        <td>
+            ${brand.website
+                ? `<a href="${escapeHtml(brand.website)}" target="_blank" onclick="event.stopPropagation()">Visit</a>`
+                : 'N/A'}
+        </td>
+        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+        <td>${lastCrawl}</td>
     `;
 
-    return card;
+    return row;
 }
 
 // Navigate to products page
@@ -100,18 +97,17 @@ function setupSearch() {
 
 // Filter brands by search term
 function filterBrands(searchTerm) {
-    const cards = document.querySelectorAll('.brand-card');
+    const rows = document.querySelectorAll('.clickable-row');
     let visibleCount = 0;
 
-    cards.forEach(card => {
-        const brandName = card.querySelector('h3').textContent.toLowerCase();
-        const brandInfo = card.querySelector('.brand-info').textContent.toLowerCase();
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
 
-        if (brandName.includes(searchTerm) || brandInfo.includes(searchTerm)) {
-            card.style.display = 'block';
+        if (text.includes(searchTerm)) {
+            row.style.display = '';
             visibleCount++;
         } else {
-            card.style.display = 'none';
+            row.style.display = 'none';
         }
     });
 
@@ -120,15 +116,13 @@ function filterBrands(searchTerm) {
     const existingEmpty = container.querySelector('.empty-state');
 
     if (visibleCount === 0 && searchTerm && !existingEmpty) {
-        const emptyDiv = document.createElement('div');
-        emptyDiv.className = 'empty-state';
-        emptyDiv.innerHTML = `
-            <h3>No matches found</h3>
-            <p>No brands match your search term: "${escapeHtml(searchTerm)}"</p>
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = `
+            <td colspan="6" class="empty-state">No brands match your search term: "${escapeHtml(searchTerm)}"</td>
         `;
-        container.appendChild(emptyDiv);
+        container.appendChild(emptyRow);
     } else if (visibleCount > 0 && existingEmpty) {
-        existingEmpty.remove();
+        existingEmpty.parentElement.remove();
     }
 }
 

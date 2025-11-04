@@ -210,126 +210,124 @@ main {
     color: white;
 }
 
-/* Brands Grid */
-.brands-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 1.5rem;
-}
-
-.brand-card {
+/* Excel-like Table Container */
+.table-container {
     background: white;
-    padding: 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    overflow-x: auto;
 }
 
-.brand-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-}
-
-.brand-card h3 {
-    color: #6B4423;
-    font-size: 1.5rem;
-    margin-bottom: 0.75rem;
-}
-
-.brand-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    color: #666;
+/* Data Table - Excel Style */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
     font-size: 0.9rem;
+    background: white;
 }
 
-.brand-info div {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+.data-table thead {
+    background: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
-.brand-status {
+.data-table thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #dee2e6;
+    border-right: 1px solid #e9ecef;
+    white-space: nowrap;
+    background: #f8f9fa;
+}
+
+.data-table thead th:last-child {
+    border-right: none;
+}
+
+.data-table tbody td {
+    padding: 10px 16px;
+    border-bottom: 1px solid #e9ecef;
+    border-right: 1px solid #f1f3f5;
+    color: #495057;
+}
+
+.data-table tbody td:last-child {
+    border-right: none;
+}
+
+.data-table tbody tr {
+    transition: background-color 0.15s;
+}
+
+.data-table tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.data-table tbody tr.clickable-row {
+    cursor: pointer;
+}
+
+.data-table tbody tr.clickable-row:hover {
+    background-color: #e7f1ff;
+}
+
+/* Table Cell Specific Styles */
+.brand-name,
+.product-name {
+    font-weight: 500;
+    color: #1a1a1a;
+}
+
+.tasting-notes-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Status Badges */
+.status-badge {
     display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: bold;
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: capitalize;
 }
 
 .status-approved {
-    background: #dcfce7;
-    color: #166534;
+    background: #d4edda;
+    color: #155724;
 }
 
 .status-pending {
-    background: #fef3c7;
-    color: #92400e;
+    background: #fff3cd;
+    color: #856404;
 }
 
-/* Products Grid */
-.products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
+/* Stock Status */
+.in-stock {
+    color: #28a745;
+    font-weight: bold;
+    text-align: center;
 }
 
-.product-card {
-    background: white;
-    padding: 1.5rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-    transition: transform 0.3s, box-shadow 0.3s;
+.out-of-stock {
+    color: #dc3545;
+    font-weight: bold;
+    text-align: center;
 }
 
-.product-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-}
-
-.product-card h3 {
-    color: #6B4423;
-    font-size: 1.3rem;
-    margin-bottom: 1rem;
-}
-
-.product-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    color: #666;
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
-}
-
-.product-details strong {
-    color: #333;
-}
-
-.tasting-notes {
-    margin-top: 1rem;
-}
-
-.tasting-notes h4 {
-    color: #6B4423;
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
-}
-
-.notes-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-}
-
-.note-tag {
-    background: #f3e8e0;
-    color: #6B4423;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.75rem;
+/* Empty State in Table */
+.data-table tbody tr td.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #6c757d;
+    font-style: italic;
 }
 
 /* Loading and Error States */
@@ -393,15 +391,26 @@ footer p {
         grid-template-columns: 1fr;
     }
 
-    .brands-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .products-grid {
-        grid-template-columns: 1fr;
-    }
-
     .filter-bar {
         flex-direction: column;
+    }
+
+    /* Make tables horizontally scrollable on mobile */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .data-table {
+        font-size: 0.8rem;
+    }
+
+    .data-table thead th,
+    .data-table tbody td {
+        padding: 8px 12px;
+    }
+
+    .tasting-notes-cell {
+        max-width: 200px;
     }
 }

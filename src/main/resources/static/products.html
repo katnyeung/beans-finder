@@ -31,8 +31,25 @@
         <div id="loading" class="loading">Loading products...</div>
         <div id="error" class="error" style="display: none;"></div>
 
-        <div class="products-grid" id="productsContainer">
-            <!-- Products will be loaded here -->
+        <div class="table-container">
+            <table class="data-table" id="productsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Product Name</th>
+                        <th>Origin</th>
+                        <th>Region</th>
+                        <th>Process</th>
+                        <th>Variety</th>
+                        <th>Tasting Notes</th>
+                        <th>Price</th>
+                        <th>In Stock</th>
+                    </tr>
+                </thead>
+                <tbody id="productsContainer">
+                    <!-- Products will be loaded here -->
+                </tbody>
+            </table>
         </div>
     </main>
 

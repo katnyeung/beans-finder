@@ -60,18 +60,16 @@ async function loadProducts() {
 
         if (products.length === 0) {
             container.innerHTML = `
-                <div class="empty-state">
-                    <h3>No products found</h3>
-                    <p>This brand doesn't have any products yet.</p>
-                    <a href="/brands.html" class="btn btn-primary">Back to Brands</a>
-                </div>
+                <tr>
+                    <td colspan="9" class="empty-state">No products found for this brand</td>
+                </tr>
             `;
             return;
         }
 
         products.forEach(product => {
-            const card = createProductCard(product);
-            container.appendChild(card);
+            const row = createProductRow(product);
+            container.appendChild(row);
         });
 
     } catch (err) {
@@ -82,10 +80,9 @@ async function loadProducts() {
     }
 }
 
-// Create a product card element
-function createProductCard(product) {
-    const card = document.createElement('div');
-    card.className = 'product-card';
+// Create a product table row element
+function createProductRow(product) {
+    const row = document.createElement('tr');
 
     // Parse tasting notes
     let tastingNotes = [];
@@ -97,75 +94,41 @@ function createProductCard(product) {
         console.error('Error parsing tasting notes:', e);
     }
 
-    // Parse SCA flavors
-    let scaFlavors = {};
-    try {
-        if (product.scaFlavorsJson) {
-            scaFlavors = JSON.parse(product.scaFlavorsJson);
-        }
-    } catch (e) {
-        console.error('Error parsing SCA flavors:', e);
-    }
+    // Format tasting notes as comma-separated string
+    const tastingNotesText = tastingNotes.length > 0
+        ? tastingNotes.join(', ')
+        : 'N/A';
 
-    // Build tasting notes HTML
-    let tastingNotesHtml = '';
-    if (tastingNotes.length > 0) {
-        tastingNotesHtml = `
-            <div class="tasting-notes">
-                <h4>Tasting Notes:</h4>
-                <div class="notes-list">
-                    ${tastingNotes.map(note =>
-                        `<span class="note-tag">${escapeHtml(note)}</span>`
-                    ).join('')}
-                </div>
-            </div>
-        `;
-    }
+    // Format price
+    const priceText = product.price
+        ? `${product.currency || 'GBP'} ${product.price}`
+        : 'N/A';
 
-    // Build SCA flavors HTML
-    let scaHtml = '';
-    if (Object.keys(scaFlavors).length > 0) {
-        const flavorCategories = Object.entries(scaFlavors)
-            .filter(([_, notes]) => notes && notes.length > 0)
-            .map(([category, notes]) =>
-                `<div><strong>${capitalize(category)}:</strong> ${notes.join(', ')}</div>`
-            ).join('');
+    // Format stock status
+    const stockStatus = product.inStock ? '✓' : '✗';
+    const stockClass = product.inStock ? 'in-stock' : 'out-of-stock';
 
-        if (flavorCategories) {
-            scaHtml = `
-                <div class="tasting-notes">
-                    <h4>SCA Flavor Profile:</h4>
-                    <div style="font-size: 0.85rem; color: #666;">
-                        ${flavorCategories}
-                    </div>
-                </div>
-            `;
-        }
-    }
-
-    card.innerHTML = `
-        <h3>${escapeHtml(product.productName)}</h3>
-        <div class="product-details">
-            ${product.origin ? `<div><strong>Origin:</strong> ${escapeHtml(product.origin)}${product.region ? ', ' + escapeHtml(product.region) : ''}</div>` : ''}
-            ${product.process ? `<div><strong>Process:</strong> ${escapeHtml(product.process)}</div>` : ''}
-            ${product.variety ? `<div><strong>Variety:</strong> ${escapeHtml(product.variety)}</div>` : ''}
-            ${product.producer ? `<div><strong>Producer:</strong> ${escapeHtml(product.producer)}</div>` : ''}
-            ${product.altitude ? `<div><strong>Altitude:</strong> ${escapeHtml(product.altitude)}</div>` : ''}
-            ${product.price ? `<div><strong>Price:</strong> ${product.currency || 'GBP'} ${product.price}</div>` : ''}
-            ${product.inStock !== null ? `<div><strong>Stock:</strong> ${product.inStock ? '✅ In Stock' : '❌ Out of Stock'}</div>` : ''}
-        </div>
-        ${tastingNotesHtml}
-        ${scaHtml}
-        ${product.sellerUrl ? `
-            <div style="margin-top: 1rem;">
-                <a href="${escapeHtml(product.sellerUrl)}" target="_blank" class="btn btn-primary" style="width: 100%;">
-                    View Product
-                </a>
-            </div>
-        ` : ''}
+    row.innerHTML = `
+        <td>${product.id}</td>
+        <td class="product-name">${escapeHtml(product.productName)}</td>
+        <td>${escapeHtml(product.origin || 'N/A')}</td>
+        <td>${escapeHtml(product.region || 'N/A')}</td>
+        <td>${escapeHtml(product.process || 'N/A')}</td>
+        <td>${escapeHtml(product.variety || 'N/A')}</td>
+        <td class="tasting-notes-cell" title="${escapeHtml(tastingNotesText)}">
+            ${escapeHtml(tastingNotesText)}
+        </td>
+        <td>${priceText}</td>
+        <td class="${stockClass}">${stockStatus}</td>
     `;
 
-    return card;
+    // Make row clickable if there's a seller URL
+    if (product.sellerUrl) {
+        row.className = 'clickable-row';
+        row.onclick = () => window.open(product.sellerUrl, '_blank');
+    }
+
+    return row;
 }
 
 // Show error message

@@ -35,8 +35,22 @@
         <div id="loading" class="loading">Loading brands...</div>
         <div id="error" class="error" style="display: none;"></div>
 
-        <div class="brands-grid" id="brandsContainer">
-            <!-- Brands will be loaded here -->
+        <div class="table-container">
+            <table class="data-table" id="brandsTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Brand Name</th>
+                        <th>Country</th>
+                        <th>Website</th>
+                        <th>Status</th>
+                        <th>Last Crawl</th>
+                    </tr>
+                </thead>
+                <tbody id="brandsContainer">
+                    <!-- Brands will be loaded here -->
+                </tbody>
+            </table>
         </div>
     </main>
 
