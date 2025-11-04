@@ -1,10 +1,12 @@
 package com.coffee.beansfinder.entity;
 
+import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Type;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -35,11 +37,13 @@ public class CoffeeProduct {
     private String variety;
     private String altitude;
 
-    @Column(columnDefinition = "TEXT")
-    private String tastingNotesJson; // JSON array as string
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb")
+    private String tastingNotesJson; // JSON array as string - stored as JSONB in PostgreSQL
 
-    @Column(columnDefinition = "TEXT")
-    private String scaFlavorsJson; // JSON object as string
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb")
+    private String scaFlavorsJson; // JSON object as string - stored as JSONB in PostgreSQL
 
     private String sellerUrl;
     private BigDecimal price;
