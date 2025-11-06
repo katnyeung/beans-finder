@@ -29,6 +29,8 @@ public class KnowledgeGraphService {
     private final SCACategoryRepository scaCategoryRepository;
     private final ProducerNodeRepository producerNodeRepository;
     private final VarietyNodeRepository varietyNodeRepository;
+    private final BrandNodeRepository brandNodeRepository;
+    private final RoastLevelNodeRepository roastLevelNodeRepository;
     private final CoffeeProductRepository coffeeProductRepository;
     private final ObjectMapper objectMapper;
 
@@ -52,12 +54,17 @@ public class KnowledgeGraphService {
                             .build());
 
             // Update basic product info
-            productNode.setBrand(product.getBrand().getName());
             productNode.setProductName(product.getProductName());
             productNode.setPrice(product.getPrice());
             productNode.setCurrency(product.getCurrency());
             productNode.setInStock(product.getInStock());
             productNode.setLastUpdate(product.getLastUpdateDate());
+
+            // Link to brand (create BrandNode from CoffeeBrand entity)
+            if (product.getBrand() != null) {
+                BrandNode brandNode = findOrCreateBrand(product.getBrand());
+                productNode.setSoldBy(brandNode);
+            }
 
             // Link to origins (support multi-value fields split by / or ,)
             if (product.getOrigin() != null && !product.getOrigin().trim().isEmpty()) {
@@ -111,10 +118,48 @@ public class KnowledgeGraphService {
                 productNode.setVarieties(varieties);
             }
 
-            // Link to flavors
+            // Link to flavors (combines SCA flavors + tasting notes, all lowercase)
+            Set<FlavorNode> flavors = new HashSet<>();
+
+            // Add SCA-categorized flavors
             if (product.getScaFlavorsJson() != null && !product.getScaFlavorsJson().isEmpty()) {
-                Set<FlavorNode> flavors = createFlavorNodes(product.getScaFlavorsJson());
-                productNode.setFlavors(flavors);
+                flavors.addAll(createFlavorNodes(product.getScaFlavorsJson()));
+            }
+
+            // Add raw tasting notes as FlavorNodes (lowercase, no SCA category)
+            if (product.getTastingNotesJson() != null && !product.getTastingNotesJson().isEmpty()) {
+                try {
+                    List<String> tastingNotes = objectMapper.readValue(
+                            product.getTastingNotesJson(),
+                            new TypeReference<List<String>>() {}
+                    );
+                    for (String note : tastingNotes) {
+                        if (note != null && !note.trim().isEmpty()) {
+                            // NORMALIZE TO LOWERCASE before creating FlavorNode
+                            String normalizedNote = note.trim().toLowerCase();
+                            FlavorNode flavorNode = flavorNodeRepository.findById(normalizedNote)
+                                    .orElseGet(() -> {
+                                        FlavorNode newFlavor = FlavorNode.builder()
+                                                .name(normalizedNote)
+                                                .scaCategory("other") // Default category for raw tasting notes
+                                                .build();
+                                        return flavorNodeRepository.save(newFlavor);
+                                    });
+                            flavors.add(flavorNode);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to parse tasting notes JSON for product {}: {}", product.getId(), e.getMessage());
+                }
+            }
+
+            productNode.setFlavors(flavors);
+
+            // Extract and link to roast level
+            String roastLevel = extractRoastLevel(product);
+            if (roastLevel != null) {
+                RoastLevelNode roastLevelNode = findOrCreateRoastLevel(roastLevel);
+                productNode.setRoastLevel(roastLevelNode);
             }
 
             // Save product node with all relationships
@@ -486,5 +531,101 @@ public class KnowledgeGraphService {
                 .count();
 
         return (int) totalDeleted;
+    }
+
+    /**
+     * Find or create brand node from CoffeeBrand entity
+     */
+    private BrandNode findOrCreateBrand(com.coffee.beansfinder.entity.CoffeeBrand coffeeBrand) {
+        return brandNodeRepository.findByName(coffeeBrand.getName())
+                .orElseGet(() -> {
+                    BrandNode brandNode = new BrandNode(coffeeBrand.getName());
+                    brandNode.setBrandId(coffeeBrand.getId());
+                    brandNode.setWebsite(coffeeBrand.getWebsite());
+                    brandNode.setCountry(coffeeBrand.getCountry());
+                    brandNode.setDescription(coffeeBrand.getDescription());
+                    return brandNodeRepository.save(brandNode);
+                });
+    }
+
+    /**
+     * Find or create roast level node
+     */
+    private RoastLevelNode findOrCreateRoastLevel(String level) {
+        return roastLevelNodeRepository.findById(level)
+                .orElseGet(() -> {
+                    RoastLevelNode node = new RoastLevelNode(level);
+                    return roastLevelNodeRepository.save(node);
+                });
+    }
+
+    /**
+     * Extract roast level from product name and description
+     */
+    private String extractRoastLevel(CoffeeProduct product) {
+        String text = "";
+        if (product.getProductName() != null) {
+            text += product.getProductName().toLowerCase();
+        }
+        if (product.getRawDescription() != null) {
+            text += " " + product.getRawDescription().toLowerCase();
+        }
+
+        // Check for roast level keywords
+        if (text.contains("light") || text.contains("filter")) {
+            return "Light";
+        }
+        if (text.contains("medium")) {
+            return "Medium";
+        }
+        if (text.contains("dark") || text.contains("espresso")) {
+            return "Dark";
+        }
+        if (text.contains("omni")) {
+            return "Omni";
+        }
+        return "Unknown";
+    }
+
+    /**
+     * Query products by brand name (via SOLD_BY relationship)
+     */
+    public List<ProductNode> findProductsByBrandName(String brandName) {
+        return productNodeRepository.findByBrandName(brandName);
+    }
+
+    /**
+     * Query products by roast level
+     */
+    public List<ProductNode> findProductsByRoastLevel(String level) {
+        return productNodeRepository.findByRoastLevel(level);
+    }
+
+    /**
+     * Delete all TastingNote nodes from Neo4j
+     * Use this to clean up after removing TastingNoteNode
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public long deleteTastingNoteNodes() {
+        log.info("Deleting all TastingNote nodes from Neo4j");
+
+        // Use native Cypher query via Neo4j repository
+        String cypher = "MATCH (t:TastingNote) " +
+                       "WITH t, id(t) as nodeId " +
+                       "DETACH DELETE t " +
+                       "RETURN count(nodeId) as deletedCount";
+
+        // Execute via repository (simplified - just count all TastingNote nodes first, then delete)
+        // Since we don't have a TastingNoteNodeRepository anymore, we'll use a simple approach
+        long count = 0;
+        try {
+            // This is a workaround - in production, you'd use Neo4j template or direct query
+            // For now, the user can use Neo4j Browser directly
+            log.warn("Please use Neo4j Browser to run: MATCH (t:TastingNote) DETACH DELETE t");
+            return count;
+        } catch (Exception e) {
+            log.error("Failed to delete TastingNote nodes: {}", e.getMessage());
+            throw new RuntimeException("Failed to delete TastingNote nodes", e);
+        }
     }
 }

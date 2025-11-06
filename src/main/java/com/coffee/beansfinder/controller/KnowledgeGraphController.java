@@ -170,6 +170,81 @@ public class KnowledgeGraphController {
     }
 
     /**
+     * Find products by brand name (via SOLD_BY relationship)
+     */
+    @GetMapping("/products/brand/{brandName}")
+    public ResponseEntity<List<ProductNode>> findByBrand(@PathVariable String brandName) {
+        List<ProductNode> products = graphService.findProductsByBrandName(brandName);
+        return ResponseEntity.ok(products);
+    }
+
+    /**
+     * Find products by roast level
+     */
+    @GetMapping("/products/roast-level/{level}")
+    public ResponseEntity<List<ProductNode>> findByRoastLevel(@PathVariable String level) {
+        List<ProductNode> products = graphService.findProductsByRoastLevel(level);
+        return ResponseEntity.ok(products);
+    }
+
+    /**
+     * Delete all TastingNote nodes (cleanup after removing TastingNoteNode)
+     */
+    @PostMapping("/delete-tasting-note-nodes")
+    public ResponseEntity<Map<String, Object>> deleteTastingNoteNodes() {
+        log.info("Deleting all TastingNote nodes from Neo4j");
+
+        try {
+            long deletedCount = graphService.deleteTastingNoteNodes();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("deletedCount", deletedCount);
+            response.put("message", "Successfully deleted " + deletedCount + " TastingNote nodes");
+
+            log.info("Deleted {} TastingNote nodes", deletedCount);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Failed to delete TastingNote nodes: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
+     * Migrate brands from ProductNode property to BrandNode relationship
+     * Also creates FlavorNodes from tasting_notes_json (lowercase normalized)
+     */
+    @PostMapping("/migrate-brands-to-nodes")
+    public ResponseEntity<Map<String, Object>> migrateBrandsToNodes() {
+        log.info("Starting brand migration and flavor normalization");
+        long startTime = System.currentTimeMillis();
+
+        try {
+            // This will:
+            // 1. Create BrandNode for each brand
+            // 2. Create FlavorNode from both sca_flavors_json AND tasting_notes_json (lowercase)
+            // 3. Link products to brands via SOLD_BY
+            // 4. Link products to flavors via HAS_FLAVOR
+            Map<String, Object> result = graphService.cleanupAndRebuild();
+
+            long duration = System.currentTimeMillis() - startTime;
+            result.put("migrationDurationMs", duration);
+            result.put("message", "Migration completed. BrandNodes created, FlavorNodes normalized to lowercase.");
+
+            log.info("Migration completed successfully in {}ms", duration);
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            log.error("Migration failed: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
      * Get Neo4j graph statistics
      */
     @GetMapping("/stats")

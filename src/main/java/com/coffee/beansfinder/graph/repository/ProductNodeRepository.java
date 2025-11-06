@@ -14,8 +14,6 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     Optional<ProductNode> findByProductId(Long productId);
 
-    List<ProductNode> findByBrand(String brand);
-
     @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor) " +
            "WHERE f.name CONTAINS $flavorName " +
            "RETURN p")
@@ -44,4 +42,20 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
     List<ProductNode> findByProcessAndFlavor(
             @Param("processType") String processType,
             @Param("flavorName") String flavorName);
+
+    /**
+     * Find products by brand name (via SOLD_BY relationship)
+     */
+    @Query("MATCH (p:Product)-[:SOLD_BY]->(b:Brand) " +
+           "WHERE b.name = $brandName " +
+           "RETURN p")
+    List<ProductNode> findByBrandName(@Param("brandName") String brandName);
+
+    /**
+     * Find products by roast level
+     */
+    @Query("MATCH (p:Product)-[:ROASTED_AT]->(r:RoastLevel) " +
+           "WHERE r.level = $level " +
+           "RETURN p")
+    List<ProductNode> findByRoastLevel(@Param("level") String level);
 }

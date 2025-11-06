@@ -294,17 +294,23 @@ CrawlerService.crawlFromSitemap()
 - `POST /api/crawler/crawl-product?brandId={id}` - **Discover and crawl ALL brand products via Perplexity AI**
 
 ### Knowledge Graph
-- `GET /api/graph/products/flavor/{flavorName}` - Find products by flavor
+**Query Endpoints:**
+- `GET /api/graph/products/brand/{brandName}` - ⭐ NEW! Find products by brand name
+- `GET /api/graph/products/roast-level/{level}` - ⭐ NEW! Find products by roast level (Light/Medium/Dark/Omni)
+- `GET /api/graph/products/flavor/{flavorName}` - Find products by flavor (includes both SCA + tasting notes, case-insensitive)
 - `GET /api/graph/products/sca-category/{categoryName}` - Find products by SCA category
 - `GET /api/graph/products/origin/{country}` - Find products by origin
 - `GET /api/graph/products/process/{processType}` - Find products by process
 - `GET /api/graph/products/complex?process={type}&flavor={name}` - Complex query by process AND flavor
+
+**Management Endpoints:**
+- `POST /api/graph/migrate-brands-to-nodes` - ⭐ NEW! One-time migration: Create BrandNode + normalize FlavorNode (lowercase)
 - `POST /api/graph/init-categories` - Initialize SCA categories
-- `POST /api/graph/re-sync-all` - **Re-sync ALL products to Neo4j with multi-value splitting**
-- `POST /api/graph/re-sync-brand/{brandId}` - **Re-sync one brand's products to Neo4j**
-- `POST /api/graph/fix-core-country-nodes` - **One-time fix: Create missing core country nodes**
-- `POST /api/graph/fix-malformed-origins` - **Fix empty regions and malformed IDs**
-- `POST /api/graph/cleanup-orphans` - **Clean up orphaned Origin/Process/Producer/Variety nodes**
+- `POST /api/graph/cleanup-and-rebuild` - ⭐ Complete wipe & rebuild with new nodes (Brand, Flavor, RoastLevel)
+- `POST /api/graph/re-sync-brand/{brandId}` - Re-sync one brand's products to Neo4j
+- `POST /api/graph/fix-core-country-nodes` - One-time fix: Create missing core country nodes
+- `POST /api/graph/fix-malformed-origins` - Fix empty regions and malformed IDs
+- `POST /api/graph/cleanup-orphans` - Clean up orphaned Origin/Process/Producer/Variety nodes
 - `GET /api/graph/stats` - Get Neo4j statistics (product count)
 
 ### Swagger UI
@@ -637,8 +643,20 @@ CRAWLER_RETRY_ATTEMPTS=3
 
 ### Node Types (All use application-generated IDs)
 - **Product** (@Id: productId from PostgreSQL - Long)
-  - Fields: brand, productName, price, currency, inStock
-  - Relationships: Sets of origins, processes, producers, varieties, flavors
+  - Fields: productName, price, currency, inStock, lastUpdate
+  - Relationships: brand (SOLD_BY), origins, processes, producers, varieties, flavors, roastLevel
+- **Brand** (@Id: name - String) ⭐ NEW!
+  - Fields: brandId, name, website, country, description, createdDate
+  - Natural key: brand name from coffee_brands table
+  - **IMPORTANT**: Brand is now a separate node, NOT a property on Product
+- **RoastLevel** (@Id: level - String) ⭐ NEW!
+  - Fields: level (Light, Medium, Dark, Omni, Unknown), description
+  - Extracted from product name and raw_description
+- **Flavor** (@Id: name - String) ⭐ ENHANCED!
+  - Fields: name (ALWAYS lowercase), scaCategory, scaSubcategory
+  - **IMPORTANT**: All names normalized to lowercase ("chocolate", "caramel", "fruity")
+  - Combines BOTH sca_flavors_json AND tasting_notes_json
+  - SCA-categorized flavors have proper category, raw tasting notes default to "other"
 - **Origin** (@Id: generated from country-region - String)
   - Fields: country, region, altitude
   - **IMPORTANT**: Core country nodes (region=null) are ALWAYS created for queries
@@ -646,9 +664,6 @@ CRAWLER_RETRY_ATTEMPTS=3
   - Natural key: process type (e.g., "Washed", "Natural")
 - **Variety** (@Id: name - String)
   - Natural key: variety name (e.g., "Geisha", "Caturra")
-- **Flavor** (@Id: name - String)
-  - Fields: scaCategory, scaSubcategory
-  - Natural key: flavor name (e.g., "Nashi pear")
 - **Producer** (@Id: generated from name-country - String)
   - Fields: name, country
 - **SCACategory** (@Id: name - String)
@@ -761,30 +776,56 @@ curl -X POST http://localhost:8080/api/graph/fix-malformed-origins
 4. `cleanup-orphans` - Remove any unused nodes
 
 ### Relationship Types
+- `(Product)-[:SOLD_BY]->(Brand)` - ⭐ NEW! Brand as separate node
+- `(Product)-[:ROASTED_AT]->(RoastLevel)` - ⭐ NEW! Roast level classification
+- `(Product)-[:HAS_FLAVOR]->(Flavor)` - ⭐ ENHANCED! Multiple flavors (combines SCA + tasting notes, lowercase)
 - `(Product)-[:FROM_ORIGIN]->(Origin)` - **Multiple** origins per product
 - `(Product)-[:HAS_PROCESS]->(Process)` - **Multiple** processes per product
 - `(Product)-[:HAS_VARIETY]->(Variety)` - **Multiple** varieties per product
-- `(Product)-[:HAS_FLAVOR]->(Flavor)` - **Multiple** flavors per product
 - `(Product)-[:PRODUCED_BY]->(Producer)` - **Multiple** producers per product
-- `(Flavor)-[:IN_CATEGORY]->(SCACategory)` - Flavor categorization
+- `(Flavor)-[:BELONGS_TO_CATEGORY]->(SCACategory)` - Flavor categorization
 
 ### Example Cypher Queries
 ```cypher
-// Find products with similar flavors
-MATCH (p1:Product)-[:HAS_FLAVOR]->(f:Flavor)<-[:HAS_FLAVOR]-(p2:Product)
-WHERE p1.productId = 3 AND p1 <> p2
-RETURN p2, COUNT(f) as shared_flavors
-ORDER BY shared_flavors DESC
-LIMIT 10;
+// Find all products by brand
+MATCH (p:Product)-[:SOLD_BY]->(b:Brand {name: "Assembly Coffee"})
+RETURN p
+
+// Find products with "chocolate" flavor (case-insensitive, works for both SCA + tasting notes)
+MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor {name: "chocolate"})
+RETURN p
+
+// Find products with BOTH "chocolate" AND "caramel" flavors
+MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor)
+WHERE f.name IN ["chocolate", "caramel"]
+WITH p, COUNT(DISTINCT f) as matchCount
+WHERE matchCount = 2
+RETURN p
+
+// Find similar products by shared flavors
+MATCH (p1:Product {productId: 421})-[:HAS_FLAVOR]->(f:Flavor)
+      <-[:HAS_FLAVOR]-(p2:Product)
+WHERE p1 <> p2
+RETURN p2.productName, COUNT(f) as sharedFlavors
+ORDER BY sharedFlavors DESC
+LIMIT 5
+
+// Find brands selling Ethiopian coffee
+MATCH (b:Brand)<-[:SOLD_BY]-(p:Product)-[:FROM_ORIGIN]->(o:Origin {country: "Ethiopia"})
+RETURN DISTINCT b
+
+// Find light roast products
+MATCH (p:Product)-[:ROASTED_AT]->(r:RoastLevel {level: "Light"})
+RETURN p
 
 // All products from Colombia with Natural process
 MATCH (p:Product)-[:FROM_ORIGIN]->(o:Origin {country: 'Colombia'})
 MATCH (p)-[:HAS_PROCESS]->(pr:Process {type: 'Natural'})
-RETURN p;
+RETURN p
 
-// Find all flavors in a category
+// Find all flavors in a category (SCA)
 MATCH (f:Flavor)-[:BELONGS_TO_CATEGORY]->(c:SCACategory {name: 'fruity'})
-RETURN f.name;
+RETURN f.name
 ```
 
 ## Frontend Architecture
