@@ -56,56 +56,97 @@ public class CrawlerController {
     }
 
     /**
-     * Crawl a single product URL using Perplexity AI
-     * @param brandId The brand ID to associate the product with
-     * @param request The request containing the product URL to crawl
-     * @return The extracted product data
+     * Crawl all products from brand's sitemap using Perplexity AI
+     * @param brandId The brand ID to crawl products for
+     * @return Summary of the crawling operation
      */
     @Operation(
-        summary = "Crawl single product URL",
-        description = "Fetches a product page, uses Perplexity AI to extract structured data, and saves it to the database"
+        summary = "Crawl all products from sitemap",
+        description = "Fetches the brand's sitemap.xml, extracts all product URLs, and uses Perplexity AI to extract data for each product"
+    )
+    @PostMapping("/crawl-from-sitemap")
+    public ResponseEntity<?> crawlFromSitemap(
+            @Parameter(description = "Brand ID") @RequestParam Long brandId) {
+
+        log.info("Sitemap crawl requested for Brand ID: {}", brandId);
+
+        // Validate brand exists
+        CoffeeBrand brand = brandRepository.findById(brandId)
+                .orElseThrow(() -> new IllegalArgumentException("Brand not found: " + brandId));
+
+        if (brand.getSitemapUrl() == null || brand.getSitemapUrl().isEmpty()) {
+            log.error("Brand {} has no sitemap URL configured", brand.getName());
+            return ResponseEntity.badRequest()
+                    .body(new ErrorResponse("Brand has no sitemap URL configured"));
+        }
+
+        try {
+            log.info("Starting sitemap crawl for brand: {} using sitemap: {}",
+                     brand.getName(), brand.getSitemapUrl());
+
+            crawlerService.crawlBrandFromSitemap(brand);
+
+            return ResponseEntity.ok(new SitemapCrawlResponse(
+                    "Sitemap crawl initiated for " + brand.getName(),
+                    brand.getSitemapUrl(),
+                    "Check logs for detailed progress"
+            ));
+
+        } catch (Exception e) {
+            log.error("Unexpected error crawling from sitemap: {}", e.getMessage(), e);
+            return ResponseEntity.status(500)
+                    .body(new ErrorResponse("Unexpected error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Crawl all products for a brand using Perplexity AI
+     * @param brandId The brand ID to crawl products for
+     * @return Summary of products discovered and saved
+     */
+    @Operation(
+        summary = "Crawl brand products via Perplexity",
+        description = "Uses Perplexity AI to discover all coffee products from a brand's website and saves them to the database"
     )
     @PostMapping("/crawl-product")
-    public ResponseEntity<?> crawlSingleProduct(
-            @Parameter(description = "Brand ID") @RequestParam Long brandId,
-            @RequestBody CrawlProductRequest request) {
+    public ResponseEntity<?> crawlBrandProducts(@Parameter(description = "Brand ID") @RequestParam Long brandId) {
 
-        log.info("Manual product crawl requested for URL: {} (Brand ID: {})", request.productUrl, brandId);
+        log.info("Perplexity product discovery requested for Brand ID: {}", brandId);
 
         // Validate brand exists
         CoffeeBrand brand = brandRepository.findById(brandId)
                 .orElseThrow(() -> new IllegalArgumentException("Brand not found: " + brandId));
 
         try {
-            // Crawl the product
-            CoffeeProduct product = crawlerService.crawlProduct(brand, request.productUrl);
+            log.info("Discovering products for brand: {} using Perplexity AI", brand.getName());
 
-            if (product == null) {
-                log.error("Failed to crawl product from URL: {}", request.productUrl);
-                return ResponseEntity.badRequest()
-                        .body(new ErrorResponse("Failed to crawl product. Check URL and try again."));
-            }
+            // Use Perplexity to discover all products for this brand
+            crawlerService.discoverAndCrawlProducts(brand);
 
-            if ("error".equals(product.getCrawlStatus())) {
-                log.warn("Product crawled with error status: {}", product.getErrorMessage());
-                return ResponseEntity.status(500)
-                        .body(new ErrorResponse("Error crawling product: " + product.getErrorMessage()));
-            }
-
-            log.info("Successfully crawled product: {} (ID: {})", product.getProductName(), product.getId());
-            return ResponseEntity.ok(product);
+            return ResponseEntity.ok(new CrawlProductsResponse(
+                    "Product discovery initiated for " + brand.getName(),
+                    brand.getWebsite(),
+                    "Check logs for detailed progress"
+            ));
 
         } catch (Exception e) {
-            log.error("Unexpected error crawling product: {}", e.getMessage(), e);
+            log.error("Unexpected error during product discovery: {}", e.getMessage(), e);
             return ResponseEntity.status(500)
                     .body(new ErrorResponse("Unexpected error: " + e.getMessage()));
         }
     }
 
     // DTOs
-    public record CrawlProductRequest(
-            @Parameter(description = "Product URL to crawl")
-            String productUrl
+    public record CrawlProductsResponse(
+            String message,
+            String brandWebsite,
+            String status
+    ) {}
+
+    public record SitemapCrawlResponse(
+            String message,
+            String sitemapUrl,
+            String status
     ) {}
 
     public record ErrorResponse(String message) {}

@@ -32,6 +32,7 @@ public class CoffeeBrand {
     private String description;
 
     private String website;
+    private String sitemapUrl; // URL to product-sitemap.xml for bulk product extraction
     private String country;
 
     @Column(nullable = false)
@@ -54,8 +55,6 @@ public class CoffeeBrand {
 
     // Crawling settings
     private Integer crawlIntervalDays = 14;
-    private String robotsTxtUrl;
-    private Boolean respectRobotsTxt = true;
 
     @JsonIgnore
     @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -66,6 +65,10 @@ public class CoffeeBrand {
     @Type(JsonBinaryType.class)
     @Column(name = "products", columnDefinition = "jsonb", insertable = false, updatable = false)
     private String productsJson;
+
+    // Transient field for product count (not stored in DB, populated on demand)
+    @Transient
+    private Long productCount;
 
     // JSONB array for user suggestions
     @Type(JsonBinaryType.class)

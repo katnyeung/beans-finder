@@ -64,4 +64,9 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
      * Find in-stock products
      */
     List<CoffeeProduct> findByInStockTrue();
+
+    /**
+     * Count products by brand ID
+     */
+    long countByBrandId(Long brandId);
 }

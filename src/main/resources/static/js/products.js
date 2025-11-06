@@ -58,7 +58,7 @@ async function loadProducts() {
         const products = await response.json();
         loading.style.display = 'none';
 
-        if (products.length === 0) {
+        if (!products || products.length === 0) {
             container.innerHTML = `
                 <tr>
                     <td colspan="9" class="empty-state">No products found for this brand</td>
@@ -67,9 +67,15 @@ async function loadProducts() {
             return;
         }
 
-        products.forEach(product => {
-            const row = createProductRow(product);
-            container.appendChild(row);
+        products.forEach((product, index) => {
+            try {
+                const row = createProductRow(product);
+                container.appendChild(row);
+            } catch (err) {
+                console.error(`Error creating row for product ${product.id || index}:`, err);
+                console.error('Product data:', product);
+                // Continue with other products
+            }
         });
 
     } catch (err) {
@@ -84,20 +90,34 @@ async function loadProducts() {
 function createProductRow(product) {
     const row = document.createElement('tr');
 
-    // Parse tasting notes
+    // Parse tasting notes with defensive checks
     let tastingNotes = [];
     try {
-        if (product.tastingNotesJson) {
-            tastingNotes = JSON.parse(product.tastingNotesJson);
+        if (product.tastingNotesJson !== null && product.tastingNotesJson !== undefined && product.tastingNotesJson !== '') {
+            const parsed = JSON.parse(product.tastingNotesJson);
+            // Ensure parsed is an array
+            if (Array.isArray(parsed)) {
+                tastingNotes = parsed;
+            }
         }
     } catch (e) {
-        console.error('Error parsing tasting notes:', e);
+        console.error('Error parsing tasting notes for product', product.id, ':', e);
+        tastingNotes = [];
     }
 
-    // Format tasting notes as comma-separated string
-    const tastingNotesText = tastingNotes.length > 0
-        ? tastingNotes.join(', ')
-        : 'N/A';
+    // Format tasting notes with maximum defensive checks
+    let tastingNotesText = 'N/A';
+    try {
+        if (tastingNotes && Array.isArray(tastingNotes) && tastingNotes.length > 0) {
+            tastingNotesText = tastingNotes.filter(note => note != null && note !== '').join(', ');
+            if (!tastingNotesText || tastingNotesText.trim() === '') {
+                tastingNotesText = 'N/A';
+            }
+        }
+    } catch (e) {
+        console.error('Error formatting tasting notes for product', product.id, ':', e);
+        tastingNotesText = 'N/A';
+    }
 
     // Format price
     const priceText = product.price

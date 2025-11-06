@@ -22,28 +22,31 @@ import java.util.Set;
 public class ProductNode {
 
     @Id
-    @GeneratedValue
-    private Long id;
-
-    private Long productId; // Reference to SQL database ID
+    private Long productId; // Use application-generated ID from SQL database
     private String brand;
     private String productName;
-    private String variety;
     private BigDecimal price;
     private String currency;
     private Boolean inStock;
     private LocalDateTime lastUpdate;
 
     @Relationship(type = "FROM_ORIGIN", direction = Relationship.Direction.OUTGOING)
-    private OriginNode origin;
+    @Builder.Default
+    private Set<OriginNode> origins = new HashSet<>();
 
     @Relationship(type = "HAS_PROCESS", direction = Relationship.Direction.OUTGOING)
-    private ProcessNode process;
+    @Builder.Default
+    private Set<ProcessNode> processes = new HashSet<>();
 
     @Relationship(type = "HAS_FLAVOR", direction = Relationship.Direction.OUTGOING)
     @Builder.Default
     private Set<FlavorNode> flavors = new HashSet<>();
 
     @Relationship(type = "PRODUCED_BY", direction = Relationship.Direction.OUTGOING)
-    private ProducerNode producer;
+    @Builder.Default
+    private Set<ProducerNode> producers = new HashSet<>();
+
+    @Relationship(type = "HAS_VARIETY", direction = Relationship.Direction.OUTGOING)
+    @Builder.Default
+    private Set<VarietyNode> varieties = new HashSet<>();
 }

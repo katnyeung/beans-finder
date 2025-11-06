@@ -32,4 +32,10 @@ public class ExtractedProductData {
 
     @JsonProperty("in_stock")
     private Boolean inStock;
+
+    @JsonProperty("product_url")
+    private String productUrl;
+
+    @JsonProperty("raw_description")
+    private String rawDescription;
 }

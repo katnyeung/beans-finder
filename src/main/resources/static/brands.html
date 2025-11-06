@@ -39,12 +39,15 @@
             <table class="data-table" id="brandsTable">
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <th>Brand Name</th>
                         <th>Country</th>
                         <th>Website</th>
-                        <th>Status</th>
-                        <th>Last Crawl</th>
+                        <th class="sortable" onclick="sortTable('productCount')">
+                            Products <span id="sort-productCount" class="sort-indicator"></span>
+                        </th>
+                        <th class="sortable" onclick="sortTable('lastCrawl')">
+                            Last Crawl <span id="sort-lastCrawl" class="sort-indicator"></span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody id="brandsContainer">

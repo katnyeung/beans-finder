@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
-public interface OriginNodeRepository extends Neo4jRepository<OriginNode, Long> {
+public interface OriginNodeRepository extends Neo4jRepository<OriginNode, String> {
 
     Optional<OriginNode> findByCountryAndRegion(String country, String region);
 }

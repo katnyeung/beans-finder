@@ -30,6 +30,7 @@ public class BrandApprovalService {
     public BrandApproval submitBrandForApproval(
             String brandName,
             String website,
+            String sitemapUrl,
             String country,
             String description,
             String submittedBy,
@@ -44,6 +45,7 @@ public class BrandApprovalService {
         CoffeeBrand brand = CoffeeBrand.builder()
                 .name(brandName)
                 .website(website)
+                .sitemapUrl(sitemapUrl)
                 .country(country)
                 .description(description)
                 .status("pending_approval")

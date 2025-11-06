@@ -4,6 +4,7 @@ import com.coffee.beansfinder.dto.SCAFlavorMapping;
 import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.graph.node.*;
 import com.coffee.beansfinder.graph.repository.*;
+import com.coffee.beansfinder.repository.CoffeeProductRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -11,9 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Service for managing the Neo4j knowledge graph
@@ -29,12 +28,18 @@ public class KnowledgeGraphService {
     private final FlavorNodeRepository flavorNodeRepository;
     private final SCACategoryRepository scaCategoryRepository;
     private final ProducerNodeRepository producerNodeRepository;
+    private final VarietyNodeRepository varietyNodeRepository;
+    private final CoffeeProductRepository coffeeProductRepository;
     private final ObjectMapper objectMapper;
 
     /**
      * Create or update product in knowledge graph
+     * Uses Neo4j transaction manager and REQUIRES_NEW to run in separate transaction from PostgreSQL
      */
-    @Transactional
+    @Transactional(
+        transactionManager = "neo4jTransactionManager",
+        propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW
+    )
     public ProductNode syncProductToGraph(CoffeeProduct product) {
         try {
             log.info("Syncing product to knowledge graph: {} (ID: {})",
@@ -49,33 +54,61 @@ public class KnowledgeGraphService {
             // Update basic product info
             productNode.setBrand(product.getBrand().getName());
             productNode.setProductName(product.getProductName());
-            productNode.setVariety(product.getVariety());
             productNode.setPrice(product.getPrice());
             productNode.setCurrency(product.getCurrency());
             productNode.setInStock(product.getInStock());
             productNode.setLastUpdate(product.getLastUpdateDate());
 
-            // Link to origin
-            if (product.getOrigin() != null) {
-                OriginNode origin = findOrCreateOrigin(
-                        product.getOrigin(),
-                        product.getRegion(),
-                        product.getAltitude());
-                productNode.setOrigin(origin);
+            // Link to origins (support multi-value fields split by / or ,)
+            if (product.getOrigin() != null && !product.getOrigin().trim().isEmpty()) {
+                Set<OriginNode> origins = new HashSet<>();
+                for (String country : splitMultiValue(product.getOrigin())) {
+                    // Create core country node (region=null) - ID will be just country name
+                    OriginNode coreCountryNode = findOrCreateOrigin(country, null, null);
+                    origins.add(coreCountryNode);
+
+                    // If region exists AND is not empty, also create specific region node
+                    if (product.getRegion() != null && !product.getRegion().trim().isEmpty()) {
+                        OriginNode regionNode = findOrCreateOrigin(
+                                country,
+                                product.getRegion(),
+                                product.getAltitude());
+                        origins.add(regionNode);
+                    }
+                }
+                productNode.setOrigins(origins);
             }
 
-            // Link to process
+            // Link to processes (support multi-value fields)
             if (product.getProcess() != null) {
-                ProcessNode process = findOrCreateProcess(product.getProcess());
-                productNode.setProcess(process);
+                Set<ProcessNode> processes = new HashSet<>();
+                for (String processType : splitMultiValue(product.getProcess())) {
+                    ProcessNode process = findOrCreateProcess(processType);
+                    processes.add(process);
+                }
+                productNode.setProcesses(processes);
             }
 
-            // Link to producer
+            // Link to producers (support multi-value fields)
             if (product.getProducer() != null) {
-                ProducerNode producer = findOrCreateProducer(
-                        product.getProducer(),
-                        product.getOrigin());
-                productNode.setProducer(producer);
+                Set<ProducerNode> producers = new HashSet<>();
+                for (String producerName : splitMultiValue(product.getProducer())) {
+                    ProducerNode producer = findOrCreateProducer(
+                            producerName,
+                            product.getOrigin());
+                    producers.add(producer);
+                }
+                productNode.setProducers(producers);
+            }
+
+            // Link to varieties (support multi-value fields)
+            if (product.getVariety() != null) {
+                Set<VarietyNode> varieties = new HashSet<>();
+                for (String varietyName : splitMultiValue(product.getVariety())) {
+                    VarietyNode variety = findOrCreateVariety(varietyName);
+                    varieties.add(variety);
+                }
+                productNode.setVarieties(varieties);
             }
 
             // Link to flavors
@@ -97,12 +130,34 @@ public class KnowledgeGraphService {
     }
 
     /**
+     * Split multi-value fields separated by / or ,
+     * Examples:
+     *   "Costa Rica / Ethiopia" -> ["Costa Rica", "Ethiopia"]
+     *   "Geisha, Caturra" -> ["Geisha", "Caturra"]
+     *   "White Honey / Washed" -> ["White Honey", "Washed"]
+     */
+    private List<String> splitMultiValue(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return List.of();
+        }
+
+        // Split by / or , and trim whitespace
+        return java.util.Arrays.stream(value.split("[/,]"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
      * Find or create origin node
      */
     private OriginNode findOrCreateOrigin(String country, String region, String altitude) {
-        return originNodeRepository.findByCountryAndRegion(country, region)
+        String originId = OriginNode.generateId(country, region);
+        return originNodeRepository.findById(originId)
                 .orElseGet(() -> {
                     OriginNode origin = OriginNode.builder()
+                            .id(originId)
                             .country(country)
                             .region(region)
                             .altitude(altitude)
@@ -115,7 +170,7 @@ public class KnowledgeGraphService {
      * Find or create process node
      */
     private ProcessNode findOrCreateProcess(String processType) {
-        return processNodeRepository.findByType(processType)
+        return processNodeRepository.findById(processType)
                 .orElseGet(() -> {
                     ProcessNode process = ProcessNode.builder()
                             .type(processType)
@@ -128,13 +183,28 @@ public class KnowledgeGraphService {
      * Find or create producer node
      */
     private ProducerNode findOrCreateProducer(String producerName, String country) {
-        return producerNodeRepository.findByName(producerName)
+        String producerId = ProducerNode.generateId(producerName, country);
+        return producerNodeRepository.findById(producerId)
                 .orElseGet(() -> {
                     ProducerNode producer = ProducerNode.builder()
+                            .id(producerId)
                             .name(producerName)
                             .country(country)
                             .build();
                     return producerNodeRepository.save(producer);
+                });
+    }
+
+    /**
+     * Find or create variety node
+     */
+    private VarietyNode findOrCreateVariety(String varietyName) {
+        return varietyNodeRepository.findById(varietyName)
+                .orElseGet(() -> {
+                    VarietyNode variety = VarietyNode.builder()
+                            .name(varietyName)
+                            .build();
+                    return varietyNodeRepository.save(variety);
                 });
     }
 
@@ -173,8 +243,8 @@ public class KnowledgeGraphService {
             return;
         }
 
-        // Get or create SCA category
-        SCACategory category = scaCategoryRepository.findByName(categoryName)
+        // Get or create SCA category (name is the @Id)
+        SCACategory category = scaCategoryRepository.findById(categoryName)
                 .orElseGet(() -> {
                     SCACategory cat = SCACategory.builder()
                             .name(categoryName)
@@ -183,7 +253,8 @@ public class KnowledgeGraphService {
                 });
 
         for (String noteName : notes) {
-            FlavorNode flavor = flavorNodeRepository.findByName(noteName)
+            // name is the @Id for FlavorNode
+            FlavorNode flavor = flavorNodeRepository.findById(noteName)
                     .orElseGet(() -> {
                         FlavorNode newFlavor = FlavorNode.builder()
                                 .name(noteName)
@@ -235,7 +306,7 @@ public class KnowledgeGraphService {
     /**
      * Delete product from graph
      */
-    @Transactional
+    @Transactional(transactionManager = "neo4jTransactionManager")
     public void deleteProductFromGraph(Long productId) {
         productNodeRepository.findByProductId(productId)
                 .ifPresent(product -> {
@@ -247,12 +318,13 @@ public class KnowledgeGraphService {
     /**
      * Initialize SCA categories in the graph
      */
-    @Transactional
+    @Transactional(transactionManager = "neo4jTransactionManager")
     public void initializeSCACategories() {
         String[] categories = {"fruity", "floral", "sweet", "nutty", "spices", "roasted", "green", "sour", "other"};
 
         for (String categoryName : categories) {
-            if (scaCategoryRepository.findByName(categoryName).isEmpty()) {
+            // name is the @Id, so use findById
+            if (scaCategoryRepository.findById(categoryName).isEmpty()) {
                 SCACategory category = SCACategory.builder()
                         .name(categoryName)
                         .build();
@@ -260,5 +332,159 @@ public class KnowledgeGraphService {
                 log.info("Initialized SCA category: {}", categoryName);
             }
         }
+    }
+
+    /**
+     * Re-sync a single product to Neo4j (delete and recreate with new splitting logic)
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public ProductNode reSyncProduct(CoffeeProduct product) {
+        // Delete existing product node if exists
+        deleteProductFromGraph(product.getId());
+
+        // Re-sync with new splitting logic
+        return syncProductToGraph(product);
+    }
+
+    /**
+     * Get count of all product nodes in Neo4j
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager", readOnly = true)
+    public long getProductCount() {
+        return productNodeRepository.count();
+    }
+
+    /**
+     * SINGLE COMPREHENSIVE CLEANUP & REBUILD METHOD
+     *
+     * This method performs a complete cleanup and rebuild of the Neo4j knowledge graph:
+     * 1. Wipes all ProductNodes from Neo4j
+     * 2. Re-syncs ALL products from PostgreSQL with clean logic (no "Unknown" nodes)
+     * 3. Automatically cleans up orphaned Origin/Process/Producer/Variety nodes
+     * 4. Preserves Flavor and SCACategory nodes
+     *
+     * Safe to run multiple times. This is the ONLY cleanup endpoint you need.
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public Map<String, Object> cleanupAndRebuild() {
+        log.info("Starting comprehensive cleanup and rebuild of Neo4j knowledge graph");
+        long startTime = System.currentTimeMillis();
+
+        int productsDeleted = 0;
+        int productsCreated = 0;
+        int orphansDeleted = 0;
+        int errorCount = 0;
+
+        try {
+            // Step 1: Wipe all ProductNodes
+            log.info("Step 1: Wiping all ProductNodes...");
+            long count = productNodeRepository.count();
+            productNodeRepository.deleteAll();
+            productsDeleted = (int) count;
+            log.info("Deleted {} ProductNodes", productsDeleted);
+
+            // Step 2: Re-sync all products from PostgreSQL
+            log.info("Step 2: Re-syncing all products from PostgreSQL...");
+            List<CoffeeProduct> allProducts = coffeeProductRepository.findAll();
+            log.info("Found {} products to sync", allProducts.size());
+
+            for (CoffeeProduct product : allProducts) {
+                try {
+                    syncProductToGraph(product);
+                    productsCreated++;
+
+                    if (productsCreated % 50 == 0) {
+                        log.info("Synced {}/{} products", productsCreated, allProducts.size());
+                    }
+                } catch (Exception e) {
+                    errorCount++;
+                    log.error("Failed to sync product {}: {}", product.getId(), e.getMessage());
+                }
+            }
+
+            log.info("Step 2 complete: {} products created, {} errors", productsCreated, errorCount);
+
+            // Step 3: Clean up orphaned nodes
+            log.info("Step 3: Cleaning up orphaned nodes...");
+            orphansDeleted = cleanupOrphans();
+            log.info("Cleaned up {} orphaned nodes", orphansDeleted);
+
+            long duration = System.currentTimeMillis() - startTime;
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("productsDeleted", productsDeleted);
+            result.put("productsCreated", productsCreated);
+            result.put("orphansDeleted", orphansDeleted);
+            result.put("errorCount", errorCount);
+            result.put("durationMs", duration);
+            result.put("neo4jProductCount", productNodeRepository.count());
+
+            log.info("Cleanup and rebuild completed: {} products created, {} orphans deleted, {} errors in {}ms",
+                    productsCreated, orphansDeleted, errorCount, duration);
+
+            return result;
+
+        } catch (Exception e) {
+            log.error("Cleanup and rebuild failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Cleanup and rebuild failed", e);
+        }
+    }
+
+    /**
+     * Internal helper: Clean up orphaned Origin/Process/Producer/Variety nodes.
+     * Returns count of deleted nodes.
+     */
+    private int cleanupOrphans() {
+        int totalDeleted = 0;
+
+        List<ProductNode> allProducts = productNodeRepository.findAll();
+
+        // Collect all nodes that ARE linked to products
+        Set<String> linkedOriginIds = new HashSet<>();
+        Set<String> linkedProcessTypes = new HashSet<>();
+        Set<String> linkedProducerIds = new HashSet<>();
+        Set<String> linkedVarietyNames = new HashSet<>();
+
+        for (ProductNode product : allProducts) {
+            if (product.getOrigins() != null) {
+                product.getOrigins().forEach(o -> linkedOriginIds.add(o.getId()));
+            }
+            if (product.getProcesses() != null) {
+                product.getProcesses().forEach(p -> linkedProcessTypes.add(p.getType()));
+            }
+            if (product.getProducers() != null) {
+                product.getProducers().forEach(p -> linkedProducerIds.add(p.getId()));
+            }
+            if (product.getVarieties() != null) {
+                product.getVarieties().forEach(v -> linkedVarietyNames.add(v.getName()));
+            }
+        }
+
+        // Delete orphaned nodes
+        totalDeleted += originNodeRepository.findAll().stream()
+                .filter(o -> !linkedOriginIds.contains(o.getId()))
+                .peek(o -> log.debug("Deleting orphaned OriginNode: {}", o.getId()))
+                .peek(originNodeRepository::delete)
+                .count();
+
+        totalDeleted += processNodeRepository.findAll().stream()
+                .filter(p -> !linkedProcessTypes.contains(p.getType()))
+                .peek(p -> log.debug("Deleting orphaned ProcessNode: {}", p.getType()))
+                .peek(processNodeRepository::delete)
+                .count();
+
+        totalDeleted += producerNodeRepository.findAll().stream()
+                .filter(p -> !linkedProducerIds.contains(p.getId()))
+                .peek(p -> log.debug("Deleting orphaned ProducerNode: {}", p.getId()))
+                .peek(producerNodeRepository::delete)
+                .count();
+
+        totalDeleted += varietyNodeRepository.findAll().stream()
+                .filter(v -> !linkedVarietyNames.contains(v.getName()))
+                .peek(v -> log.debug("Deleting orphaned VarietyNode: {}", v.getName()))
+                .peek(varietyNodeRepository::delete)
+                .count();
+
+        return (int) totalDeleted;
     }
 }
