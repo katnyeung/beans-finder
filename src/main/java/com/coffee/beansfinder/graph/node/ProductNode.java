@@ -24,6 +24,7 @@ public class ProductNode {
     @Id
     private Long productId; // Use application-generated ID from SQL database
     private String productName;
+    private String sellerUrl; // Product page URL
     private BigDecimal price;
     private String currency;
     private Boolean inStock;

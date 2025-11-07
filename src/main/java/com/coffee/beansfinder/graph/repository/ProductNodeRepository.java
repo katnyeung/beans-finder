@@ -21,7 +21,9 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor)-[:BELONGS_TO_CATEGORY]->(c:SCACategory) " +
            "WHERE c.name = $categoryName " +
-           "RETURN p")
+           "WITH DISTINCT p " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
     List<ProductNode> findBySCACategory(@Param("categoryName") String categoryName);
 
     @Query("MATCH (p:Product)-[:FROM_ORIGIN]->(o:Origin) " +
@@ -58,4 +60,35 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
            "WHERE r.level = $level " +
            "RETURN p")
     List<ProductNode> findByRoastLevel(@Param("level") String level);
+
+    /**
+     * Find products by exact flavor name (for flavor wheel)
+     * Using MATCH with pattern to load relationships
+     */
+    @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor) " +
+           "WHERE f.name = $flavorName " +
+           "WITH DISTINCT p " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findByFlavorName(@Param("flavorName") String flavorName);
+
+    /**
+     * Find products that have ALL specified flavors (AND logic)
+     */
+    @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor) " +
+           "WHERE f.name IN $flavorNames " +
+           "WITH p, COUNT(DISTINCT f) as matchCount " +
+           "WHERE matchCount = $requiredCount " +
+           "RETURN p")
+    List<ProductNode> findByAllFlavors(
+            @Param("flavorNames") List<String> flavorNames,
+            @Param("requiredCount") int requiredCount);
+
+    /**
+     * Find products that have ANY of the specified flavors (OR logic)
+     */
+    @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor) " +
+           "WHERE f.name IN $flavorNames " +
+           "RETURN DISTINCT p")
+    List<ProductNode> findByAnyFlavor(@Param("flavorNames") List<String> flavorNames);
 }

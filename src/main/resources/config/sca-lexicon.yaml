@@ -1,0 +1,564 @@
+# World Coffee Research Sensory Lexicon v2.0 (2017)
+# Full 3-tier hierarchical structure for coffee flavor classification
+# Category → Subcategory → Keywords
+#
+# Reference: https://worldcoffeeresearch.org/work/sensory-lexicon/
+#
+# This configuration file contains 110 flavor attributes across 9 categories
+# with 250+ keyword mappings for automated tasting note classification.
+#
+# Usage: Edit keywords to customize flavor matching for your region/preferences
+# Note: Keywords are case-insensitive and matched using substring search
+
+metadata:
+  version: "2.0"
+  source: "World Coffee Research Sensory Lexicon"
+  updated: "2017"
+  reference: "https://worldcoffeeresearch.org/work/sensory-lexicon/"
+  total_categories: 9
+  total_subcategories: 35
+  total_attributes: 110
+
+# ========================================
+# CATEGORY 1: FRUITY
+# ========================================
+categories:
+  fruity:
+    display_name: "Fruity"
+    description: "Sweet, floral, aromatic blend of ripe fruits"
+    subcategories:
+      berry:
+        display_name: "Berry"
+        description: "Sweet, sour, floral aromatics of berries"
+        keywords:
+          - berry
+          - berries
+          - blackberry
+          - black berry
+          - raspberry
+          - blueberry
+          - blue berry
+          - strawberry
+
+      dried_fruit:
+        display_name: "Dried Fruit"
+        description: "Dark, sweet, slightly brown fruity notes"
+        keywords:
+          - dried fruit
+          - raisin
+          - prune
+          - date
+          - fig
+          - dried
+
+      other_fruit:
+        display_name: "Other Fruit"
+        description: "Various stone fruits, tropical fruits, and other fruit notes"
+        keywords:
+          - coconut
+          - cherry
+          - pomegranate
+          - apple
+          - pear
+          - nashi
+          - nashi pear
+          - peach
+          - apricot
+          - nectarine
+          - stone fruit
+          - grape
+          - pineapple
+          - mango
+          - papaya
+          - passion fruit
+          - guava
+          - tropical
+          - melon
+          - watermelon
+
+      citrus_fruit:
+        display_name: "Citrus Fruit"
+        description: "Citric, sour, astringent, slightly sweet citrus notes"
+        keywords:
+          - citrus
+          - lemon
+          - lime
+          - grapefruit
+          - orange
+          - tangerine
+          - mandarin
+          - bergamot
+          - citric
+          - yuzu
+
+  # ========================================
+  # CATEGORY 2: FLORAL
+  # ========================================
+  floral:
+    display_name: "Floral"
+    description: "Sweet, light, slightly fragrant flower aromatics"
+    subcategories:
+      black_tea:
+        display_name: "Black Tea"
+        description: "Brown, musty, dried plant and dried bark aromatics"
+        keywords:
+          - black tea
+          - tea
+          - earl grey
+          - english breakfast
+          - tea-like
+          - oolong
+
+      floral:
+        display_name: "Floral"
+        description: "Sweet, light, fragrant aromatics of fresh flowers"
+        keywords:
+          - floral
+          - jasmine
+          - rose
+          - chamomile
+          - lavender
+          - hibiscus
+          - elderflower
+          - orange blossom
+          - perfume
+          - perfumed
+          - fragrant
+          - tea rose
+          - delicate
+          - aromatic
+
+  # ========================================
+  # CATEGORY 3: SWEET
+  # ========================================
+  sweet:
+    display_name: "Sweet"
+    description: "Sweet aromatics associated with sugar, caramel, honey, and vanilla"
+    subcategories:
+      brown_sugar:
+        display_name: "Brown Sugar"
+        description: "Rich, full, round sweet aromatics with caramelized notes"
+        keywords:
+          - molasses
+          - maple
+          - maple syrup
+          - brown sugar
+          - caramel
+          - caramelized
+          - honey
+          - butterscotch
+          - toffee
+          - dulce de leche
+
+      vanilla:
+        display_name: "Vanilla"
+        description: "Woody, slightly chemical aromatics of vanilla bean"
+        keywords:
+          - vanilla
+          - vanilla bean
+          - bourbon vanilla
+
+      vanillin:
+        display_name: "Vanillin"
+        description: "Extremely sweet, non-natural vanilla-like aromatics"
+        keywords:
+          - vanillin
+          - cotton candy
+          - marshmallow
+          - candy sweet
+
+      overall_sweet:
+        display_name: "Overall Sweet"
+        description: "General sweet taste and aromatics"
+        keywords:
+          - sweet
+          - sweetness
+          - sugar
+          - sugary
+          - nectar
+          - syrup
+
+  # ========================================
+  # CATEGORY 4: NUTTY/COCOA
+  # ========================================
+  nutty:
+    display_name: "Nutty/Cocoa"
+    description: "Slightly sweet, brown, woody, oily aromatics of nuts and chocolate"
+    subcategories:
+      nutty:
+        display_name: "Nutty"
+        description: "Slightly sweet, brown, woody, oily, musty aromatics of nuts and seeds"
+        keywords:
+          - nutty
+          - almond
+          - hazelnut
+          - peanut
+          - peanuts
+          - walnut
+          - pecan
+          - cashew
+          - malt
+          - grain
+          - toast
+          - toasted
+          - cereal
+
+      cocoa:
+        display_name: "Cocoa"
+        description: "Brown, sweet, dusty, musty aromatics of cocoa and chocolate"
+        keywords:
+          - cocoa
+          - chocolate
+          - dark chocolate
+          - milk chocolate
+          - white chocolate
+          - bitter chocolate
+          - bittersweet
+          - cacao
+          - chocolatey
+
+  # ========================================
+  # CATEGORY 5: SPICES
+  # ========================================
+  spices:
+    display_name: "Spices"
+    description: "Pungent, warm, spicy aromatics"
+    subcategories:
+      brown_spice:
+        display_name: "Brown Spice"
+        description: "Sweet, brown aromatics of baking spices"
+        keywords:
+          - cinnamon
+          - clove
+          - nutmeg
+          - anise
+          - star anise
+          - allspice
+          - cardamom
+          - brown spice
+          - baking spice
+
+      pepper:
+        display_name: "Pepper"
+        description: "Spicy, pungent, musty, woody aromatics of black pepper"
+        keywords:
+          - pepper
+          - peppery
+          - black pepper
+          - white pepper
+          - peppercorn
+
+      pungent:
+        display_name: "Pungent"
+        description: "Sharp, physically penetrating spicy aromatics"
+        keywords:
+          - pungent
+          - ginger
+          - spice
+          - spicy
+          - warming
+          - hot spice
+
+  # ========================================
+  # CATEGORY 6: ROASTED
+  # ========================================
+  roasted:
+    display_name: "Roasted"
+    description: "Dark brown aromatics from high-temperature roasting"
+    subcategories:
+      pipe_tobacco:
+        display_name: "Pipe Tobacco"
+        description: "Brown, sweet, slightly pungent aromatics of cured tobacco"
+        keywords:
+          - pipe tobacco
+          - tobacco
+          - cigar
+          - cigarette
+
+      burnt:
+        display_name: "Burnt"
+        description: "Dark brown, sharp, bitter aromatics of burnt products"
+        keywords:
+          - burnt
+          - smoky
+          - smoke
+          - ashy
+          - ash
+          - carbon
+          - charcoal
+          - acrid
+          - char
+          - charred
+
+      cereal:
+        display_name: "Cereal"
+        description: "Light brown, dusty, musty, sweet aromatics of grains"
+        keywords:
+          - cereal
+          - grain
+          - malt
+          - malty
+          - wheat
+          - barley
+          - oat
+
+      roasted:
+        display_name: "Roasted"
+        description: "Dark brown aromatics from dry heat roasting"
+        keywords:
+          - roasted
+          - roast
+          - roasty
+          - baked
+          - brown roast
+
+  # ========================================
+  # CATEGORY 7: GREEN/VEGETATIVE
+  # ========================================
+  green:
+    display_name: "Green/Vegetative"
+    description: "Fresh, plant-based aromatics from green materials"
+    subcategories:
+      olive_oil:
+        display_name: "Olive Oil"
+        description: "Light, oily aromatics with buttery, green, peppery notes"
+        keywords:
+          - olive oil
+          - olive
+          - oily
+          - buttery green
+
+      raw:
+        display_name: "Raw"
+        description: "Aromatics associated with uncooked products"
+        keywords:
+          - raw
+          - unripe
+          - immature
+
+      green_vegetative:
+        display_name: "Green/Vegetative"
+        description: "Sharp, pungent aromatics of green plant or vegetable matter"
+        keywords:
+          - green
+          - vegetative
+          - vegetal
+          - herbal
+          - herb
+          - grass
+          - grassy
+          - hay
+          - hay-like
+          - fresh cut grass
+          - leafy
+          - green beans
+          - cucumber
+          - bell pepper
+          - tomato
+          - asparagus
+          - pea
+          - peapod
+          - snap pea
+          - green bean
+
+      beany:
+        display_name: "Beany"
+        description: "Musty, earthy, sour, bitter aromatics of beans"
+        keywords:
+          - beany
+          - bean
+          - legume
+          - lentil
+
+      under_ripe:
+        display_name: "Under-ripe"
+        description: "Aromatics found in green/under-ripe fruit"
+        keywords:
+          - under-ripe
+          - underripe
+          - unripe
+          - sour fruit
+          - green fruit
+
+  # ========================================
+  # CATEGORY 8: SOUR/FERMENTED
+  # ========================================
+  sour:
+    display_name: "Sour/Fermented"
+    description: "Sour, acidic, fermented aromatics"
+    subcategories:
+      sour_aromatics:
+        display_name: "Sour Aromatics"
+        description: "General sour aromatics"
+        keywords:
+          - sour
+          - tart
+          - tangy
+          - sharp
+
+      acetic_acid:
+        display_name: "Acetic Acid"
+        description: "Sour, astringent, pungent aromatics of vinegar"
+        keywords:
+          - acetic
+          - vinegar
+          - wine vinegar
+          - acetone
+          - nail polish
+
+      butyric_acid:
+        display_name: "Butyric Acid"
+        description: "Sour, fermented-dairy aromatics of aged cheese"
+        keywords:
+          - butyric
+          - rancid
+          - cheesy
+          - parmesan
+          - aged cheese
+          - sour milk
+
+      isovaleric_acid:
+        display_name: "Isovaleric Acid"
+        description: "Pungent, sour aromatics associated with perspiration"
+        keywords:
+          - isovaleric
+          - sweaty
+          - dirty socks
+          - gym socks
+          - perspiration
+          - romano cheese
+
+      citric_acid:
+        display_name: "Citric Acid"
+        description: "Mild, clean, sour with slight citrus notes"
+        keywords:
+          - citric acid
+          - citric
+          - acidic
+          - bright acid
+
+      malic_acid:
+        display_name: "Malic Acid"
+        description: "Sour, sharp, fruity acid with astringency"
+        keywords:
+          - malic acid
+          - malic
+          - apple acid
+          - green apple acid
+
+      alcohol_fermented:
+        display_name: "Alcohol/Fermented"
+        description: "Pungent, sweet, slightly sour, yeasty alcoholic aromatics"
+        keywords:
+          - fermented
+          - winey
+          - wine
+          - whiskey
+          - bourbon
+          - rum
+          - alcoholic
+          - alcohol
+          - boozy
+          - spirit
+          - vodka
+
+      overripe:
+        display_name: "Overripe"
+        description: "Sweet, slightly sour, damp, musty aromatics of overripe fruit"
+        keywords:
+          - overripe
+          - over-ripe
+          - overfermented
+          - near fermented
+          - rotting
+
+  # ========================================
+  # CATEGORY 9: OTHER
+  # ========================================
+  other:
+    display_name: "Other"
+    description: "Additional attributes including defects and textural descriptors"
+    subcategories:
+      stale_papery:
+        display_name: "Stale/Papery"
+        description: "Aromatics characterized by lack of freshness"
+        keywords:
+          - stale
+          - papery
+          - paper
+          - cardboard
+          - musty paper
+
+      earthy:
+        display_name: "Earthy"
+        description: "Sweet, heavy aromatics of decaying vegetation and damp soil"
+        keywords:
+          - earthy
+          - earth
+          - soil
+          - dirt
+          - dusty
+          - musty
+          - damp
+          - moldy
+          - mold
+          - mushroom
+          - forest floor
+          - wet earth
+
+      woody:
+        display_name: "Woody"
+        description: "Sweet, brown, musty aromatics of tree bark"
+        keywords:
+          - woody
+          - wood
+          - cedar
+          - oak
+          - pine
+          - bark
+          - sawdust
+
+      chemical:
+        display_name: "Chemical"
+        description: "Clean, sterile aromatics of chemicals and solvents"
+        keywords:
+          - chemical
+          - medicinal
+          - pharmaceutical
+          - rubber
+          - petroleum
+          - plastic
+          - solvent
+          - cleaning fluid
+
+      phenolic:
+        display_name: "Phenolic"
+        description: "Damp, musty aromatics reminiscent of disinfectants"
+        keywords:
+          - phenolic
+          - bandaid
+          - band-aid
+          - iodine
+          - disinfectant
+
+      textural_quality:
+        display_name: "Textural/Quality"
+        description: "Mouthfeel and quality descriptors (not flavor attributes)"
+        keywords:
+          - creamy
+          - buttery
+          - silky
+          - smooth
+          - round
+          - rounded
+          - balanced
+          - complex
+          - clean
+          - bright
+          - crisp
+          - clarity
+          - juicy
+          - structured
+          - elegant
+          - refined
+          - delicate quality
