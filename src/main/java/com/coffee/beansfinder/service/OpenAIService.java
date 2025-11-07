@@ -195,4 +195,132 @@ public class OpenAIService {
 
         return content;
     }
+
+    /**
+     * Categorize coffee flavor notes into SCA categories using GPT-4o-mini
+     * Processes flavors in batches for efficiency
+     * Cost: ~$0.0001 per 10 flavors
+     *
+     * @param flavorNames List of flavor names to categorize
+     * @return Map of flavor name -> SCA category
+     */
+    public Map<String, String> categorizeFlavors(List<String> flavorNames) {
+        if (apiKey == null || apiKey.isEmpty()) {
+            throw new IllegalStateException("OpenAI API key not configured");
+        }
+
+        String prompt = buildFlavorCategorizationPrompt(flavorNames);
+
+        try {
+            // Build request
+            Map<String, Object> requestBody = Map.of(
+                    "model", model,
+                    "messages", List.of(
+                            Map.of("role", "system", "content", "You are a coffee flavor expert familiar with the SCA (Specialty Coffee Association) flavor wheel."),
+                            Map.of("role", "user", "content", prompt)
+                    ),
+                    "temperature", 0.1,
+                    "max_tokens", 500
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+
+            log.info("Calling OpenAI to categorize {} flavors", flavorNames.size());
+
+            ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, request, String.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("OpenAI API returned status: " + response.getStatusCode());
+            }
+
+            // Extract content from OpenAI response
+            String responseBody = response.getBody();
+            JsonNode root = objectMapper.readTree(responseBody);
+
+            if (!root.has("choices") || root.get("choices").size() == 0) {
+                throw new RuntimeException("No choices in OpenAI response");
+            }
+
+            JsonNode firstChoice = root.get("choices").get(0);
+            if (!firstChoice.has("message") || !firstChoice.get("message").has("content")) {
+                throw new RuntimeException("No content in OpenAI response");
+            }
+
+            String jsonResponse = firstChoice.get("message").get("content").asText();
+
+            // Clean markdown code blocks if present (```json ... ```)
+            jsonResponse = cleanMarkdownCodeBlocks(jsonResponse);
+
+            // Parse JSON response
+            return objectMapper.readValue(jsonResponse, Map.class);
+
+        } catch (Exception e) {
+            log.error("Failed to categorize flavors with OpenAI: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to categorize flavors: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Clean markdown code blocks from response
+     * Handles cases like: ```json\n{...}\n``` or ```{...}```
+     */
+    private String cleanMarkdownCodeBlocks(String text) {
+        if (text == null) return null;
+
+        // Remove markdown code blocks: ```json ... ``` or ``` ... ```
+        text = text.trim();
+
+        if (text.startsWith("```")) {
+            // Find the first newline after opening ```
+            int firstNewline = text.indexOf('\n');
+            if (firstNewline != -1) {
+                text = text.substring(firstNewline + 1);
+            } else {
+                // No newline, just remove ```
+                text = text.substring(3);
+            }
+
+            // Remove closing ```
+            if (text.endsWith("```")) {
+                text = text.substring(0, text.length() - 3);
+            }
+
+            text = text.trim();
+        }
+
+        return text;
+    }
+
+    /**
+     * Build prompt for flavor categorization
+     */
+    private String buildFlavorCategorizationPrompt(List<String> flavorNames) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("Categorize these coffee tasting notes into ONE of the SCA flavor wheel categories:\n\n");
+        prompt.append("Categories:\n");
+        prompt.append("- fruity (berry, citrus, stone fruit, tropical)\n");
+        prompt.append("- floral (jasmine, rose, chamomile, lavender)\n");
+        prompt.append("- sweet (honey, caramel, vanilla, chocolate, maple)\n");
+        prompt.append("- nutty (almond, hazelnut, peanut, walnut)\n");
+        prompt.append("- spices (cinnamon, clove, pepper, cardamom)\n");
+        prompt.append("- roasted (dark chocolate, tobacco, smoky, burnt)\n");
+        prompt.append("- green (vegetative, herbal, grass, fresh)\n");
+        prompt.append("- sour (acetic, vinegar, fermented, citric)\n");
+        prompt.append("- other (if none of the above fit)\n\n");
+
+        prompt.append("Flavor notes to categorize:\n");
+        for (String flavor : flavorNames) {
+            prompt.append("- ").append(flavor).append("\n");
+        }
+
+        prompt.append("\nReturn ONLY a valid JSON object mapping each flavor to its category.\n");
+        prompt.append("Format: {\"flavor1\": \"category\", \"flavor2\": \"category\", ...}\n");
+        prompt.append("Example: {\"strawberry\": \"fruity\", \"jasmine\": \"floral\", \"caramel\": \"sweet\"}\n");
+
+        return prompt.toString();
+    }
 }

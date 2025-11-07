@@ -253,4 +253,78 @@ public class KnowledgeGraphController {
         stats.put("productCount", graphService.getProductCount());
         return ResponseEntity.ok(stats);
     }
+
+    /**
+     * Fix null SCA categories - set all null categories to 'other'
+     */
+    @PostMapping("/fix-null-categories")
+    public ResponseEntity<Map<String, Object>> fixNullCategories() {
+        try {
+            int fixed = graphService.fixNullScaCategories();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("flavorsFixed", fixed);
+            response.put("message", "Fixed " + fixed + " flavors with null SCA categories");
+
+            log.info("Fixed {} flavor nodes with null SCA categories", fixed);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to fix null categories: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
+     * Cleanup and merge duplicate flavor nodes (case-insensitive)
+     * Example: "smooth" (23) + "Smooth" (9) → "smooth" (32)
+     * Also marks non-flavor descriptors to stay in 'other' category
+     * Should be run BEFORE re-analysis
+     */
+    @PostMapping("/cleanup-merge-flavors")
+    public ResponseEntity<Map<String, Object>> cleanupAndMergeFlavors() {
+        try {
+            log.info("Starting flavor cleanup and merge...");
+
+            Map<String, Object> result = graphService.cleanupAndMergeFlavors();
+
+            log.info("Cleanup complete: {}", result.get("message"));
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            log.error("Failed to cleanup flavors: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            errorResponse.put("message", "Cleanup failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
+     * Re-analyze 'other' category flavors using OpenAI to properly categorize them
+     * Processes remaining flavors in batches of 50
+     * Cost: ~$0.02 total
+     * Time: ~1-2 minutes
+     *
+     * IMPORTANT: Run /cleanup-merge-flavors first for best results!
+     */
+    @PostMapping("/re-analyze-other-flavors")
+    public ResponseEntity<Map<String, Object>> reAnalyzeOtherFlavors() {
+        try {
+            log.info("Starting OpenAI re-analysis of 'other' category flavors...");
+
+            Map<String, Object> result = graphService.reAnalyzeOtherFlavorsWithOpenAI();
+
+            log.info("Re-analysis complete: {}", result.get("message"));
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            log.error("Failed to re-analyze flavors: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            errorResponse.put("message", "Re-analysis failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
 }
