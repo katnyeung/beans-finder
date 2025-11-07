@@ -16,8 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Main crawler service that orchestrates the crawling process
@@ -254,12 +256,19 @@ public class CrawlerService {
                     (emptyCount * 100.0 / extractedProducts.size());
 
             // Calculate extraction rate (how many products vs URLs)
-            double extractionRate = (extractedProducts.size() * 100.0 / productUrls.size());
+            // IMPORTANT: Deduplicate URLs to handle roast variants before calculating rate
+            // Example: "brazil-santos-medium", "brazil-santos-dark" → count as 1 base product
+            int uniqueBaseProducts = deduplicateRoastVariants(productUrls);
+            double extractionRate = (extractedProducts.size() * 100.0 / uniqueBaseProducts);
+
+            log.info("Extraction rate: {} products from {} unique base products ({} total URLs) = {:.1f}%",
+                    extractedProducts.size(), uniqueBaseProducts, productUrls.size(), extractionRate);
 
             // Trigger Playwright fallback if:
             // 1. >70% of extracted products are empty/incomplete, OR
-            // 2. Extracted <50% of expected products (e.g., got 1 out of 13)
-            boolean shouldFallback = emptyPercentage > 70 || extractionRate < 50;
+            // 2. Extracted <50% of expected products (e.g., got 1 out of 30 unique base products)
+            // 3. AND total URLs < 100 (safety: don't fallback for 1000+ URL sites)
+            boolean shouldFallback = (emptyPercentage > 70 || extractionRate < 50) && productUrls.size() < 100;
 
             if (shouldFallback) {
                 String reason = emptyPercentage > 70
@@ -617,5 +626,36 @@ public class CrawlerService {
                 }
             }
         }
+    }
+
+    /**
+     * Deduplicate URLs to count unique base products (handles roast level variants)
+     * Example: "brazil-santos-medium-roast", "brazil-santos-dark-roast" → 1 unique base product
+     *
+     * @param urls List of product URLs from sitemap
+     * @return Count of unique base products after removing roast/grind/size variants
+     */
+    private int deduplicateRoastVariants(List<String> urls) {
+        Set<String> baseProducts = new HashSet<>();
+
+        for (String url : urls) {
+            // Extract the base product name by removing roast/grind/size suffixes
+            // Example: /products/brazil-santos-medium-roast-coffee-beans → brazil-santos
+            String baseName = url
+                    .replaceAll(".*/products/", "")  // Remove path prefix
+                    .replaceAll("-(light|medium|medium-dark|dark|omni|espresso)(-roast)?", "") // Remove roast level
+                    .replaceAll("-(whole-bean|ground|filter|espresso-grind)", "")  // Remove grind type
+                    .replaceAll("-(250g|500g|1kg|2kg|5kg)", "")  // Remove size
+                    .replaceAll("-coffee-beans?", "")  // Remove "coffee-beans" suffix
+                    .replaceAll("-beans?", "")  // Remove "beans" suffix
+                    .replaceAll("\\?.*", "");  // Remove query params
+
+            baseProducts.add(baseName);
+        }
+
+        log.info("Deduplication: {} URLs → {} unique base products (removed {} variants)",
+                urls.size(), baseProducts.size(), urls.size() - baseProducts.size());
+
+        return baseProducts.size();
     }
 }

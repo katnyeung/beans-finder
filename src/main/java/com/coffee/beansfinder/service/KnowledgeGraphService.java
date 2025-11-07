@@ -9,17 +9,18 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Service for managing the Neo4j knowledge graph
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class KnowledgeGraphService {
 
     private final ProductNodeRepository productNodeRepository;
@@ -33,6 +34,38 @@ public class KnowledgeGraphService {
     private final RoastLevelNodeRepository roastLevelNodeRepository;
     private final CoffeeProductRepository coffeeProductRepository;
     private final ObjectMapper objectMapper;
+    private final OpenAIService openAIService;
+    private final SCAFlavorWheelService scaFlavorWheelService;
+
+    // Constructor with @Lazy for OpenAIService to break circular dependency
+    public KnowledgeGraphService(
+            ProductNodeRepository productNodeRepository,
+            OriginNodeRepository originNodeRepository,
+            ProcessNodeRepository processNodeRepository,
+            FlavorNodeRepository flavorNodeRepository,
+            SCACategoryRepository scaCategoryRepository,
+            ProducerNodeRepository producerNodeRepository,
+            VarietyNodeRepository varietyNodeRepository,
+            BrandNodeRepository brandNodeRepository,
+            RoastLevelNodeRepository roastLevelNodeRepository,
+            CoffeeProductRepository coffeeProductRepository,
+            ObjectMapper objectMapper,
+            @Lazy OpenAIService openAIService,
+            SCAFlavorWheelService scaFlavorWheelService) {
+        this.productNodeRepository = productNodeRepository;
+        this.originNodeRepository = originNodeRepository;
+        this.processNodeRepository = processNodeRepository;
+        this.flavorNodeRepository = flavorNodeRepository;
+        this.scaCategoryRepository = scaCategoryRepository;
+        this.producerNodeRepository = producerNodeRepository;
+        this.varietyNodeRepository = varietyNodeRepository;
+        this.brandNodeRepository = brandNodeRepository;
+        this.roastLevelNodeRepository = roastLevelNodeRepository;
+        this.coffeeProductRepository = coffeeProductRepository;
+        this.objectMapper = objectMapper;
+        this.openAIService = openAIService;
+        this.scaFlavorWheelService = scaFlavorWheelService;
+    }
 
     /**
      * Create or update product in knowledge graph
@@ -55,6 +88,7 @@ public class KnowledgeGraphService {
 
             // Update basic product info
             productNode.setProductName(product.getProductName());
+            productNode.setSellerUrl(product.getSellerUrl());
             productNode.setPrice(product.getPrice());
             productNode.setCurrency(product.getCurrency());
             productNode.setInStock(product.getInStock());
@@ -126,7 +160,7 @@ public class KnowledgeGraphService {
                 flavors.addAll(createFlavorNodes(product.getScaFlavorsJson()));
             }
 
-            // Add raw tasting notes as FlavorNodes (lowercase, no SCA category)
+            // Add raw tasting notes as FlavorNodes (lowercase, with WCR subcategory)
             if (product.getTastingNotesJson() != null && !product.getTastingNotesJson().isEmpty()) {
                 try {
                     List<String> tastingNotes = objectMapper.readValue(
@@ -137,11 +171,17 @@ public class KnowledgeGraphService {
                         if (note != null && !note.trim().isEmpty()) {
                             // NORMALIZE TO LOWERCASE before creating FlavorNode
                             String normalizedNote = note.trim().toLowerCase();
+
+                            // Get category and subcategory from WCR Sensory Lexicon
+                            String category = scaFlavorWheelService.getCategoryForNote(note);
+                            String subcategory = scaFlavorWheelService.getSubcategoryForNote(note);
+
                             FlavorNode flavorNode = flavorNodeRepository.findById(normalizedNote)
                                     .orElseGet(() -> {
                                         FlavorNode newFlavor = FlavorNode.builder()
                                                 .name(normalizedNote)
-                                                .scaCategory("other") // Default category for raw tasting notes
+                                                .scaCategory(category)
+                                                .scaSubcategory(subcategory)  // ⭐ NEW: Populate subcategory
                                                 .build();
                                         return flavorNodeRepository.save(newFlavor);
                                     });
@@ -281,7 +321,7 @@ public class KnowledgeGraphService {
     }
 
     /**
-     * Add flavors from a specific category
+     * Add flavors from a specific category with subcategory support (WCR Sensory Lexicon v2.0)
      */
     private void addFlavorsFromCategory(Set<FlavorNode> flavorNodes, List<String> notes, String categoryName) {
         if (notes == null || notes.isEmpty()) {
@@ -298,12 +338,19 @@ public class KnowledgeGraphService {
                 });
 
         for (String noteName : notes) {
+            // NORMALIZE TO LOWERCASE for FlavorNode ID
+            String normalizedName = noteName.toLowerCase().trim();
+
+            // Get subcategory from enhanced SCAFlavorWheelService
+            String subcategory = scaFlavorWheelService.getSubcategoryForNote(noteName);
+
             // name is the @Id for FlavorNode
-            FlavorNode flavor = flavorNodeRepository.findById(noteName)
+            FlavorNode flavor = flavorNodeRepository.findById(normalizedName)
                     .orElseGet(() -> {
                         FlavorNode newFlavor = FlavorNode.builder()
-                                .name(noteName)
+                                .name(normalizedName)
                                 .scaCategory(categoryName)
+                                .scaSubcategory(subcategory)  // ⭐ NEW: Populate subcategory
                                 .category(category)
                                 .build();
                         return flavorNodeRepository.save(newFlavor);
@@ -627,5 +674,274 @@ public class KnowledgeGraphService {
             log.error("Failed to delete TastingNote nodes: {}", e.getMessage());
             throw new RuntimeException("Failed to delete TastingNote nodes", e);
         }
+    }
+
+    /**
+     * Fix null SCA categories - set all flavors with null category to 'other'
+     */
+    @Transactional
+    public int fixNullScaCategories() {
+        log.info("Fixing null SCA categories...");
+
+        // Get all flavors with null scaCategory
+        List<FlavorNode> allFlavors = flavorNodeRepository.findAll();
+        int fixedCount = 0;
+
+        for (FlavorNode flavor : allFlavors) {
+            if (flavor.getScaCategory() == null || flavor.getScaCategory().isEmpty()) {
+                flavor.setScaCategory("other");
+                flavorNodeRepository.save(flavor);
+                fixedCount++;
+                log.debug("Fixed flavor: {} -> other", flavor.getName());
+            }
+        }
+
+        log.info("Fixed {} flavors with null SCA categories", fixedCount);
+        return fixedCount;
+    }
+
+    /**
+     * Common descriptors/metadata that are NOT actual flavors
+     */
+    private static final Set<String> NON_FLAVOR_KEYWORDS = Set.of(
+        // Texture/Mouthfeel
+        "smooth", "creamy", "silky", "velvety", "thick", "thin", "light", "heavy",
+        "crisp", "clean", "dry", "wet", "oily", "watery",
+
+        // Quality descriptors
+        "balanced", "rich", "mellow", "vibrant", "punchy", "bold", "intense",
+        "complex", "simple", "easy to drink", "gentle enjoyment", "boundary-pushing",
+
+        // Body descriptors
+        "body", "medium body", "full body", "light body", "body: medium", "body: full",
+
+        // Acidity descriptors
+        "acidity", "low acidity", "high acidity", "bright acidity", "acidity: low",
+        "acidity: medium", "acidity: high",
+
+        // Sweetness descriptors
+        "sweetness", "sweetness: low", "sweetness: medium", "sweetness: high",
+
+        // Processing/Metadata
+        "organic", "naturally decaffeinated", "decaf", "swiss water process",
+        "fair trade", "single origin", "blend",
+
+        // General descriptors
+        "juicy", "fresh", "ripe", "mature", "young", "aged",
+        "dark", "mild", "strong"
+    );
+
+    /**
+     * Cleanup and merge duplicate flavor nodes (case-insensitive)
+     * Also filters out non-flavor descriptors
+     * Should be run BEFORE re-analysis with OpenAI
+     *
+     * @return Map with statistics
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public Map<String, Object> cleanupAndMergeFlavors() {
+        log.info("Starting flavor cleanup and merge...");
+
+        List<FlavorNode> allFlavors = flavorNodeRepository.findAll();
+        log.info("Found {} total flavor nodes", allFlavors.size());
+
+        int merged = 0;
+        int deleted = 0;
+        int kept = 0;
+
+        // Group by lowercase name
+        Map<String, List<FlavorNode>> flavorGroups = allFlavors.stream()
+            .collect(Collectors.groupingBy(f -> f.getName().toLowerCase()));
+
+        for (Map.Entry<String, List<FlavorNode>> entry : flavorGroups.entrySet()) {
+            String lowerName = entry.getKey();
+            List<FlavorNode> duplicates = entry.getValue();
+
+            // Check if this is a non-flavor descriptor
+            if (shouldFilterOut(lowerName)) {
+                log.debug("Filtering out non-flavor descriptor: {}", lowerName);
+                // Keep in 'other' category but mark for later removal if needed
+                for (FlavorNode flavor : duplicates) {
+                    if (flavor.getScaCategory() == null || !flavor.getScaCategory().equals("other")) {
+                        flavor.setScaCategory("other");
+                        flavorNodeRepository.save(flavor);
+                    }
+                }
+                continue;
+            }
+
+            if (duplicates.size() > 1) {
+                // Found case-insensitive duplicates - merge them
+                log.info("Merging {} duplicates for flavor: {}", duplicates.size(), lowerName);
+
+                // Find the canonical node (prefer lowercase, or first one)
+                FlavorNode canonical = duplicates.stream()
+                    .filter(f -> f.getName().equals(lowerName))
+                    .findFirst()
+                    .orElse(duplicates.get(0));
+
+                // If canonical is not lowercase, update it
+                if (!canonical.getName().equals(lowerName)) {
+                    canonical.setName(lowerName);
+                    flavorNodeRepository.save(canonical);
+                }
+
+                // Merge other duplicates into canonical
+                for (FlavorNode duplicate : duplicates) {
+                    if (!duplicate.getName().equals(canonical.getName())) {
+                        // This is a duplicate - need to reassign products and delete
+                        log.debug("Merging '{}' into '{}'", duplicate.getName(), canonical.getName());
+
+                        // Find all products linked to this duplicate
+                        List<ProductNode> products = productNodeRepository.findAll().stream()
+                            .filter(p -> p.getFlavors() != null &&
+                                   p.getFlavors().stream().anyMatch(f -> f.getName().equals(duplicate.getName())))
+                            .collect(Collectors.toList());
+
+                        for (ProductNode product : products) {
+                            // Replace duplicate flavor with canonical
+                            Set<FlavorNode> flavors = product.getFlavors();
+                            flavors.removeIf(f -> f.getName().equals(duplicate.getName()));
+                            flavors.add(canonical);
+                            productNodeRepository.save(product);
+                        }
+
+                        // Delete the duplicate node
+                        flavorNodeRepository.delete(duplicate);
+                        deleted++;
+                    }
+                }
+                merged++;
+            }
+            kept++;
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalFlavors", allFlavors.size());
+        result.put("uniqueFlavors", kept);
+        result.put("mergedGroups", merged);
+        result.put("nodesDeleted", deleted);
+        result.put("message", String.format(
+            "Cleaned up %d flavors: %d unique, merged %d groups, deleted %d duplicate nodes",
+            allFlavors.size(), kept, merged, deleted));
+
+        log.info("Cleanup complete: {} unique flavors, merged {} groups, deleted {} nodes",
+            kept, merged, deleted);
+
+        return result;
+    }
+
+    /**
+     * Check if a flavor name is actually a descriptor/metadata (not a real flavor)
+     */
+    private boolean shouldFilterOut(String lowerName) {
+        // Direct match
+        if (NON_FLAVOR_KEYWORDS.contains(lowerName)) {
+            return true;
+        }
+
+        // Contains pattern matching
+        return lowerName.contains("body:") ||
+               lowerName.contains("acidity:") ||
+               lowerName.contains("sweetness:") ||
+               lowerName.startsWith("body ") ||
+               lowerName.startsWith("acidity ") ||
+               lowerName.startsWith("sweetness ");
+    }
+
+    /**
+     * Re-analyze 'other' category flavors using OpenAI to properly categorize them
+     * Processes flavors in batches of 50 to avoid token limits
+     * Cost: ~$0.001 per 50 flavors (~$0.02 for 814 flavors)
+     *
+     * @return Map with statistics (total, categorized, failed, batchCount)
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public Map<String, Object> reAnalyzeOtherFlavorsWithOpenAI() {
+        log.info("Re-analyzing 'other' category flavors with OpenAI...");
+
+        // Get all flavors in 'other' category
+        List<FlavorNode> otherFlavors = flavorNodeRepository.findByScaCategory("other");
+
+        if (otherFlavors.isEmpty()) {
+            log.info("No flavors in 'other' category to re-analyze");
+            return Map.of(
+                "total", 0,
+                "categorized", 0,
+                "failed", 0,
+                "message", "No flavors to re-analyze"
+            );
+        }
+
+        log.info("Found {} flavors in 'other' category", otherFlavors.size());
+
+        int batchSize = 50;
+        int totalCategorized = 0;
+        int totalFailed = 0;
+        int batchCount = 0;
+
+        // Process in batches
+        for (int i = 0; i < otherFlavors.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, otherFlavors.size());
+            List<FlavorNode> batch = otherFlavors.subList(i, end);
+            batchCount++;
+
+            log.info("Processing batch {}/{}: flavors {}-{}",
+                batchCount,
+                (otherFlavors.size() + batchSize - 1) / batchSize,
+                i + 1,
+                end);
+
+            try {
+                // Extract flavor names
+                List<String> flavorNames = batch.stream()
+                    .map(FlavorNode::getName)
+                    .collect(Collectors.toList());
+
+                // Call OpenAI to categorize
+                Map<String, String> categorizations = openAIService.categorizeFlavors(flavorNames);
+
+                // Update flavor nodes
+                for (FlavorNode flavor : batch) {
+                    String newCategory = categorizations.get(flavor.getName());
+                    if (newCategory != null && !newCategory.equals("other")) {
+                        String oldCategory = flavor.getScaCategory();
+                        flavor.setScaCategory(newCategory);
+                        flavorNodeRepository.save(flavor);
+                        totalCategorized++;
+                        log.debug("Updated flavor '{}': {} -> {}",
+                            flavor.getName(), oldCategory, newCategory);
+                    } else {
+                        log.debug("Flavor '{}' remains in 'other' category", flavor.getName());
+                    }
+                }
+
+                // Small delay between batches to avoid rate limiting
+                if (i + batchSize < otherFlavors.size()) {
+                    Thread.sleep(500);
+                }
+
+            } catch (Exception e) {
+                log.error("Failed to process batch {}: {}", batchCount, e.getMessage());
+                totalFailed += batch.size();
+            }
+        }
+
+        int stillOther = otherFlavors.size() - totalCategorized - totalFailed;
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", otherFlavors.size());
+        result.put("categorized", totalCategorized);
+        result.put("failed", totalFailed);
+        result.put("stillOther", stillOther);
+        result.put("batchCount", batchCount);
+        result.put("message", String.format(
+            "Re-analyzed %d flavors: %d categorized, %d failed, %d remain in 'other'",
+            otherFlavors.size(), totalCategorized, totalFailed, stillOther));
+
+        log.info("Re-analysis complete: {} categorized, {} failed, {} still in 'other'",
+            totalCategorized, totalFailed, stillOther);
+
+        return result;
     }
 }

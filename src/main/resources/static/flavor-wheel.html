@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCA Flavor Wheel - Coffee Finder</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>☕ Coffee Finder</h1>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/brands.html">Brands</a>
+                <a href="/flavor-wheel.html" class="active">Flavor Wheel</a>
+                <a href="/swagger-ui/index.html" target="_blank">API Docs</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="page-header">
+            <h2>🎨 SCA Flavor Wheel</h2>
+            <p>Explore coffee flavors and discover products by taste profile</p>
+        </section>
+
+        <!-- Loading State -->
+        <div id="loading" class="loading">
+            <p>Loading flavor wheel data...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="error" style="display: none;"></div>
+
+        <!-- Flavor Wheel Grid Container -->
+        <section class="flavor-wheel-section" id="wheel-section" style="display: none;">
+            <div class="wheel-info">
+                <h3>Interactive Flavor Grid</h3>
+                <p>
+                    <strong>Click on a category</strong> to see all products in that flavor family (popup).<br>
+                    <strong>Click on a flavor</strong> to see products AND highlight correlated flavors (with co-occurrence %).<br>
+                    <strong>Organized by zones</strong> - Each flavor family has its own area, popular items closer to center.<br>
+                    <em>Close popup: Click outside, press ESC, or click ×</em>
+                </p>
+                <div class="wheel-stats">
+                    <span class="stat-item">
+                        <strong id="total-products">0</strong> Products
+                    </span>
+                    <span class="stat-item">
+                        <strong id="total-categories">0</strong> Categories
+                    </span>
+                    <span class="stat-item">
+                        <strong id="total-flavors">0</strong> Flavors
+                    </span>
+                </div>
+            </div>
+
+            <!-- Flavor Grid (Full Width) -->
+            <div class="flavor-grid-wrapper">
+                <div id="flavor-grid" class="flavor-grid">
+                    <!-- Grid cells will be generated here -->
+                </div>
+            </div>
+
+            <!-- Products Panel Below (Collapsible) -->
+            <div id="products-panel" class="products-panel-bottom" style="display: none;">
+                <div class="panel-header">
+                    <h3 id="panel-title">Products</h3>
+                    <button id="close-panel" class="btn-close">×</button>
+                </div>
+                <div class="panel-content">
+                    <div class="section-header">
+                        <p id="panel-description"></p>
+                        <span id="product-count" class="product-count">0 products</span>
+                    </div>
+                    <input type="text" id="product-search" class="search-input" placeholder="Search products...">
+                    <div class="table-container">
+                        <table id="products-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Brand</th>
+                                    <th>Origin</th>
+                                    <th>Flavors</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-tbody">
+                                <!-- Products will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Coffee Finder. Powered by Spring Boot & Neo4j. Flavor wheel based on SCA standards.</p>
+        </div>
+    </footer>
+
+    <script src="/js/flavor-wheel.js"></script>
+</body>
+</html>
