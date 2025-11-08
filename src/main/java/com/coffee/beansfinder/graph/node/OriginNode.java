@@ -21,6 +21,11 @@ public class OriginNode {
     private String region;
     private String altitude;
 
+    // Geolocation fields
+    private Double latitude;
+    private Double longitude;
+    private String boundingBox; // JSON string for region boundaries
+
     /**
      * Generate natural key from country and region.
      * If region is null/empty, returns just the country (no "-Unknown" suffix).

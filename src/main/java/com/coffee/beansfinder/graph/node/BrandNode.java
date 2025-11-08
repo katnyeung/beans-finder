@@ -17,6 +17,10 @@ public class BrandNode {
     private String description;
     private LocalDateTime createdDate;
 
+    // Geolocation fields
+    private Double latitude;
+    private Double longitude;
+
     // Constructors
     public BrandNode() {
     }
@@ -73,6 +77,22 @@ public class BrandNode {
 
     public void setCreatedDate(LocalDateTime createdDate) {
         this.createdDate = createdDate;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 
     @Override

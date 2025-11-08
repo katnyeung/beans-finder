@@ -150,7 +150,7 @@ public class OpenAIService {
     /**
      * Call OpenAI API
      */
-    private String callOpenAI(String prompt) throws Exception {
+    public String callOpenAI(String prompt) throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);

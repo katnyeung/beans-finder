@@ -1073,3 +1073,28 @@ footer p {
         padding: 1rem;
     }
 }
+
+/* ============================================ */
+/* MAP ANIMATIONS */
+/* ============================================ */
+
+/* Origin marker highlighting animation */
+@keyframes originBlink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+.origin-highlighted {
+    animation: originBlink 1s ease-in-out infinite;
+}
+
+/* Country boundary hover effect */
+.country-boundary-hover {
+    stroke-width: 3 !important;
+    stroke: #FFD700 !important;
+    fill: rgba(255, 215, 0, 0.2) !important;
+}

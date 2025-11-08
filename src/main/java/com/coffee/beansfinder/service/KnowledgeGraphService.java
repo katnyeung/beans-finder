@@ -36,6 +36,7 @@ public class KnowledgeGraphService {
     private final ObjectMapper objectMapper;
     private final OpenAIService openAIService;
     private final SCAFlavorWheelService scaFlavorWheelService;
+    private final NominatimGeolocationService geolocationService;
 
     // Constructor with @Lazy for OpenAIService to break circular dependency
     public KnowledgeGraphService(
@@ -51,7 +52,8 @@ public class KnowledgeGraphService {
             CoffeeProductRepository coffeeProductRepository,
             ObjectMapper objectMapper,
             @Lazy OpenAIService openAIService,
-            SCAFlavorWheelService scaFlavorWheelService) {
+            SCAFlavorWheelService scaFlavorWheelService,
+            NominatimGeolocationService geolocationService) {
         this.productNodeRepository = productNodeRepository;
         this.originNodeRepository = originNodeRepository;
         this.processNodeRepository = processNodeRepository;
@@ -65,6 +67,7 @@ public class KnowledgeGraphService {
         this.objectMapper = objectMapper;
         this.openAIService = openAIService;
         this.scaFlavorWheelService = scaFlavorWheelService;
+        this.geolocationService = geolocationService;
     }
 
     /**
@@ -240,6 +243,14 @@ public class KnowledgeGraphService {
     private OriginNode findOrCreateOrigin(String country, String region, String altitude) {
         String originId = OriginNode.generateId(country, region);
         return originNodeRepository.findById(originId)
+                .map(existingNode -> {
+                    // Update existing node if needed (e.g., altitude changed)
+                    if (altitude != null && !altitude.equals(existingNode.getAltitude())) {
+                        existingNode.setAltitude(altitude);
+                        return originNodeRepository.save(existingNode);
+                    }
+                    return existingNode;
+                })
                 .orElseGet(() -> {
                     OriginNode origin = OriginNode.builder()
                             .id(originId)
@@ -247,6 +258,27 @@ public class KnowledgeGraphService {
                             .region(region)
                             .altitude(altitude)
                             .build();
+
+                    // Try to geocode from cache (won't call API if not in cache)
+                    try {
+                        com.coffee.beansfinder.entity.LocationCoordinates coords =
+                            geolocationService.geocode(
+                                region != null ? region + ", " + country : country,
+                                country,
+                                region
+                            );
+                        if (coords != null) {
+                            origin.setLatitude(coords.getLatitude());
+                            origin.setLongitude(coords.getLongitude());
+                            origin.setBoundingBox(coords.getBoundingBox());
+                            log.debug("Geocoded origin {} from cache: ({}, {})",
+                                    originId, coords.getLatitude(), coords.getLongitude());
+                        }
+                    } catch (Exception e) {
+                        log.debug("Could not geocode origin {} (may not be in cache): {}",
+                                originId, e.getMessage());
+                    }
+
                     return originNodeRepository.save(origin);
                 });
     }
@@ -585,12 +617,24 @@ public class KnowledgeGraphService {
      */
     private BrandNode findOrCreateBrand(com.coffee.beansfinder.entity.CoffeeBrand coffeeBrand) {
         return brandNodeRepository.findByName(coffeeBrand.getName())
+                .map(existingNode -> {
+                    // Update existing node with latest data including coordinates
+                    existingNode.setBrandId(coffeeBrand.getId());
+                    existingNode.setWebsite(coffeeBrand.getWebsite());
+                    existingNode.setCountry(coffeeBrand.getCountry());
+                    existingNode.setDescription(coffeeBrand.getDescription());
+                    existingNode.setLatitude(coffeeBrand.getLatitude());
+                    existingNode.setLongitude(coffeeBrand.getLongitude());
+                    return brandNodeRepository.save(existingNode);
+                })
                 .orElseGet(() -> {
                     BrandNode brandNode = new BrandNode(coffeeBrand.getName());
                     brandNode.setBrandId(coffeeBrand.getId());
                     brandNode.setWebsite(coffeeBrand.getWebsite());
                     brandNode.setCountry(coffeeBrand.getCountry());
                     brandNode.setDescription(coffeeBrand.getDescription());
+                    brandNode.setLatitude(coffeeBrand.getLatitude());
+                    brandNode.setLongitude(coffeeBrand.getLongitude());
                     return brandNodeRepository.save(brandNode);
                 });
     }

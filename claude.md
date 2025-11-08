@@ -22,9 +22,10 @@ This document provides context for Claude Code when working on the beans-finder 
 ## Architecture Summary
 
 ### Database Schema
-- **coffee_brands** - Master table with brand info, sitemap URLs, approval status
+- **coffee_brands** - Master table with brand info, sitemap URLs, approval status, geolocation (lat/lon)
 - **coffee_products** - Detail table with product data, JSONB fields for tasting notes/SCA flavors
 - **brand_approvals** - Approval workflow tracking
+- **location_coordinates** - Geocoding cache for brands, origins, producers (reduces API calls)
 
 ### Key Relationships
 - **One-to-Many**: CoffeeBrand → CoffeeProduct
@@ -57,7 +58,50 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - **Correlation Feature**: Click a flavor to highlight other flavors that co-occur frequently (with percentage)
 - **Products Panel**: Click any cell to show products at bottom with clickable links, brand, origin, flavors, price
 
-### 4. Crawler Architecture
+### 4. Geolocation & Map Visualization
+- **Service**: `NominatimGeolocationService.java`
+- **Geocoding API**: OpenStreetMap Nominatim (free, rate-limited to 1 req/sec)
+- **Cache**: `location_coordinates` table stores geocoded locations to avoid duplicate API calls
+- **Strategy**: AI-powered + fallback chain
+  - **Brand Addresses**: Perplexity LLM extracts city, full address, and postcode from brand websites
+  - **Geocoding Fallback**: address → city → country (most precise location available)
+  - **Origin Seeding**: AI batch geocoding from existing product data
+  - **Producer Locations**: Extracted during crawling (AI-powered)
+- **Geocoding Accuracy Improvements** (V3):
+  - **Smart Query Builder**: Uses full address if provided, falls back to city or country
+  - **Country Code Filtering**: Adds ISO 3166-1 alpha-2 country codes (e.g., `countrycodes=gb` for UK) to constrain Nominatim search to specific country
+  - **Country Mapping**: Supports 50+ country name variations (e.g., "UK", "United Kingdom", "Britain" all map to "gb")
+  - **LLM Fallback Geocoding**: When Nominatim fails (specific addresses, unit numbers, new buildings), automatically falls back to OpenAI GPT-4o-mini
+    - Cost: ~$0.0001 per address (very cheap)
+    - Returns accurate coordinates for addresses Nominatim doesn't know
+    - Cached with `source='llm'` to track geocoding method
+  - **Result**: All addresses geocode successfully with high accuracy
+- **Database Schema**:
+  - `coffee_brands`: Added `city`, `address`, `postcode` fields (V3 migration)
+  - `location_coordinates`: Geocoding cache with `location_name`, `country`, `region`, `latitude`, `longitude`, `boundingBox`, `source`
+- **Frontend**: Leaflet.js (mapping library)
+  - Interactive map at `/map.html`
+  - **Country Boundaries**: GeoJSON overlays from Natural Earth dataset
+  - **Color-Based Visualization**:
+    - Each brand assigned a unique color from 30-color vibrant palette
+    - **Brand markers**: Square shape with unique color (visually distinct from circular origins)
+    - **Origin markers**: Circular shape in green (default)
+    - Hover over brand: related origin markers change to brand's color + blink animation
+    - Click brand: lock color highlighting (persistent until another brand clicked)
+    - No connection lines (cleaner, less cluttered view)
+  - **Country Hover Animation**:
+    - Hover over country boundary: highlights in gold
+    - Origin markers in that country: blink + color change to yellow (#FFD700)
+  - **Origin Click Interaction**:
+    - Click origin marker: shows popup with all related brands and products
+    - Products grouped by brand with brand color coding
+    - Each product shown with clickable link, price, roast level
+  - Toggle layers: brands, origins, producers
+  - Visualize supply chains: Brand → Origin Country → Producer Farm (via color matching)
+- **Coordinate Sync**: Automatically syncs PostgreSQL coordinates to Neo4j nodes (BrandNode, OriginNode, ProducerNode)
+- **Precision Improvement**: Brands are now mapped to specific shop addresses instead of country centers, enabling accurate local coffee shop discovery
+
+### 5. Crawler Architecture
 
 #### Hybrid AI Strategy
 - **Perplexity**: Web search, URL filtering, batch extraction (try first)
@@ -86,13 +130,13 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - `src/main/resources/config/sca-lexicon.yaml` - SCA flavor wheel (YAML-editable)
 
 ### Backend
-- `entity/` - CoffeeBrand, CoffeeProduct, BrandApproval
-- `service/` - CrawlerService, PerplexityApiService, OpenAIService, PlaywrightScraperService, SCAFlavorWheelService, KnowledgeGraphService
-- `controller/` - BrandController, ProductController, CrawlerController, KnowledgeGraphController, FlavorWheelController
+- `entity/` - CoffeeBrand, CoffeeProduct, BrandApproval, LocationCoordinates
+- `service/` - CrawlerService, PerplexityApiService, OpenAIService, PlaywrightScraperService, SCAFlavorWheelService, KnowledgeGraphService, NominatimGeolocationService
+- `controller/` - BrandController, ProductController, CrawlerController, KnowledgeGraphController, FlavorWheelController, MapController, GeolocationController
 
 ### Frontend
-- `resources/static/*.html` - index, brands, products, flavor-wheel
-- `resources/static/js/*.js` - brands, products, flavor-wheel (vanilla JS, no D3.js)
+- `resources/static/*.html` - index, brands, products, flavor-wheel, map
+- `resources/static/js/*.js` - brands, products, flavor-wheel, map (vanilla JS + Leaflet.js for maps)
 - `resources/static/css/styles.css` - Coffee-themed styling
 
 ## API Endpoints Summary
@@ -100,9 +144,10 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 ### Brands
 - `GET /api/brands/approved` - Approved brands
 - `POST /api/brands/submit` - Submit for approval
-- `GET /api/brands/generate-list?country={}&limit={}` - AI-powered brand discovery
+- `GET /api/brands/generate-list?country={}&limit={}` - AI-powered brand discovery (includes city, address, postcode extraction)
 - `POST /api/brands/bulk-submit` - Bulk submit brands
 - `POST /api/brands/auto-setup` - Auto-setup brand by name
+- `POST /api/brands/extract-addresses-batch?force={}` - Extract addresses for existing brands using Perplexity AI (NEW)
 
 ### Products
 - `GET /api/products/brand/{brandId}` - Products by brand
@@ -119,6 +164,26 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - `GET /api/flavor-wheel/search?flavors={}&matchAll=true` - Multi-flavor search
 - `GET /api/flavor-wheel/subcategories/all` - 3-tier WCR hierarchy
 - `GET /api/flavor-wheel/correlations?flavor={}` - Get flavors that co-occur frequently (NEW)
+
+### Map & Geolocation
+**Map Visualization**:
+- `GET /api/map/brands` - All brands with coordinates
+- `GET /api/map/origins` - All coffee origins with coordinates
+- `GET /api/map/producers` - All producers with coordinates
+- `GET /api/map/connections/{brandId}` - Brand → Origins → Producers mapping
+- `GET /api/map/data` - Complete dataset for map (brands, origins, producers, connections)
+
+**Geocoding Operations**:
+- `POST /api/geolocation/geocode-brand/{brandId}` - Geocode a single brand (uses address → city → country fallback)
+- `POST /api/geolocation/geocode-origin?country={}&region={}` - Geocode an origin
+- `POST /api/geolocation/batch-geocode-brands?force={}` - Batch geocode all brands (NOTE: Delete old cache entries first if coordinates are wrong)
+- `POST /api/geolocation/batch-geocode-origins?force={}` - Batch geocode all origins
+- `POST /api/geolocation/seed-origins-from-products` - AI-powered extraction and geocoding of origins from existing products
+
+**Important Note**: If you already have cached coordinates that are incorrect (e.g., from geocoding with just "UK" before addresses were added), you need to:
+1. Delete old entries: `DELETE FROM location_coordinates WHERE country='UK' AND location_name='UK';` (or similar)
+2. Then re-run: `POST /api/brands/extract-addresses-batch?force=true`
+3. Or manually: `UPDATE coffee_brands SET latitude=NULL, longitude=NULL WHERE country='UK';` then batch geocode
 
 ### Knowledge Graph
 **Query**:
@@ -155,20 +220,23 @@ docker-compose up -d
 
 ### Testing
 - Swagger UI: http://localhost:8080/swagger-ui/index.html
-- Frontend: http://localhost:8080/brands.html
+- Frontend: http://localhost:8080/
+  - Brands: http://localhost:8080/brands.html
+  - Flavor Wheel: http://localhost:8080/flavor-wheel.html
+  - Origins Map: http://localhost:8080/map.html
 - Neo4j Browser: http://localhost:7474
 
 ## Neo4j Knowledge Graph
 
 ### Node Types
 - **Product** - productId (Long), relationships to all other nodes
-- **Brand** - name (String), brand metadata
+- **Brand** - name (String), brand metadata, latitude, longitude (geolocation)
 - **RoastLevel** - level (Light/Medium/Dark/Omni/Unknown)
 - **Flavor** - name (lowercase), scaCategory, scaSubcategory
-- **Origin** - country, region (core country nodes with region=null always created)
+- **Origin** - country, region, latitude, longitude, boundingBox (geolocation)
 - **Process** - type (Washed, Natural, etc.)
 - **Variety** - name (Geisha, Caturra, etc.)
-- **Producer** - name, country
+- **Producer** - name, country, address, city, region, latitude, longitude (geolocation)
 - **SCACategory** - name (fruity, floral, etc.)
 
 ### Multi-Value Field Handling
