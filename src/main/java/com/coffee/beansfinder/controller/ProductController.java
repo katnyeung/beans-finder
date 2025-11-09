@@ -64,6 +64,32 @@ public class ProductController {
     }
 
     /**
+     * Get products by origin with brand information (for map display)
+     */
+    @GetMapping("/origin/{origin}/with-brand")
+    public List<ProductWithBrandDTO> getProductsByOriginWithBrand(@PathVariable String origin) {
+        List<CoffeeProduct> products = productRepository.findByOrigin(origin);
+        return products.stream()
+                .map(product -> new ProductWithBrandDTO(
+                        product.getId(),
+                        product.getProductName(),
+                        product.getBrand().getName(),
+                        product.getBrand().getId(),
+                        product.getOrigin(),
+                        product.getRegion(),
+                        product.getProcess(),
+                        product.getProducer(),
+                        product.getVariety(),
+                        product.getAltitude(),
+                        product.getSellerUrl(),
+                        product.getPrice(),
+                        product.getCurrency(),
+                        product.getInStock()
+                ))
+                .toList();
+    }
+
+    /**
      * Get products by process
      */
     @GetMapping("/process/{process}")
@@ -113,5 +139,22 @@ public class ProductController {
     public record CrawlProductRequest(
             Long brandId,
             String productUrl
+    ) {}
+
+    public record ProductWithBrandDTO(
+            Long id,
+            String productName,
+            String brandName,
+            Long brandId,
+            String origin,
+            String region,
+            String process,
+            String producer,
+            String variety,
+            String altitude,
+            String sellerUrl,
+            java.math.BigDecimal price,
+            String currency,
+            Boolean inStock
     ) {}
 }

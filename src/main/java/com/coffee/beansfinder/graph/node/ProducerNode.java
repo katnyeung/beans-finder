@@ -20,6 +20,13 @@ public class ProducerNode {
     private String name;
     private String country;
 
+    // Geolocation fields
+    private String address;
+    private String city;
+    private String region;
+    private Double latitude;
+    private Double longitude;
+
     /**
      * Generate natural key from name and country
      */

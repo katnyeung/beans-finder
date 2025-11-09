@@ -35,6 +35,23 @@ public class BrandApprovalService {
             String description,
             String submittedBy,
             String submissionNotes) {
+        return submitBrandForApproval(brandName, website, sitemapUrl, country, null, null, null,
+                description, submittedBy, submissionNotes, null, null);
+    }
+
+    public BrandApproval submitBrandForApproval(
+            String brandName,
+            String website,
+            String sitemapUrl,
+            String country,
+            String city,
+            String address,
+            String postcode,
+            String description,
+            String submittedBy,
+            String submissionNotes,
+            Double latitude,
+            Double longitude) {
 
         // Check if brand already exists
         if (brandRepository.existsByName(brandName)) {
@@ -47,7 +64,13 @@ public class BrandApprovalService {
                 .website(website)
                 .sitemapUrl(sitemapUrl)
                 .country(country)
+                .city(city)
+                .address(address)
+                .postcode(postcode)
                 .description(description)
+                .latitude(latitude)
+                .longitude(longitude)
+                .coordinatesValidated(latitude != null && longitude != null)
                 .status("pending_approval")
                 .approved(false)
                 .build();

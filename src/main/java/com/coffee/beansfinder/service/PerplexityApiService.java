@@ -659,6 +659,9 @@ public class PerplexityApiService {
                   "website": "Official website URL",
                   "sitemapUrl": "Sitemap URL",
                   "country": "Country code (e.g., UK, US, etc.)",
+                  "city": "City/town name (e.g., London, Brighton, Edinburgh)",
+                  "address": "Full street address of the shop/roastery if publicly available (e.g., '123 Coffee Street, Brighton BN1 1AA')",
+                  "postcode": "Postcode/postal code (e.g., 'BN1 1AA', 'E2 8HD')",
                   "description": "Brief description of the roaster (1-2 sentences)"
                 }
 
@@ -669,6 +672,14 @@ public class PerplexityApiService {
                   * Check the main sitemap.xml and extract product sitemap URL from the index
                 - If no product-specific sitemap found, use main sitemap.xml
                 - Common locations: /sitemap.xml, /sitemap_index.xml, /product-sitemap.xml
+
+                Important for location/address:
+                - Extract the physical shop/roastery address from the website
+                - Common sources: Contact page, About page, footer, "Visit Us" section
+                - Include full street address, city, and postcode if available
+                - Examples: "45 Vyner Street, London E2 9DQ", "12 St James's Street, Brighton BN2 1RE"
+                - If no address is publicly available, set address/postcode to null
+                - City should always be extracted even if full address is not available
 
                 Other requirements:
                 - Verify the brand exists
@@ -711,6 +722,9 @@ public class PerplexityApiService {
         public String website;
         public String sitemapUrl;
         public String country;
+        public String city;
+        public String address;
+        public String postcode;
         public String description;
     }
 
