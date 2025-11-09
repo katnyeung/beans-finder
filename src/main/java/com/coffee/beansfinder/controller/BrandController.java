@@ -2,8 +2,11 @@ package com.coffee.beansfinder.controller;
 
 import com.coffee.beansfinder.entity.BrandApproval;
 import com.coffee.beansfinder.entity.CoffeeBrand;
+import com.coffee.beansfinder.entity.LocationCoordinates;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
 import com.coffee.beansfinder.service.BrandApprovalService;
+import com.coffee.beansfinder.service.KnowledgeGraphService;
+import com.coffee.beansfinder.service.NominatimGeolocationService;
 import com.coffee.beansfinder.service.PerplexityApiService;
 import com.coffee.beansfinder.service.WebScraperService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +36,8 @@ public class BrandController {
     private final PerplexityApiService perplexityService;
     private final WebScraperService scraperService;
     private final com.coffee.beansfinder.repository.CoffeeProductRepository productRepository;
+    private final NominatimGeolocationService geolocationService;
+    private final KnowledgeGraphService knowledgeGraphService;
 
     @Operation(
         summary = "Get all brands",
@@ -190,7 +195,7 @@ public class BrandController {
             if (!includeDetails) {
                 // Return just names (fast)
                 List<BrandDetailDto> simpleBrands = brandNames.stream()
-                        .map(name -> new BrandDetailDto(name, null, null, null, null))
+                        .map(name -> new BrandDetailDto(name, null, null, null, null, null, null, null, null, null))
                         .toList();
                 return ResponseEntity.ok(new DetailedBrandsListResponse(
                         simpleBrands, brandNames.size(), brandNames.size(), existingBrands.size(),
@@ -222,17 +227,48 @@ public class BrandController {
                             }
                         }
 
+                        // Geocode location with fallback: try address first, then city
+                        Double latitude = null;
+                        Double longitude = null;
+                        String locationToGeocode = null;
+
+                        if (details.address != null && !details.address.isBlank()) {
+                            locationToGeocode = details.address;
+                        } else if (details.city != null && !details.city.isBlank()) {
+                            locationToGeocode = details.city;
+                        }
+
+                        if (locationToGeocode != null && details.country != null) {
+                            try {
+                                log.info("Geocoding: {}, {}", locationToGeocode, details.country);
+                                com.coffee.beansfinder.entity.LocationCoordinates coords =
+                                    geolocationService.geocode(locationToGeocode, details.country, null);
+                                if (coords != null) {
+                                    latitude = coords.getLatitude();
+                                    longitude = coords.getLongitude();
+                                    log.info("Geocoded {} to ({}, {})", locationToGeocode, latitude, longitude);
+                                }
+                            } catch (Exception e) {
+                                log.warn("Failed to geocode {}, {}: {}", locationToGeocode, details.country, e.getMessage());
+                            }
+                        }
+
                         detailedBrands.add(new BrandDetailDto(
                                 details.name,
                                 details.website,
                                 resolvedSitemapUrl,  // Use resolved sitemap URL
                                 details.country,
-                                details.description
+                                details.city,
+                                details.address,
+                                details.postcode,
+                                details.description,
+                                latitude,
+                                longitude
                         ));
                         successCount++;
                     } else {
                         // Add with just name if details not found
-                        detailedBrands.add(new BrandDetailDto(brandName, null, null, null, "Details not found"));
+                        detailedBrands.add(new BrandDetailDto(brandName, null, null, null, null, null, null, "Details not found", null, null));
                     }
 
                     // Small delay to avoid rate limiting
@@ -240,7 +276,7 @@ public class BrandController {
 
                 } catch (Exception e) {
                     log.error("Failed to get details for {}: {}", brandName, e.getMessage());
-                    detailedBrands.add(new BrandDetailDto(brandName, null, null, null, "Error: " + e.getMessage()));
+                    detailedBrands.add(new BrandDetailDto(brandName, null, null, null, null, null, null, "Error: " + e.getMessage(), null, null));
                 }
             }
 
@@ -293,15 +329,20 @@ public class BrandController {
                     continue;
                 }
 
-                // Submit brand for approval
+                // Submit brand for approval (with location data if available)
                 BrandApproval approval = approvalService.submitBrandForApproval(
                         brandDetail.name(),
                         brandDetail.website(),
                         brandDetail.sitemapUrl(),
                         brandDetail.country(),
+                        brandDetail.city(),
+                        brandDetail.address(),
+                        brandDetail.postcode(),
                         brandDetail.description(),
                         request.submittedBy != null ? request.submittedBy : "bulk-submit",
-                        "Bulk submitted via API"
+                        "Bulk submitted via API",
+                        brandDetail.latitude(),
+                        brandDetail.longitude()
                 );
 
                 results.add(new BulkSubmitResult(
@@ -419,7 +460,12 @@ public class BrandController {
             String website,
             String sitemapUrl,
             String country,
-            String description
+            String city,
+            String address,
+            String postcode,
+            String description,
+            Double latitude,
+            Double longitude
     ) {}
 
     public record DetailedBrandsListResponse(
@@ -467,4 +513,202 @@ public class BrandController {
     ) {}
 
     public record ErrorResponse(String message) {}
+
+    /**
+     * Batch extract addresses for existing brands using Perplexity AI
+     */
+    @Operation(
+        summary = "Extract addresses for existing brands",
+        description = "Uses Perplexity AI to extract city, address, and postcode for existing brands and geocode them"
+    )
+    @PostMapping("/extract-addresses-batch")
+    public ResponseEntity<BatchExtractAddressResponse> extractAddressesBatch(
+            @Parameter(description = "Force re-extraction even if address already exists")
+            @RequestParam(defaultValue = "false") boolean force) {
+
+        log.info("Batch address extraction requested (force={})", force);
+
+        var brands = brandRepository.findAll();
+        List<AddressExtractionResult> results = new ArrayList<>();
+        int successCount = 0;
+        int skipCount = 0;
+        int errorCount = 0;
+
+        for (CoffeeBrand brand : brands) {
+            // Skip if already has address (unless force=true)
+            if (!force && brand.getAddress() != null && !brand.getAddress().isBlank()) {
+                log.debug("Skipping {} - already has address", brand.getName());
+                results.add(new AddressExtractionResult(
+                        brand.getId(),
+                        brand.getName(),
+                        "skipped",
+                        brand.getCity(),
+                        brand.getAddress(),
+                        brand.getPostcode(),
+                        brand.getLatitude(),
+                        brand.getLongitude(),
+                        "Already has address"
+                ));
+                skipCount++;
+                continue;
+            }
+
+            try {
+                log.info("Extracting address for: {}", brand.getName());
+
+                // Use Perplexity to discover brand details (including address)
+                PerplexityApiService.BrandDetails details = perplexityService.discoverBrandDetails(brand.getName());
+
+                if (details == null || details.name == null) {
+                    log.warn("Failed to extract details for: {}", brand.getName());
+                    results.add(new AddressExtractionResult(
+                            brand.getId(),
+                            brand.getName(),
+                            "error",
+                            null, null, null, null, null,
+                            "Failed to extract brand details"
+                    ));
+                    errorCount++;
+                    continue;
+                }
+
+                // Update brand with location data
+                boolean updated = false;
+
+                log.info("Extracted location data for {}: city='{}', address='{}', postcode='{}'",
+                        brand.getName(), details.city, details.address, details.postcode);
+
+                if (details.city != null && !details.city.isBlank()) {
+                    brand.setCity(details.city);
+                    updated = true;
+                }
+                if (details.address != null && !details.address.isBlank()) {
+                    brand.setAddress(details.address);
+                    updated = true;
+                }
+                if (details.postcode != null && !details.postcode.isBlank()) {
+                    brand.setPostcode(details.postcode);
+                    updated = true;
+                }
+
+                // Geocode using address → city → country fallback
+                Double latitude = null;
+                Double longitude = null;
+                String locationUsed = null;
+
+                if (brand.getAddress() != null && !brand.getAddress().isBlank()) {
+                    LocationCoordinates coords = geolocationService.geocode(brand.getAddress(), brand.getCountry(), null);
+                    if (coords != null) {
+                        latitude = coords.getLatitude();
+                        longitude = coords.getLongitude();
+                        locationUsed = "address";
+                    }
+                } else if (brand.getCity() != null && !brand.getCity().isBlank()) {
+                    LocationCoordinates coords = geolocationService.geocode(brand.getCity(), brand.getCountry(), null);
+                    if (coords != null) {
+                        latitude = coords.getLatitude();
+                        longitude = coords.getLongitude();
+                        locationUsed = "city";
+                    }
+                } else if (brand.getCountry() != null) {
+                    LocationCoordinates coords = geolocationService.geocodeCountry(brand.getCountry());
+                    if (coords != null) {
+                        latitude = coords.getLatitude();
+                        longitude = coords.getLongitude();
+                        locationUsed = "country";
+                    }
+                }
+
+                if (latitude != null && longitude != null) {
+                    brand.setLatitude(latitude);
+                    brand.setLongitude(longitude);
+                    brand.setCoordinatesValidated(true);
+                    updated = true;
+                }
+
+                if (updated) {
+                    brandRepository.save(brand);
+
+                    // Re-sync to Neo4j
+                    brand.getProducts().forEach(product -> {
+                        try {
+                            knowledgeGraphService.syncProductToGraph(product);
+                        } catch (Exception e) {
+                            log.warn("Failed to sync product to graph: {}", product.getId(), e);
+                        }
+                    });
+
+                    results.add(new AddressExtractionResult(
+                            brand.getId(),
+                            brand.getName(),
+                            "success",
+                            brand.getCity(),
+                            brand.getAddress(),
+                            brand.getPostcode(),
+                            latitude,
+                            longitude,
+                            "Extracted and geocoded using " + locationUsed
+                    ));
+                    successCount++;
+                } else {
+                    results.add(new AddressExtractionResult(
+                            brand.getId(),
+                            brand.getName(),
+                            "no_update",
+                            null, null, null, null, null,
+                            "No location data found"
+                    ));
+                    skipCount++;
+                }
+
+                // Rate limiting
+                Thread.sleep(1000);
+
+            } catch (Exception e) {
+                log.error("Failed to extract address for {}: {}", brand.getName(), e.getMessage());
+                results.add(new AddressExtractionResult(
+                        brand.getId(),
+                        brand.getName(),
+                        "error",
+                        null, null, null, null, null,
+                        "Error: " + e.getMessage()
+                ));
+                errorCount++;
+            }
+        }
+
+        log.info("Batch address extraction completed: {} success, {} skipped, {} errors",
+                successCount, skipCount, errorCount);
+
+        return ResponseEntity.ok(new BatchExtractAddressResponse(
+                results,
+                brands.size(),
+                successCount,
+                skipCount,
+                errorCount,
+                String.format("Processed %d brands: %d updated, %d skipped, %d errors",
+                        brands.size(), successCount, skipCount, errorCount)
+        ));
+    }
+
+    public record AddressExtractionResult(
+            Long brandId,
+            String brandName,
+            String status,
+            String city,
+            String address,
+            String postcode,
+            Double latitude,
+            Double longitude,
+            String message
+    ) {}
+
+    public record BatchExtractAddressResponse(
+            List<AddressExtractionResult> results,
+            int totalBrands,
+            int successCount,
+            int skipCount,
+            int errorCount,
+            String message
+    ) {}
 }

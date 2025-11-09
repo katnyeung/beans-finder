@@ -69,4 +69,40 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
      * Count products by brand ID
      */
     long countByBrandId(Long brandId);
+
+    /**
+     * Batch count products by multiple brand IDs (to avoid N+1 queries)
+     * Returns a list of projections with brandId and count
+     */
+    @Query("SELECT p.brand.id as brandId, COUNT(p) as count " +
+           "FROM CoffeeProduct p " +
+           "WHERE p.brand.id IN :brandIds " +
+           "GROUP BY p.brand.id")
+    List<BrandProductCount> countByBrandIds(@Param("brandIds") List<Long> brandIds);
+
+    /**
+     * Batch count products by origins (to avoid N+1 queries)
+     * Returns a list of projections with origin and count
+     */
+    @Query("SELECT p.origin as origin, COUNT(p) as count " +
+           "FROM CoffeeProduct p " +
+           "WHERE p.origin IS NOT NULL " +
+           "GROUP BY p.origin")
+    List<OriginProductCount> countByOrigins();
+
+    /**
+     * Projection interface for brand product counts
+     */
+    interface BrandProductCount {
+        Long getBrandId();
+        Long getCount();
+    }
+
+    /**
+     * Projection interface for origin product counts
+     */
+    interface OriginProductCount {
+        String getOrigin();
+        Long getCount();
+    }
 }

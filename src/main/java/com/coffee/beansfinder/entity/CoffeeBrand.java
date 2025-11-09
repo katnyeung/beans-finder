@@ -35,6 +35,19 @@ public class CoffeeBrand {
     private String sitemapUrl; // URL to product-sitemap.xml for bulk product extraction
     private String country;
 
+    // Location fields for precise geocoding
+    private String city;
+    private String address;
+    private String postcode;
+
+    // Geolocation fields (coordinates)
+    private Double latitude;
+    private Double longitude;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean coordinatesValidated = false;
+
     @Column(nullable = false)
     @Builder.Default
     private String status = "active"; // active, inactive, pending_approval
