@@ -1,6 +1,7 @@
 package com.coffee.beansfinder.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,11 +19,22 @@ public class ExtractedProductData {
     @JsonProperty("product_name")
     private String productName;
 
+    @JsonDeserialize(using = StringOrArrayDeserializer.class)
     private String origin;
+
+    @JsonDeserialize(using = StringOrArrayDeserializer.class)
     private String region;
+
+    @JsonDeserialize(using = StringOrArrayDeserializer.class)
     private String process;
+
+    @JsonDeserialize(using = StringOrArrayDeserializer.class)
     private String producer;
+
+    @JsonDeserialize(using = StringOrArrayDeserializer.class)
     private String variety;
+
+    @JsonDeserialize(using = StringOrArrayDeserializer.class)
     private String altitude;
 
     @JsonProperty("tasting_notes")

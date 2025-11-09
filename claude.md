@@ -26,6 +26,7 @@ This document provides context for Claude Code when working on the beans-finder 
 - **coffee_products** - Detail table with product data, JSONB fields for tasting notes/SCA flavors
 - **brand_approvals** - Approval workflow tracking
 - **location_coordinates** - Geocoding cache for brands, origins, producers (reduces API calls)
+- **country_weather_data** - Historical weather data cache (monthly aggregates, 2020-2025)
 
 ### Key Relationships
 - **One-to-Many**: CoffeeBrand → CoffeeProduct
@@ -96,30 +97,65 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
     - Click origin marker: shows popup with all related brands and products
     - Products grouped by brand with brand color coding
     - Each product shown with clickable link, price, roast level
+  - **Country Click Weather Charts** (NEW):
+    - Click any country boundary: shows popup with historical weather data
+    - Year-over-year monthly comparison (2020-2025)
+    - 3 metrics with tabbed interface: Temperature (°C), Rainfall (mm), Solar Radiation (W/m²)
+    - Chart.js area charts with layered visualization
+    - Color-coded by year: Blue (2020), Green (2021), Orange (2022), Red (2023), Purple (2024), Teal (2025)
+    - Fading fill effect: Older years have lighter fills, recent years have darker fills
+    - Clear colored border lines for easy year identification
+    - Areas overlap to show year-over-year trends clearly
+    - Smooth curves show seasonal patterns
+    - Data source: Open-Meteo API (free, cached on-demand)
   - Toggle layers: brands, origins, producers
   - Visualize supply chains: Brand → Origin Country → Producer Farm (via color matching)
 - **Coordinate Sync**: Automatically syncs PostgreSQL coordinates to Neo4j nodes (BrandNode, OriginNode, ProducerNode)
 - **Precision Improvement**: Brands are now mapped to specific shop addresses instead of country centers, enabling accurate local coffee shop discovery
 
-### 5. Crawler Architecture
+### 6. Weather Data Integration
+- **Service**: `OpenMeteoWeatherService.java`
+- **API**: Open-Meteo Historical Weather Archive (free, no API key required)
+- **Database**: `country_weather_data` table stores monthly aggregates (2020-2025)
+- **Storage Format**: Country code + year + month → temperature, rainfall, solar radiation
+- **Metrics Available**:
+  - **Temperature**: Average monthly temperature (°C)
+  - **Rainfall**: Total monthly precipitation (mm)
+  - **Solar Radiation**: Average daily solar radiation (W/m²)
+  - **Note**: Soil moisture NOT available (only in hourly API, not daily aggregates)
+- **Data Range**: January 2020 - Current date (updated monthly)
+- **Visualization**: Year-over-year monthly comparison
+  - X-axis: 12 months (Jan-Dec)
+  - Lines: One per year (2020-2025), color-gradient from blue to red
+  - Metrics: Switch between temperature/rainfall/solar using tabs
+- **Use Case**: Understand climate trends in coffee-growing regions, correlate weather patterns with harvest quality
+- **Frontend**: Chart.js for interactive line graphs
+- **Cost**: $0 (completely free API)
+
+### 7. Crawler Architecture
 
 #### Hybrid AI Strategy
-- **Perplexity**: Web search, URL filtering, batch extraction (try first)
-- **OpenAI GPT-4o-mini**: Text extraction fallback (20x cheaper: $0.0004 vs $0.008 per product)
+- **OpenAI GPT-4o-mini**: Text extraction (primary, $0.0004 per product)
 - **Playwright**: JavaScript rendering for dynamic sites
+- **Perplexity**: Brand discovery only (not used for product extraction due to cost)
 
 #### Sitemap Crawling Flow
 1. **Cleanup**: Delete existing products (PostgreSQL + Neo4j)
 2. **Sitemap Parsing**: Auto-detect product sitemaps, extract URLs
-3. **Stage 1 Filtering**: Keyword-based (fast, local) - filter product paths, exclude equipment
-4. **Stage 2 Filtering**: AI-based (Perplexity) - classify coffee bean URLs only
-5. **Smart Extraction**: Try Perplexity batch first, fallback to Playwright + OpenAI if >70% empty
-6. **Save & Sync**: Save to PostgreSQL, map SCA flavors, sync to Neo4j
+3. **Keyword Filtering**: Reverse filter excludes 100+ non-coffee keywords:
+   - **Equipment brands**: Hario, Kalita, Wilfa, Baratza, Fellow, Acaia, La Marzocco, Sage, etc.
+   - **Equipment types**: grinder, kettle, scale, dripper, machine, brewer, filter-paper
+   - **Merchandise**: tote, mug, cup, t-shirt, keepcup, huskee
+   - **Cleaning**: cafetto, puly, cleaner, descaler
+   - **Subscriptions & gifts**: subscription, gift-card, voucher
+   - **Other**: tea, capsule, pod, training, course
+4. **Playwright + OpenAI Extraction**: Render JS → Extract text → OpenAI extraction
+5. **Save & Sync**: Save to PostgreSQL, map SCA flavors, sync to Neo4j, rebuild map cache
 
-#### Cost Comparison (40 products)
-- Perplexity batch: $1.80 (try first, may fail on JS sites)
-- Playwright + Perplexity: $3.00 (too expensive)
-- Playwright + OpenAI: $0.016 (99.5% cheaper, recommended fallback)
+#### Cost Analysis (40 products)
+- **Current approach**: Playwright + OpenAI = ~$0.016 (cost-effective)
+- **Old approach (deprecated)**: Perplexity batch = ~$3.47 (200x more expensive, limited to 15 products)
+- **Per product cost**: $0.0004 (OpenAI GPT-4o-mini)
 
 ## Important Files
 
@@ -130,8 +166,8 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - `src/main/resources/config/sca-lexicon.yaml` - SCA flavor wheel (YAML-editable)
 
 ### Backend
-- `entity/` - CoffeeBrand, CoffeeProduct, BrandApproval, LocationCoordinates
-- `service/` - CrawlerService, PerplexityApiService, OpenAIService, PlaywrightScraperService, SCAFlavorWheelService, KnowledgeGraphService, NominatimGeolocationService
+- `entity/` - CoffeeBrand, CoffeeProduct, BrandApproval, LocationCoordinates, CountryWeatherData
+- `service/` - CrawlerService, PerplexityApiService, OpenAIService, PlaywrightScraperService, SCAFlavorWheelService, KnowledgeGraphService, NominatimGeolocationService, OpenMeteoWeatherService
 - `controller/` - BrandController, ProductController, CrawlerController, KnowledgeGraphController, FlavorWheelController, MapController, GeolocationController
 
 ### Frontend
@@ -184,6 +220,13 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 1. Delete old entries: `DELETE FROM location_coordinates WHERE country='UK' AND location_name='UK';` (or similar)
 2. Then re-run: `POST /api/brands/extract-addresses-batch?force=true`
 3. Or manually: `UPDATE coffee_brands SET latitude=NULL, longitude=NULL WHERE country='UK';` then batch geocode
+
+### Weather Data
+- `GET /api/map/weather/{countryCode}` - Get historical weather data for a country (monthly trends by year)
+  - Example: `/api/map/weather/CO` returns Colombia climate data (2020-2025)
+  - Response includes: temperatureByYear, rainfallByYear, soilMoistureByYear, solarRadiationByYear
+  - Data format: {year: [12 monthly values]} for year-over-year comparison
+  - Returns 404 if no data available for country
 
 ### Knowledge Graph
 **Query**:

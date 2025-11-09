@@ -5,6 +5,7 @@ let originMarkers = [];
 let producerMarkers = [];
 let countryBoundaries = null;
 let mapData = null;
+let countryFlavorData = null; // Flavor data by country
 
 // Storage for mappings
 let brandToOrigins = {}; // Maps brand ID to related origin markers
@@ -12,6 +13,7 @@ let originToBrands = {}; // Maps origin coords to brand IDs
 let brandColors = {}; // Maps brand ID to unique color
 let countryToOrigins = {}; // Maps country name to origin markers
 let countryNameToCode = {}; // Maps country names to ISO codes
+let countryFlavorLabels = []; // Store flavor label markers
 
 // State tracking
 let currentlySelectedBrand = null;
@@ -37,6 +39,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initMap();
     loadCountryBoundaries();
     loadMapData();
+    loadFlavorData();
     setupEventListeners();
 });
 
@@ -148,6 +151,10 @@ function onEachCountryFeature(feature, layer) {
                 highlightBrandOrigins(currentlySelectedBrand);
             }
             currentlyHoveredCountry = null;
+        },
+        click: function(e) {
+            // Show weather data popup on country click
+            showWeatherPopup(countryName, countryCode, e.latlng);
         }
     });
 }
@@ -204,10 +211,21 @@ function getOriginDefaultColor(coordKey) {
 async function loadMapData() {
     showLoading(true);
     try {
-        const response = await fetch('/api/map/data');
+        // Try static cache file first (no database queries!)
+        let response = await fetch('/cache/map-data.json');
+
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // Fallback to API if cache doesn't exist
+            console.warn('Cache file not found, falling back to API');
+            response = await fetch('/api/map/data');
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+        } else {
+            console.log('Loaded map data from cache (no DB queries)');
         }
+
         mapData = await response.json();
         console.log('Loaded map data:', mapData);
         renderMap();
@@ -217,6 +235,104 @@ async function loadMapData() {
     } finally {
         showLoading(false);
     }
+}
+
+async function loadFlavorData() {
+    try {
+        // Try static cache file first (no database queries!)
+        let response = await fetch('/cache/flavors-by-country.json');
+
+        if (!response.ok) {
+            // Fallback to API if cache doesn't exist
+            console.warn('Flavor cache file not found, falling back to API');
+            response = await fetch('/api/map/flavors-by-country');
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+        } else {
+            console.log('Loaded flavor data from cache (no DB queries)');
+        }
+
+        countryFlavorData = await response.json();
+        console.log('Loaded flavor data:', countryFlavorData);
+
+        // Add flavor labels to countries once boundaries are loaded
+        if (countryBoundaries) {
+            addFlavorLabelsToCountries();
+        } else {
+            // Wait for boundaries to load
+            setTimeout(() => {
+                if (countryBoundaries) {
+                    addFlavorLabelsToCountries();
+                }
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error loading flavor data:', error);
+    }
+}
+
+function addFlavorLabelsToCountries() {
+    if (!countryFlavorData || !countryBoundaries) return;
+
+    // Clear existing labels
+    countryFlavorLabels.forEach(label => map.removeLayer(label));
+    countryFlavorLabels = [];
+
+    countryFlavorData.forEach(countryData => {
+        const countryName = countryData.countryName;
+        const topFlavors = countryData.topFlavors;
+
+        if (!topFlavors || topFlavors.length === 0) return;
+
+        // Find the country feature in the GeoJSON to get centroid
+        let countryCenter = null;
+        countryBoundaries.eachLayer(layer => {
+            if (layer.feature && layer.feature.properties.name === countryName) {
+                // Get the center of the country polygon
+                const bounds = layer.getBounds();
+                countryCenter = bounds.getCenter();
+            }
+        });
+
+        if (!countryCenter) return;
+
+        // Format flavor text: "Berry 45% • Chocolate 32% • Citrus 28%"
+        const flavorText = topFlavors
+            .slice(0, 3) // Show only top 3 flavors for readability
+            .map(f => `${capitalizeFirstLetter(f.flavor)} ${Math.round(f.percentage)}%`)
+            .join(' • ');
+
+        // Offset the label to the right of the country center
+        const offsetLat = countryCenter.lat;
+        const offsetLng = countryCenter.lng + 1.5; // Shift 1.5 degrees to the right
+
+        // Create a permanent label (tooltip) for this country
+        const label = L.tooltip({
+            permanent: true,
+            direction: 'right',
+            className: 'country-flavor-label',
+            opacity: 1,
+            interactive: false, // Ensures tooltip doesn't block interactions
+            offset: [10, 0] // Additional 10px offset to the right
+        })
+        .setLatLng([offsetLat, offsetLng])
+        .setContent(`<div class="flavor-label-content">
+            <div class="country-name">${countryName}</div>
+            <div class="flavor-list">${flavorText}</div>
+        </div>`)
+        .addTo(map);
+
+        countryFlavorLabels.push(label);
+    });
+
+    console.log(`Added ${countryFlavorLabels.length} flavor labels to countries`);
+}
+
+function capitalizeFirstLetter(string) {
+    if (!string) return '';
+    return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
 function renderMap() {
@@ -714,4 +830,466 @@ function showLoading(show) {
 // Utility: Format number with commas
 function formatNumber(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// ==================== Weather Chart Functionality ====================
+
+let currentWeatherChart = null; // Track active chart to destroy before creating new one
+
+/**
+ * Show weather data popup when a country is clicked
+ */
+async function showWeatherPopup(countryName, countryCode, latlng) {
+    // Normalize country code
+    const code = normalizeCountryCode(countryCode);
+
+    if (!code) {
+        console.warn('Unable to determine country code for:', countryName);
+        return;
+    }
+
+    console.log(`Fetching weather data for ${countryName} (${code})`);
+
+    // Show loading popup first
+    showLoadingPopup(countryName, latlng);
+
+    try {
+        // Try to fetch cached weather data
+        let response = await fetch(`/api/map/weather/${code}`);
+
+        // If 404 (no data), fetch from Open-Meteo and cache it
+        if (response.status === 404) {
+            console.log(`No cached data for ${code}, fetching from Open-Meteo...`);
+
+            // Get origin coordinates for this country
+            const origin = await findOriginForCountry(countryName);
+
+            if (!origin || !origin.latitude || !origin.longitude) {
+                console.log(`No origin found for ${countryName}, cannot fetch weather data`);
+                showNoDataPopup(countryName, latlng);
+                return;
+            }
+
+            console.log(`Found origin for ${countryName}:`, origin);
+
+            // Fetch and cache weather data
+            const fetchResponse = await fetch(
+                `/api/map/weather/fetch/${code}?countryName=${encodeURIComponent(countryName)}&latitude=${origin.latitude}&longitude=${origin.longitude}&force=false`,
+                { method: 'POST' }
+            );
+
+            if (!fetchResponse.ok) {
+                const errorText = await fetchResponse.text();
+                console.error('Failed to fetch weather data:', errorText);
+                showErrorPopup(countryName, latlng);
+                return;
+            }
+
+            console.log(`Successfully fetched and cached weather data for ${code}`);
+
+            // Now try to get the cached data again
+            response = await fetch(`/api/map/weather/${code}`);
+        }
+
+        if (!response.ok) {
+            console.error('Weather API error:', response.status);
+            showErrorPopup(countryName, latlng);
+            return;
+        }
+
+        const weatherData = await response.json();
+
+        // Create and show popup with chart
+        createWeatherPopup(weatherData, latlng);
+
+    } catch (error) {
+        console.error('Error fetching weather data:', error);
+        showErrorPopup(countryName, latlng);
+    }
+}
+
+/**
+ * Find origin coordinates for a country name
+ */
+async function findOriginForCountry(countryName) {
+    // Look through already loaded origin markers
+    const normalizedCountry = normalizeCountryName(countryName);
+    const originsForCountry = countryToOrigins[normalizedCountry] || [];
+
+    if (originsForCountry.length > 0) {
+        console.log(`Found origin in loaded data for ${countryName}`);
+        return originsForCountry[0].data;
+    }
+
+    // If not found in loaded data, try to fetch from API
+    try {
+        const response = await fetch('/api/map/origins');
+        const origins = await response.json();
+
+        console.log(`Searching through ${origins.length} origins for ${countryName}`);
+
+        // Try exact match first
+        let match = origins.find(o =>
+            normalizeCountryName(o.country) === normalizedCountry
+        );
+
+        // If no exact match, try partial match (e.g., "United States" in "United States of America")
+        if (!match) {
+            match = origins.find(o => {
+                const originCountry = normalizeCountryName(o.country);
+                return normalizedCountry.includes(originCountry) || originCountry.includes(normalizedCountry);
+            });
+        }
+
+        if (match) {
+            console.log(`Found match: ${match.country} at (${match.latitude}, ${match.longitude})`);
+        } else {
+            console.log(`No match found. Available countries:`, origins.map(o => o.country).join(', '));
+        }
+
+        return match || null;
+    } catch (error) {
+        console.error('Error finding origin:', error);
+        return null;
+    }
+}
+
+/**
+ * Normalize country code (handle various formats)
+ */
+function normalizeCountryCode(code) {
+    if (!code) return null;
+
+    // Convert to uppercase and handle 3-letter codes
+    let normalized = code.toString().toUpperCase();
+
+    // Map common 3-letter codes to 2-letter ISO codes
+    const codeMapping = {
+        'COL': 'CO', 'ETH': 'ET', 'BRA': 'BR', 'KEN': 'KE',
+        'GTM': 'GT', 'HND': 'HN', 'PER': 'PE', 'IDN': 'ID',
+        'VNM': 'VN', 'MEX': 'MX', 'NIC': 'NI', 'CRI': 'CR',
+        'RWA': 'RW', 'UGA': 'UG', 'TZA': 'TZ', 'IND': 'IN',
+        'PAN': 'PA', 'ECU': 'EC', 'BOL': 'BO', 'VEN': 'VE'
+    };
+
+    // If it's a 3-letter code, try to map it
+    if (normalized.length === 3) {
+        return codeMapping[normalized] || normalized.substring(0, 2);
+    }
+
+    return normalized;
+}
+
+/**
+ * Create popup with weather chart
+ */
+function createWeatherPopup(weatherData, latlng) {
+    // Destroy existing chart if any
+    if (currentWeatherChart) {
+        currentWeatherChart.destroy();
+        currentWeatherChart = null;
+    }
+
+    // Create popup content with canvas
+    const popupContent = `
+        <div class="weather-popup">
+            <div class="weather-popup-header">
+                <h3>${weatherData.countryName} Climate</h3>
+                <p class="weather-subtitle">Monthly Trends (${weatherData.years[0]}-${weatherData.years[weatherData.years.length - 1]})</p>
+            </div>
+            <div class="weather-chart-tabs">
+                <button class="weather-tab active" data-metric="temperature">🌡️ Temperature</button>
+                <button class="weather-tab" data-metric="rainfall">🌧️ Rainfall</button>
+                <button class="weather-tab" data-metric="solarRadiation">☀️ Solar</button>
+            </div>
+            <div class="weather-chart-container">
+                <canvas id="weatherChart" width="700" height="400"></canvas>
+            </div>
+        </div>
+    `;
+
+    // Create popup
+    const popup = L.popup({
+        maxWidth: 800,
+        minWidth: 700,
+        className: 'weather-chart-popup'
+    })
+    .setLatLng(latlng)
+    .setContent(popupContent)
+    .openOn(map);
+
+    // Wait for popup to render, then create chart
+    setTimeout(() => {
+        const canvas = document.getElementById('weatherChart');
+        if (canvas) {
+            currentWeatherChart = createWeatherChart(canvas, weatherData, 'temperature');
+
+            // Setup tab switching
+            setupWeatherTabs(weatherData);
+        }
+    }, 100);
+}
+
+/**
+ * Create Chart.js weather chart (area chart with fading colors)
+ */
+function createWeatherChart(canvas, weatherData, metric) {
+    const ctx = canvas.getContext('2d');
+
+    // Prepare datasets - one area per year with fading effect
+    // Reverse order so newest year is on top
+    const datasets = weatherData.years.slice().reverse().map((year, reverseIndex) => {
+        const index = weatherData.years.length - 1 - reverseIndex; // Original index
+        const data = getDataForMetric(weatherData, metric, year);
+        const color = getYearColor(index, weatherData.years.length);
+        const opacity = getYearOpacity(index, weatherData.years.length);
+
+        return {
+            label: year.toString(),
+            data: data,
+            fill: true, // Fill area under line
+            backgroundColor: color + opacity, // Fading effect: older = lighter
+            borderColor: color, // Full opacity for clear line visibility
+            borderWidth: 2,
+            tension: 0.4, // Smooth curves
+            pointRadius: 0, // No points (cleaner look)
+            pointHoverRadius: 5
+        };
+    });
+
+    const config = {
+        type: 'line',
+        data: {
+            labels: weatherData.months,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: 20,
+                        padding: 10
+                    }
+                },
+                title: {
+                    display: true,
+                    text: getMetricTitle(metric),
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    },
+                    color: '#6B4423'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.dataset.label || '';
+                            const value = context.parsed.y;
+                            const unit = getMetricUnit(metric);
+                            return `${label}: ${value !== null ? value.toFixed(2) : 'N/A'} ${unit}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: metric === 'rainfall', // Start at 0 for rainfall
+                    title: {
+                        display: true,
+                        text: getMetricUnit(metric),
+                        color: '#6B4423'
+                    },
+                    grid: {
+                        color: 'rgba(0,0,0,0.1)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Month',
+                        color: '#6B4423'
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            elements: {
+                line: {
+                    fill: true // Enable area fill
+                }
+            }
+        }
+    };
+
+    return new Chart(ctx, config);
+}
+
+/**
+ * Get data for a specific metric and year
+ */
+function getDataForMetric(weatherData, metric, year) {
+    const metricMap = {
+        'temperature': 'temperatureByYear',
+        'rainfall': 'rainfallByYear',
+        'soilMoisture': 'soilMoistureByYear',
+        'solarRadiation': 'solarRadiationByYear'
+    };
+
+    const dataKey = metricMap[metric];
+    return weatherData[dataKey][year] || [];
+}
+
+/**
+ * Get color for a year (distinct colors for each year)
+ */
+function getYearColor(index, total) {
+    // Distinct colors that are easy to differentiate
+    const colors = [
+        '#3498DB', // 2020 - Blue
+        '#2ECC71', // 2021 - Green
+        '#F39C12', // 2022 - Orange
+        '#E74C3C', // 2023 - Red
+        '#9B59B6', // 2024 - Purple
+        '#1ABC9C'  // 2025 - Teal
+    ];
+
+    return colors[index] || '#95A5A6';
+}
+
+/**
+ * Get opacity for a year (fading effect: old = light, recent = dark)
+ */
+function getYearOpacity(index, total) {
+    // Opacity from 30% (oldest) to 70% (newest) for area fill
+    // Lighter fill so colors don't overwhelm
+    const opacities = [
+        '4D', // 2020 - 30% (very light)
+        '59', // 2021 - 35% (light)
+        '66', // 2022 - 40% (medium-light)
+        '73', // 2023 - 45% (medium)
+        '80', // 2024 - 50% (medium-dark)
+        'B3'  // 2025 - 70% (more visible)
+    ];
+
+    return opacities[index] || '99';
+}
+
+/**
+ * Get metric title
+ */
+function getMetricTitle(metric) {
+    const titles = {
+        'temperature': 'Average Temperature',
+        'rainfall': 'Total Rainfall',
+        'soilMoisture': 'Soil Moisture',
+        'solarRadiation': 'Solar Radiation'
+    };
+    return titles[metric] || metric;
+}
+
+/**
+ * Get metric unit
+ */
+function getMetricUnit(metric) {
+    const units = {
+        'temperature': '°C',
+        'rainfall': 'mm',
+        'soilMoisture': 'ratio (0-1)',
+        'solarRadiation': 'W/m²'
+    };
+    return units[metric] || '';
+}
+
+/**
+ * Setup tab switching for different metrics
+ */
+function setupWeatherTabs(weatherData) {
+    const tabs = document.querySelectorAll('.weather-tab');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            // Update active state
+            tabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+
+            // Get metric
+            const metric = this.getAttribute('data-metric');
+
+            // Destroy old chart and create new one
+            if (currentWeatherChart) {
+                currentWeatherChart.destroy();
+            }
+
+            const canvas = document.getElementById('weatherChart');
+            if (canvas) {
+                currentWeatherChart = createWeatherChart(canvas, weatherData, metric);
+            }
+        });
+    });
+}
+
+/**
+ * Show loading popup while fetching weather data
+ */
+function showLoadingPopup(countryName, latlng) {
+    const content = `
+        <div class="weather-popup-error">
+            <h3>${countryName}</h3>
+            <div class="spinner" style="width: 30px; height: 30px; margin: 20px auto;"></div>
+            <p>Loading weather data...</p>
+        </div>
+    `;
+
+    L.popup()
+        .setLatLng(latlng)
+        .setContent(content)
+        .openOn(map);
+}
+
+/**
+ * Show popup when no weather data is available
+ */
+function showNoDataPopup(countryName, latlng) {
+    const content = `
+        <div class="weather-popup-error">
+            <h3>${countryName}</h3>
+            <p>No weather data available for this country.</p>
+            <p style="font-size: 0.9rem; color: #666;">
+                This country may not have coffee origins in the database.
+            </p>
+        </div>
+    `;
+
+    L.popup()
+        .setLatLng(latlng)
+        .setContent(content)
+        .openOn(map);
+}
+
+/**
+ * Show error popup
+ */
+function showErrorPopup(countryName, latlng) {
+    const content = `
+        <div class="weather-popup-error">
+            <h3>Error</h3>
+            <p>Unable to load weather data for ${countryName}.</p>
+        </div>
+    `;
+
+    L.popup()
+        .setLatLng(latlng)
+        .setContent(content)
+        .openOn(map);
 }

@@ -402,57 +402,131 @@ public class WebScraperService {
         // Exclude specific product keywords that are equipment/accessories (not coffee beans)
         // Common brewing equipment brands and types
         String[] excludeKeywords = {
-            "gift-card",      // Gift cards (check before "gift")
+            // Gift & Subscriptions
+            "gift-card",      // Gift cards
+            "gift-voucher",   // Gift vouchers
+            "voucher",        // Vouchers
             "subscription",   // Subscription products
+            "gift-bundle",    // Gift bundles
+
+            // Equipment Brands
             "sibarist",       // Filter paper brand
             "origami",        // Dripper brand
             "hario",          // Equipment brand
             "kalita",         // Equipment brand
             "chemex",         // Dripper brand
             "aeropress",      // Brewer
+            "wilfa",          // Grinder brand
+            "baratza",        // Grinder brand
+            "comandante",     // Hand grinder brand
+            "timemore",       // Grinder/equipment brand
+            "fellow",         // Equipment brand (kettles, grinders)
+            "acaia",          // Scale brand
+            "felicita",       // Scale brand
+            "delter",         // Delter Coffee Press brand
+            "rhinowares",     // Hand grinder brand
+            "juicee",         // Juicee V60 dripper brand
+            "la-marzocco",    // Espresso machine brand
+            "lamarzocco",     // Espresso machine brand
+            "sage",           // Coffee machine brand
+            "bambino",        // Sage machine model
+            "barista-pro",    // Sage machine model
+            "dual-boiler",    // Sage machine model
+            "ceado",          // Grinder brand
+            "compak",         // Grinder brand
+            "mahlkonig",      // Grinder brand
+            "anfim",          // Grinder brand
+            "puqpress",       // Tamper brand
+            "jura",           // Coffee machine brand
+            "dualit",         // Coffee machine brand
+            "moccamaster",    // Coffee machine brand
+            "eversys",        // Commercial machine brand
+            "xbloom",         // Coffee machine brand
+
+            // Dripper Types & Equipment
             "v60",            // Dripper type
             "clever",         // Dripper type
             "dripper",        // Equipment
+            "french-press",   // Brewer
             "carafe",         // Equipment
             "server",         // Equipment
             "kettle",         // Equipment
+            "pouring-kettle", // Equipment
             "scale",          // Equipment
+            "scales",         // Equipment
             "grinder",        // Equipment
             "tamper",         // Equipment
             "portafilter",    // Equipment
             "basket",         // Equipment
             "spoon",          // Equipment (cupping spoons)
             "scoop",          // Equipment
+            "sieve",          // Equipment (shimmy)
+            "brewer",         // Equipment
+            "machine",        // Equipment
+            "maker",          // Equipment (but may catch "coffee-maker")
+
+            // Storage & Accessories
             "jug",            // Equipment
             "mug",            // Merchandise
-            "cup",            // Merchandise
+            "cup",            // Merchandise (reusable cups)
             "glass",          // Merchandise
             "bottle",         // Merchandise
             "flask",          // Merchandise
             "canister",       // Storage
             "jar",            // Storage
             "container",      // Storage
+            "keepcup",        // Reusable cup brand
+            "huskee",         // Reusable cup brand
+            "sttoke",         // Reusable cup brand
+
+            // Merchandise
             "tote",           // Merchandise
-            "bag",            // Merchandise (but might catch coffee bags - need to be careful)
             "t-shirt",        // Merchandise
             "tshirt",         // Merchandise
             "hoodie",         // Merchandise
             "hat",            // Merchandise
-            "cap",            // Merchandise (but not capsule)
             "apron",          // Merchandise
             "coaster",        // Merchandise
             "linen",          // Merchandise
             "porcelain",      // Merchandise
-            "ceramic",        // Merchandise
             "book",           // Merchandise
-            "gift-bundle",    // Gift bundles
+            "sack",           // Merchandise (coffee sacks for decoration)
+
+            // Cleaning & Maintenance
             "cleaning",       // Cleaning supplies
+            "cleaner",        // Cleaning
             "descaler",       // Cleaning
             "brush",          // Cleaning
             "cloth",          // Cleaning
             "wiper",          // Cleaning
+            "puly",           // Cleaning brand
+            "cafetto",        // Cleaning brand
+            "urnex",          // Cleaning brand
+
+            // Filters & Papers
+            "filter-paper",   // Filter papers
+            "filter-head",    // Water filter
+            "water-filter",   // Water filters
+            "filtropa",       // Filter brand
+            "bestmax",        // Water filter brand
+            "peak-water",     // Water filter brand
+            "everpure",       // Water filter brand
+            "claris",         // Water filter brand
+
+            // Other Categories
             "office",         // Office subscriptions
-            "burr"            // Equipment part
+            "burr",           // Equipment part
+            "capsule",        // Coffee capsules/pods
+            "pod",            // Coffee pods
+            "opal-one",       // Pod machine
+            "course",         // Training courses
+            "training",       // Training
+            "shipping-protection", // Shipping insurance
+            "project-waterfall",   // Charity addon
+            "tea",            // Tea products
+            "nemi-teas",      // Tea brand
+            "recycler",       // Pod recycler
+            "ecopress"        // Pod recycler
         };
 
         for (String keyword : excludeKeywords) {

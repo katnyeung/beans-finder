@@ -38,6 +38,7 @@ public class CrawlerService {
     private final PlaywrightScraperService playwrightService;
     private final OpenAIService openAIService;
     private final ObjectMapper objectMapper;
+    private final MapCacheService mapCacheService;
 
     @Value("${crawler.update.interval.days:14}")
     private int updateIntervalDays;
@@ -212,174 +213,87 @@ public class CrawlerService {
                 log.info("Successfully cleaned up {} products", existingProducts.size());
             }
 
-            // Step 2: Fetch and filter sitemap to coffee products only
+            // Step 2: Fetch and filter sitemap to coffee products only (keyword-based, free)
             List<String> productUrls = scraperService.extractProductUrlsFromSitemap(brand.getSitemapUrl());
-            log.info("Extracted {} URLs from sitemap (after sitemap filtering)", productUrls.size());
+            log.info("Extracted {} URLs from sitemap (after keyword-based filtering)", productUrls.size());
 
             if (productUrls.isEmpty()) {
                 log.warn("No coffee products found in sitemap for brand: {}", brand.getName());
                 return;
             }
 
-            // Step 2.5: Use Perplexity to further filter URLs (AI-based classification)
-            List<String> filteredUrls = perplexityService.filterCoffeeBeanUrls(productUrls, brand.getName());
-            log.info("After Perplexity AI filtering: {} coffee bean URLs (removed {} non-coffee items)",
-                    filteredUrls.size(), productUrls.size() - filteredUrls.size());
+            // Step 3: Use Playwright + OpenAI for extraction (skip Perplexity entirely)
+            // This is 20x cheaper ($0.0004 vs $0.008 per product) and handles JS sites better
+            log.info("Using Playwright + OpenAI for extraction (cost-effective approach)");
 
-            if (filteredUrls.isEmpty()) {
-                log.warn("No coffee bean products found after Perplexity filtering for brand: {}", brand.getName());
-                return;
-            }
+            List<ExtractedProductData> extractedProducts = new ArrayList<>();
+            int totalUrls = productUrls.size();
+            int processedCount = 0;
+            int chunkSize = playwrightChunkSize; // Configurable chunk size (default: 10)
 
-            // Use filtered URLs for extraction
-            productUrls = filteredUrls;
+            for (int i = 0; i < totalUrls; i++) {
+                String productUrl = productUrls.get(i);
 
-            // Step 3: Try Perplexity batch extraction first (faster and cheaper)
-            log.info("Sending {} URLs to Perplexity for batch extraction", productUrls.size());
-            List<ExtractedProductData> extractedProducts = perplexityService.extractProductsFromUrls(
-                    brand.getName(),
-                    productUrls
-            );
+                // Step 1: Playwright renders and extracts product text (not full HTML)
+                // This reduces token usage by 90% (10KB vs 100KB)
+                log.info("[{}/{}] Extracting product text with Playwright: {}", i + 1, totalUrls, productUrl);
+                String productText = playwrightService.extractProductText(productUrl);
 
-            log.info("Perplexity extracted {} products from {} URLs",
-                     extractedProducts.size(), productUrls.size());
+                if (productText == null || productText.isEmpty()) {
+                    log.error("Playwright failed to extract text for: {}", productUrl);
+                    throw new RuntimeException("Playwright extraction failed for: " + productUrl + ". Stopping crawl.");
+                }
 
-            // Step 4: Check if Perplexity failed (mostly empty results OR too few products)
-            int emptyCount = 0;
-            for (ExtractedProductData data : extractedProducts) {
-                if (isMostlyEmpty(data)) {
-                    emptyCount++;
+                // Step 2: Send clean product text to OpenAI for AI-powered extraction
+                // Cost: ~$0.0004 per product (20x cheaper than Perplexity!)
+                log.info("Extracting data from product text with OpenAI ({} chars)...", productText.length());
+                ExtractedProductData data = openAIService.extractFromText(
+                        productText,
+                        brand.getName(),
+                        productUrl
+                );
+
+                if (data == null || data.getProductName() == null) {
+                    log.error("OpenAI failed to extract data for: {}", productUrl);
+                    throw new RuntimeException("OpenAI extraction failed for: " + productUrl + ". Stopping crawl.");
+                }
+
+                extractedProducts.add(data);
+                processedCount++;
+                log.info("✓ [{}/{}] OpenAI extracted: {} (origin: {}, process: {}, notes: {})",
+                        i + 1, totalUrls,
+                        data.getProductName(),
+                        data.getOrigin(),
+                        data.getProcess(),
+                        data.getTastingNotes() != null ? data.getTastingNotes().size() : 0);
+
+                // Save in chunks to prevent connection timeout
+                if (processedCount % chunkSize == 0 || i == totalUrls - 1) {
+                    log.info("Saving chunk of {} products to database...", extractedProducts.size());
+                    saveExtractedProducts(brand, extractedProducts);
+                    extractedProducts.clear(); // Clear saved products
+                    log.info("Chunk saved successfully. Continuing extraction...");
                 }
             }
 
-            double emptyPercentage = extractedProducts.isEmpty() ? 100.0 :
-                    (emptyCount * 100.0 / extractedProducts.size());
-
-            // Calculate extraction rate (how many products vs URLs)
-            // IMPORTANT: Deduplicate URLs to handle roast variants before calculating rate
-            // Example: "brazil-santos-medium", "brazil-santos-dark" → count as 1 base product
-            int uniqueBaseProducts = deduplicateRoastVariants(productUrls);
-            double extractionRate = (extractedProducts.size() * 100.0 / uniqueBaseProducts);
-
-            log.info("Extraction rate: {} products from {} unique base products ({} total URLs) = {:.1f}%",
-                    extractedProducts.size(), uniqueBaseProducts, productUrls.size(), extractionRate);
-
-            // Trigger Playwright fallback if:
-            // 1. >70% of extracted products are empty/incomplete, OR
-            // 2. Extracted <50% of expected products (e.g., got 1 out of 30 unique base products)
-            // 3. AND total URLs < 100 (safety: don't fallback for 1000+ URL sites)
-            boolean shouldFallback = (emptyPercentage > 70 || extractionRate < 50) && productUrls.size() < 100;
-
-            if (shouldFallback) {
-                String reason = emptyPercentage > 70
-                        ? String.format("%.1f%% empty results (%d/%d)", emptyPercentage, emptyCount, extractedProducts.size())
-                        : String.format("only extracted %.1f%% of products (%d/%d)", extractionRate, extractedProducts.size(), productUrls.size());
-
-                log.warn("Perplexity batch failed: {}. Using Playwright + OpenAI fallback (20x cheaper!)", reason);
-
-                extractedProducts.clear(); // Clear failed results
-
-                int totalUrls = productUrls.size();
-                int processedCount = 0;
-                int chunkSize = playwrightChunkSize; // Configurable chunk size (default: 10)
-
-                for (int i = 0; i < totalUrls; i++) {
-                    String productUrl = productUrls.get(i);
-
-                    // Step 1: Playwright renders and extracts product text (not full HTML)
-                    // This reduces token usage by 90% (10KB vs 100KB)
-                    log.info("[{}/{}] Extracting product text with Playwright: {}", i + 1, totalUrls, productUrl);
-                    String productText = playwrightService.extractProductText(productUrl);
-
-                    if (productText == null || productText.isEmpty()) {
-                        log.error("Playwright failed to extract text for: {}", productUrl);
-                        throw new RuntimeException("Playwright extraction failed for: " + productUrl + ". Stopping crawl.");
-                    }
-
-                    // Step 2: Send clean product text to OpenAI for AI-powered extraction
-                    // Cost: ~$0.0004 per product (20x cheaper than Perplexity!)
-                    log.info("Extracting data from product text with OpenAI ({} chars)...", productText.length());
-                    ExtractedProductData data = openAIService.extractFromText(
-                            productText,
-                            brand.getName(),
-                            productUrl
-                    );
-
-                    if (data == null || data.getProductName() == null) {
-                        log.error("OpenAI failed to extract data for: {}", productUrl);
-                        throw new RuntimeException("OpenAI extraction failed for: " + productUrl + ". Stopping crawl.");
-                    }
-
-                    extractedProducts.add(data);
-                    processedCount++;
-                    log.info("✓ [{}/{}] OpenAI extracted: {} (origin: {}, process: {}, notes: {})",
-                            i + 1, totalUrls,
-                            data.getProductName(),
-                            data.getOrigin(),
-                            data.getProcess(),
-                            data.getTastingNotes() != null ? data.getTastingNotes().size() : 0);
-
-                    // Save in chunks to prevent connection timeout
-                    if (processedCount % chunkSize == 0 || i == totalUrls - 1) {
-                        log.info("Saving chunk of {} products to database...", extractedProducts.size());
-                        saveExtractedProducts(brand, extractedProducts);
-                        extractedProducts.clear(); // Clear saved products
-                        log.info("Chunk saved successfully. Continuing extraction...");
-                    }
-                }
-
-                log.info("Playwright + OpenAI fallback completed. Processed {} URLs",
-                         totalUrls);
-
-                // Update brand's last crawl date
-                brand.setLastCrawlDate(LocalDateTime.now());
-                brandRepository.save(brand);
-
-                // Skip the regular save loop below since we already saved in chunks
-                return;
-            }
-
-            // Step 5: Save all extracted products to database
-            int successCount = 0;
-            int errorCount = 0;
-
-            for (ExtractedProductData productData : extractedProducts) {
-                try {
-                    log.info("Saving product: {}", productData.getProductName());
-
-                    // Use product URL from extracted data if available, otherwise fallback to brand website
-                    String productUrl = productData.getProductUrl() != null && !productData.getProductUrl().isEmpty()
-                            ? productData.getProductUrl()
-                            : brand.getWebsite();
-
-                    CoffeeProduct product = processAndSaveProduct(
-                            brand,
-                            productData,
-                            "Extracted from sitemap via Perplexity batch",
-                            productUrl
-                    );
-
-                    if (product != null && !"error".equals(product.getCrawlStatus())) {
-                        successCount++;
-                        log.info("Successfully saved product: {} (ID: {}) with URL: {}",
-                                 product.getProductName(), product.getId(), productUrl);
-                    } else {
-                        errorCount++;
-                        log.warn("Failed to save product: {}", productData.getProductName());
-                    }
-
-                } catch (Exception e) {
-                    errorCount++;
-                    log.error("Error saving product {}: {}", productData.getProductName(), e.getMessage());
-                }
-            }
+            log.info("Playwright + OpenAI extraction completed. Processed {} URLs", totalUrls);
 
             // Update brand's last crawl date
             brand.setLastCrawlDate(LocalDateTime.now());
             brandRepository.save(brand);
 
-            log.info("Sitemap crawl completed for brand: {}. Success: {}, Errors: {}",
-                     brand.getName(), successCount, errorCount);
+            log.info("Sitemap crawl completed for brand: {}. Processed {} products",
+                     brand.getName(), totalUrls);
+
+            // Rebuild map cache after successful crawl
+            try {
+                log.info("Rebuilding map cache after crawl completion...");
+                mapCacheService.rebuildAllCaches();
+                log.info("Map cache rebuilt successfully");
+            } catch (Exception cacheError) {
+                log.error("Failed to rebuild map cache after crawl: {}", cacheError.getMessage());
+                // Don't fail the whole crawl if cache rebuild fails
+            }
 
         } catch (Exception e) {
             log.error("Error crawling sitemap for brand {}: {}", brand.getName(), e.getMessage(), e);
@@ -548,8 +462,8 @@ public class CrawlerService {
                 log.info("Creating new product: {}", product.getProductName());
             }
 
-            // Update product fields
-            product.setOrigin(extractedData.getOrigin());
+            // Update product fields with cleaned/normalized origin
+            product.setOrigin(cleanOriginString(extractedData.getOrigin()));
             product.setRegion(extractedData.getRegion());
             product.setProcess(extractedData.getProcess());
             product.setProducer(extractedData.getProducer());
@@ -657,5 +571,43 @@ public class CrawlerService {
                 urls.size(), baseProducts.size(), urls.size() - baseProducts.size());
 
         return baseProducts.size();
+    }
+
+    /**
+     * Clean and normalize origin strings to handle blends and complex formats
+     * Examples:
+     *   "Blend (Colombia, Brazil, Ethiopia)" → "Blend"
+     *   "Blend (50% Costa Rica, 30% Brazil, 20% Nicaragua)" → "Blend"
+     *   "Single Origin (varies)" → "Various"
+     *   "Colombia" → "Colombia" (unchanged)
+     */
+    private String cleanOriginString(String origin) {
+        if (origin == null || origin.trim().isEmpty()) {
+            return null;
+        }
+
+        String cleaned = origin.trim();
+
+        // Check if it's a blend with parentheses
+        if (cleaned.toLowerCase().startsWith("blend")) {
+            return "Blend";
+        }
+
+        // Check if it's "Single Origin (varies)" or similar
+        if (cleaned.toLowerCase().contains("single origin") && cleaned.toLowerCase().contains("varies")) {
+            return "Various";
+        }
+
+        // Check if it contains parentheses with multiple countries (blend indicator)
+        if (cleaned.contains("(") && cleaned.contains(",")) {
+            // Extract just the prefix before parentheses if it's a blend descriptor
+            String prefix = cleaned.substring(0, cleaned.indexOf("(")).trim();
+            if (prefix.toLowerCase().contains("blend") || prefix.toLowerCase().contains("mixed")) {
+                return "Blend";
+            }
+            // Otherwise keep the original (might be valid format like "Ethiopia (Yirgacheffe)")
+        }
+
+        return cleaned;
     }
 }

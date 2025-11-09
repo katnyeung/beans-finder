@@ -51,4 +51,22 @@ public interface FlavorNodeRepository extends Neo4jRepository<FlavorNode, String
            "ORDER BY percentage DESC " +
            "LIMIT 20")
     List<Map<String, Object>> findCorrelatedFlavors(@Param("flavorName") String flavorName);
+
+    /**
+     * Get top flavors aggregated by country for all coffee origins
+     * Returns country-level flavor distribution for map visualization
+     */
+    @Query(value = "MATCH (p:Product)-[:FROM_ORIGIN]->(o:Origin) " +
+           "MATCH (p)-[:HAS_FLAVOR]->(f:Flavor) " +
+           "WHERE o.country IS NOT NULL " +
+           "WITH o.country as country, f.name as flavorName, f.scaCategory as category, COUNT(DISTINCT p) as productCount " +
+           "WITH country, collect({flavor: flavorName, category: category, productCount: productCount}) as allFlavors, SUM(productCount) as totalProducts " +
+           "UNWIND allFlavors as flavorData " +
+           "WITH country, flavorData.flavor as flavor, flavorData.category as category, flavorData.productCount as productCount, totalProducts " +
+           "WITH country, flavor, category, productCount, totalProducts, " +
+           "     ROUND((productCount * 100.0) / totalProducts) as percentage " +
+           "ORDER BY country, productCount DESC " +
+           "WITH country, collect({flavor: flavor, category: category, productCount: productCount, percentage: percentage})[0..5] as topFlavors " +
+           "RETURN {country: country, topFlavors: topFlavors} as data")
+    List<Map<String, Object>> findTopFlavorsByCountry();
 }
