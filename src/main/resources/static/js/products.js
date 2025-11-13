@@ -140,6 +140,11 @@ function createProductRow(product) {
         </td>
         <td>${priceText}</td>
         <td class="${stockClass}">${stockStatus}</td>
+        <td>
+            <button class="btn-chat" onclick="event.stopPropagation(); askChatbotAbout(${product.id}, '${escapeHtml(product.productName).replace(/'/g, "\\'")}')">
+                💬 Ask Chatbot
+            </button>
+        </td>
     `;
 
     // Make row clickable if there's a seller URL
@@ -170,4 +175,17 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Ask chatbot about a product
+function askChatbotAbout(productId, productName) {
+    console.log('Ask chatbot about:', productId, productName);
+
+    // Call setReferenceProduct from chatbot.js
+    if (typeof setReferenceProduct === 'function') {
+        setReferenceProduct(productId, productName);
+    } else {
+        console.error('chatbot.js not loaded');
+        alert('Chatbot is not available. Please refresh the page.');
+    }
 }

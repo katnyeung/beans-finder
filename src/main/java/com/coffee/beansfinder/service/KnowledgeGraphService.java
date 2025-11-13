@@ -721,6 +721,93 @@ public class KnowledgeGraphService {
     }
 
     /**
+     * Delete invalid origin nodes (blends, multi-origins, malformed country names)
+     * Examples: "Blend (Colombia", "Brazil)", "Ethiopia)", "Huila, Minas Gerais, Sidamo"
+     */
+    @Transactional
+    public int deleteInvalidOriginNodes() {
+        log.info("Deleting invalid origin nodes from Neo4j");
+
+        List<OriginNode> allOrigins = (List<OriginNode>) originNodeRepository.findAll();
+        int deletedCount = 0;
+
+        for (OriginNode origin : allOrigins) {
+            if (isInvalidOrigin(origin)) {
+                log.info("Deleting invalid origin: id={}, country={}, region={}",
+                        origin.getId(), origin.getCountry(), origin.getRegion());
+                originNodeRepository.delete(origin);
+                deletedCount++;
+            }
+        }
+
+        log.info("Deleted {} invalid origin nodes", deletedCount);
+        return deletedCount;
+    }
+
+    /**
+     * Check if an origin node is invalid (blend, multi-origin, or malformed)
+     */
+    private boolean isInvalidOrigin(OriginNode origin) {
+        String country = origin.getCountry();
+        String region = origin.getRegion();
+
+        // Check country for invalid patterns
+        if (country != null) {
+            String normalized = country.trim().toLowerCase();
+
+            // Malformed country names with unmatched parentheses
+            if (normalized.endsWith(")") || normalized.startsWith("(")) {
+                return true; // "Brazil)", "Ethiopia)", "(Colombia", "Blend (Colombia"
+            }
+
+            // Blend indicators
+            if (normalized.startsWith("blend") || normalized.contains("blend")) {
+                return true;
+            }
+
+            // Multi-country indicators
+            if (normalized.contains(" & ") || normalized.contains(" and ")) {
+                return true; // "Colombia & Ethiopia", "Brazil and Ethiopia"
+            }
+
+            // Percentage indicators (blend ratios)
+            if (normalized.contains("%")) {
+                return true; // "30% Brazil", "20% Nicaragua)"
+            }
+
+            // Single Origin is not a real country
+            if (normalized.equals("single origin")) {
+                return true;
+            }
+        }
+
+        // Check region for multi-origin patterns
+        if (region != null) {
+            String normalized = region.trim().toLowerCase();
+
+            // Check if region contains multiple distinct coffee-producing regions (cross-country blends)
+            if (normalized.contains("huila") && (normalized.contains("minas gerais") || normalized.contains("sidamo"))) {
+                return true; // Huila (Colombia) mixed with Brazil/Ethiopia regions
+            }
+            if (normalized.contains("minas gerais") && normalized.contains("sidamo")) {
+                return true; // Brazil mixed with Ethiopia regions
+            }
+
+            // Check for explicit country names in region (indicates blend)
+            if (normalized.matches(".*\\b(colombia|brazil|ethiopia)\\b.*")) {
+                return true; // Region contains actual country names = blend
+            }
+
+            // General pattern: if region contains 4+ commas, it's likely a multi-origin blend
+            if (normalized.split(",").length > 4) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Fix null SCA categories - set all flavors with null category to 'other'
      */
     @Transactional

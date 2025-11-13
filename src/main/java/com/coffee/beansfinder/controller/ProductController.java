@@ -64,11 +64,21 @@ public class ProductController {
     }
 
     /**
-     * Get products by origin with brand information (for map display)
+     * Get products by origin (region or country) with brand information (for map display).
+     * First tries to match by region (exact match), then falls back to country.
      */
     @GetMapping("/origin/{origin}/with-brand")
     public List<ProductWithBrandDTO> getProductsByOriginWithBrand(@PathVariable String origin) {
-        List<CoffeeProduct> products = productRepository.findByOrigin(origin);
+        List<CoffeeProduct> products;
+
+        // Try searching by region first (for specific origins like "Santa Clara, Renacimiento, Chiriqui")
+        products = productRepository.findByRegionIgnoreCase(origin);
+
+        // If no results, try searching by country (origin field)
+        if (products.isEmpty()) {
+            products = productRepository.findByOrigin(origin);
+        }
+
         return products.stream()
                 .map(product -> new ProductWithBrandDTO(
                         product.getId(),

@@ -70,9 +70,10 @@ public class OpenAIService {
         }
 
         // Truncate if too large (GPT-4o-mini has 128K context, but we want to keep costs low)
-        // 10KB ≈ 2,500 tokens (safe for quick extraction)
-        String textSnippet = productText.length() > 10000
-                ? productText.substring(0, 10000)
+        // 20KB ≈ 5,000 tokens (allows for more detailed product descriptions like Scenery Coffee)
+        // Cost impact: ~$0.0008 per product (still 10x cheaper than Perplexity)
+        String textSnippet = productText.length() > 20000
+                ? productText.substring(0, 20000)
                 : productText;
 
         log.info("Extracting from text ({} chars) using OpenAI: {}", textSnippet.length(), productUrl);

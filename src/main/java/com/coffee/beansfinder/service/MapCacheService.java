@@ -36,7 +36,9 @@ public class MapCacheService {
     private final ProducerNodeRepository producerNodeRepository;
     private final FlavorNodeRepository flavorNodeRepository;
 
-    private static final String CACHE_DIR = "src/main/resources/static/cache/";
+    // Write to both src and target directories to ensure cache is always fresh
+    private static final String CACHE_DIR_SRC = "src/main/resources/static/cache/";
+    private static final String CACHE_DIR_TARGET = "target/classes/static/cache/";
 
     /**
      * Rebuild all cache files
@@ -58,7 +60,7 @@ public class MapCacheService {
     }
 
     /**
-     * Rebuild map-data.json cache file
+     * Rebuild map-data.json cache file (writes to both src and target directories)
      */
     public void rebuildMapDataCache() {
         log.info("Rebuilding map-data.json...");
@@ -67,8 +69,9 @@ public class MapCacheService {
             // Build complete map data using optimized queries
             MapController.CompleteMapData mapData = buildCompleteMapData();
 
-            // Write to JSON file
-            writeJsonToFile(mapData, CACHE_DIR + "map-data.json");
+            // Write to both src and target directories
+            writeJsonToFile(mapData, CACHE_DIR_SRC + "map-data.json");
+            writeJsonToFile(mapData, CACHE_DIR_TARGET + "map-data.json");
 
             log.info("Successfully rebuilt map-data.json");
         } catch (Exception e) {
@@ -78,7 +81,7 @@ public class MapCacheService {
     }
 
     /**
-     * Rebuild flavors-by-country.json cache file
+     * Rebuild flavors-by-country.json cache file (writes to both src and target directories)
      */
     public void rebuildFlavorDataCache() {
         log.info("Rebuilding flavors-by-country.json...");
@@ -86,8 +89,9 @@ public class MapCacheService {
         try {
             List<CountryFlavorDTO> flavorData = buildFlavorData();
 
-            // Write to JSON file
-            writeJsonToFile(flavorData, CACHE_DIR + "flavors-by-country.json");
+            // Write to both src and target directories
+            writeJsonToFile(flavorData, CACHE_DIR_SRC + "flavors-by-country.json");
+            writeJsonToFile(flavorData, CACHE_DIR_TARGET + "flavors-by-country.json");
 
             log.info("Successfully rebuilt flavors-by-country.json");
         } catch (Exception e) {
@@ -138,19 +142,59 @@ public class MapCacheService {
                 result -> originProductCounts.put(result.getOrigin(), result.getCount())
         );
 
-        // Get all origins with coordinates
-        List<MapController.OriginMapData> origins = ((List<OriginNode>) originNodeRepository.findAll()).stream()
+        // Get all origins with coordinates, filter non-geographic and blend origins
+        List<MapController.OriginMapData> allOrigins = ((List<OriginNode>) originNodeRepository.findAll()).stream()
                 .filter(origin -> origin.getLatitude() != null && origin.getLongitude() != null)
                 .filter(origin -> !isNonGeographicOrigin(origin.getCountry()))
+                .filter(origin -> !isNonGeographicOrigin(origin.getRegion())) // Also check region
                 .map(origin -> new MapController.OriginMapData(
                         origin.getId(),
                         origin.getCountry(),
                         origin.getRegion(),
                         origin.getLatitude(),
                         origin.getLongitude(),
-                        originProductCounts.getOrDefault(origin.getCountry(), 0L)
+                        countProductsFromOrigin(origin.getCountry(), origin.getRegion())
                 ))
+                .filter(origin -> origin.getProductCount() > 0) // Exclude origins with no products
                 .collect(Collectors.toList());
+
+        // Deduplicate by coordinates (group by lat/lon with small tolerance)
+        Map<String, MapController.OriginMapData> uniqueOrigins = new LinkedHashMap<>();
+        for (MapController.OriginMapData origin : allOrigins) {
+            String coordKey = String.format("%.4f,%.4f", origin.getLatitude(), origin.getLongitude());
+
+            if (!uniqueOrigins.containsKey(coordKey)) {
+                uniqueOrigins.put(coordKey, origin);
+            } else {
+                // Merge: keep the one with more specific region name, but SUM the product counts
+                MapController.OriginMapData existing = uniqueOrigins.get(coordKey);
+                long totalProducts = existing.getProductCount() + origin.getProductCount();
+
+                if (isMoreSpecific(origin.getRegion(), existing.getRegion())) {
+                    MapController.OriginMapData merged = new MapController.OriginMapData(
+                            origin.getId(),
+                            origin.getCountry(),
+                            origin.getRegion(),
+                            origin.getLatitude(),
+                            origin.getLongitude(),
+                            totalProducts
+                    );
+                    uniqueOrigins.put(coordKey, merged);
+                } else {
+                    MapController.OriginMapData merged = new MapController.OriginMapData(
+                            existing.getId(),
+                            existing.getCountry(),
+                            existing.getRegion(),
+                            existing.getLatitude(),
+                            existing.getLongitude(),
+                            totalProducts
+                    );
+                    uniqueOrigins.put(coordKey, merged);
+                }
+            }
+        }
+
+        List<MapController.OriginMapData> origins = new ArrayList<>(uniqueOrigins.values());
 
         // Get all producers with coordinates
         List<MapController.ProducerMapData> producers = ((List<ProducerNode>) producerNodeRepository.findAll()).stream()
@@ -302,16 +346,65 @@ public class MapCacheService {
     }
 
     /**
-     * Check if origin is non-geographic
+     * Count products from a specific origin by matching country AND region EXACTLY.
+     */
+    private long countProductsFromOrigin(String country, String region) {
+        return productRepository.findAll().stream()
+                .filter(p -> {
+                    // Match country
+                    if (!country.equalsIgnoreCase(p.getOrigin())) {
+                        return false;
+                    }
+
+                    // If origin has no region, count all products from this country with no region
+                    if (region == null || region.trim().isEmpty()) {
+                        return p.getRegion() == null || p.getRegion().trim().isEmpty();
+                    }
+
+                    // Match region - EXACT match only (case-insensitive)
+                    String productRegion = p.getRegion();
+                    if (productRegion == null) {
+                        return false;
+                    }
+
+                    return region.equalsIgnoreCase(productRegion);
+                })
+                .count();
+    }
+
+    /**
+     * Determine if one region name is more specific than another.
+     */
+    private boolean isMoreSpecific(String region1, String region2) {
+        if (region1 == null && region2 == null) return false;
+        if (region1 == null) return false;
+        if (region2 == null) return true;
+        return region1.length() > region2.length();
+    }
+
+    /**
+     * Check if origin is non-geographic (blend, multi-origin, or malformed)
      */
     private boolean isNonGeographicOrigin(String country) {
         if (country == null) return true;
+
         String normalized = country.trim().toLowerCase();
-        return normalized.equals("various") || normalized.equals("blend") ||
-               normalized.equals("blended") || normalized.equals("mixed") ||
-               normalized.equals("multiple") || normalized.equals("unknown") ||
-               normalized.equals("n/a") || normalized.equals("na") ||
-               normalized.isEmpty();
+
+        // Exact matches
+        if (normalized.equals("various") || normalized.equals("blend") ||
+            normalized.equals("blended") || normalized.equals("mixed") ||
+            normalized.equals("multiple") || normalized.equals("unknown") ||
+            normalized.equals("n/a") || normalized.equals("na") ||
+            normalized.equals("single origin") || normalized.isEmpty()) {
+            return true;
+        }
+
+        // Pattern-based filtering
+        return normalized.startsWith("blend") || normalized.contains("blend") ||
+               normalized.contains(" & ") || normalized.contains(" and ") ||
+               normalized.contains("%") ||
+               normalized.endsWith(")") || normalized.startsWith("(") ||
+               (normalized.contains(",") && normalized.split(",").length > 2);
     }
 
     /**

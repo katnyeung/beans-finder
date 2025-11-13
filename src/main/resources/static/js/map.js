@@ -151,11 +151,8 @@ function onEachCountryFeature(feature, layer) {
                 highlightBrandOrigins(currentlySelectedBrand);
             }
             currentlyHoveredCountry = null;
-        },
-        click: function(e) {
-            // Show weather data popup on country click
-            showWeatherPopup(countryName, countryCode, e.latlng);
         }
+        // Removed click event - climate button will handle this instead
     });
 }
 
@@ -180,7 +177,8 @@ function resetOriginColors() {
         if (!originData || !originData.marker) return; // Safety check
 
         const marker = originData.marker;
-        const coordKey = `${originData.data.latitude},${originData.data.longitude}`;
+        // Use 4 decimal precision to match the mapping keys
+        const coordKey = `${originData.data.latitude.toFixed(4)},${originData.data.longitude.toFixed(4)}`;
 
         // Get the default color for this origin (from its brands)
         const defaultColor = getOriginDefaultColor(coordKey);
@@ -286,13 +284,15 @@ function addFlavorLabelsToCountries() {
 
         if (!topFlavors || topFlavors.length === 0) return;
 
-        // Find the country feature in the GeoJSON to get centroid
+        // Find the country feature in the GeoJSON to get centroid and country code
         let countryCenter = null;
+        let countryCode = null;
         countryBoundaries.eachLayer(layer => {
             if (layer.feature && layer.feature.properties.name === countryName) {
                 // Get the center of the country polygon
                 const bounds = layer.getBounds();
                 countryCenter = bounds.getCenter();
+                countryCode = layer.feature.id; // ISO code
             }
         });
 
@@ -308,24 +308,32 @@ function addFlavorLabelsToCountries() {
         const offsetLat = countryCenter.lat;
         const offsetLng = countryCenter.lng + 1.5; // Shift 1.5 degrees to the right
 
-        // Create a permanent label (tooltip) for this country
+        // Create a permanent label (tooltip) for this country with climate button
         const label = L.tooltip({
             permanent: true,
             direction: 'right',
             className: 'country-flavor-label',
             opacity: 1,
-            interactive: false, // Ensures tooltip doesn't block interactions
+            interactive: true, // Make interactive so climate button can be clicked
             offset: [10, 0] // Additional 10px offset to the right
         })
         .setLatLng([offsetLat, offsetLng])
         .setContent(`<div class="flavor-label-content">
             <div class="country-name">${countryName}</div>
             <div class="flavor-list">${flavorText}</div>
+            <button class="climate-btn" data-country="${countryName}" data-code="${countryCode}" data-lat="${countryCenter.lat}" data-lng="${countryCenter.lng}">
+                🌡️ Climate
+            </button>
         </div>`)
         .addTo(map);
 
         countryFlavorLabels.push(label);
     });
+
+    // Setup climate button event listeners after labels are added
+    setTimeout(() => {
+        setupClimateButtons();
+    }, 100);
 
     console.log(`Added ${countryFlavorLabels.length} flavor labels to countries`);
 }
@@ -333,6 +341,28 @@ function addFlavorLabelsToCountries() {
 function capitalizeFirstLetter(string) {
     if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+/**
+ * Setup climate button event listeners
+ */
+function setupClimateButtons() {
+    const climateButtons = document.querySelectorAll('.climate-btn');
+
+    climateButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent event bubbling
+
+            const countryName = this.getAttribute('data-country');
+            const countryCode = this.getAttribute('data-code');
+            const lat = parseFloat(this.getAttribute('data-lat'));
+            const lng = parseFloat(this.getAttribute('data-lng'));
+
+            showWeatherPopup(countryName, countryCode, L.latLng(lat, lng));
+        });
+    });
+
+    console.log(`Setup ${climateButtons.length} climate buttons`);
 }
 
 function renderMap() {
@@ -419,8 +449,9 @@ function buildBrandToOriginsMapping() {
             if (!brandToOrigins[conn.fromId]) {
                 brandToOrigins[conn.fromId] = new Set();
             }
-            // Store the origin coordinates as a unique identifier
-            brandToOrigins[conn.fromId].add(`${conn.toLat},${conn.toLon}`);
+            // Store the origin coordinates with 4 decimal precision to match deduplicated origins
+            const coordKey = `${conn.toLat.toFixed(4)},${conn.toLon.toFixed(4)}`;
+            brandToOrigins[conn.fromId].add(coordKey);
         }
     });
 }
@@ -433,7 +464,8 @@ function buildOriginToBrandsMapping() {
     // Build reverse mapping: origin -> brands
     mapData.connections.forEach(conn => {
         if (conn.type === 'brand-origin' && conn.fromId) {
-            const coordKey = `${conn.toLat},${conn.toLon}`;
+            // Use 4 decimal precision to match deduplicated origins
+            const coordKey = `${conn.toLat.toFixed(4)},${conn.toLon.toFixed(4)}`;
             if (!originToBrands[coordKey]) {
                 originToBrands[coordKey] = [];
             }
@@ -464,7 +496,8 @@ function createBrandMarker(brand) {
 
     const marker = L.marker([brand.latitude, brand.longitude], {
         icon: squareIcon,
-        riseOnHover: true
+        riseOnHover: true,
+        zIndexOffset: 100 // Brand markers at mid-level
     });
 
     // Store original properties for state management
@@ -544,7 +577,8 @@ function highlightBrandOrigins(brandId) {
 
     // Highlight origins related to this brand
     originMarkers.forEach(originData => {
-        const coordKey = `${originData.data.latitude},${originData.data.longitude}`;
+        // Use 4 decimal precision to match the mapping keys
+        const coordKey = `${originData.data.latitude.toFixed(4)},${originData.data.longitude.toFixed(4)}`;
         if (originCoords.has(coordKey)) {
             const marker = originData.marker;
             const element = marker.getElement();
@@ -557,7 +591,8 @@ function highlightBrandOrigins(brandId) {
 }
 
 function createOriginMarker(origin) {
-    const coordKey = `${origin.latitude},${origin.longitude}`;
+    // Use 4 decimal precision to match the mapping keys
+    const coordKey = `${origin.latitude.toFixed(4)},${origin.longitude.toFixed(4)}`;
     const defaultColor = getOriginDefaultColor(coordKey);
 
     const marker = L.circleMarker([origin.latitude, origin.longitude], {
@@ -567,8 +602,12 @@ function createOriginMarker(origin) {
         weight: 2,
         opacity: 1,
         fillOpacity: 0.8,
-        className: 'origin-marker'
+        className: 'origin-marker',
+        pane: 'markerPane', // Ensure it's in the marker pane (top layer)
+        interactive: true // Ensure it responds to mouse events
     });
+
+    // Note: circleMarker doesn't support setZIndexOffset, z-index controlled via CSS
 
     const displayName = origin.region
         ? `${origin.region}, ${origin.country}`
@@ -588,6 +627,11 @@ function createOriginMarker(origin) {
     // Add click handler to show related brands and products
     marker.on('click', async function() {
         await showOriginProducts(origin);
+    });
+
+    // Add mouseover handler to bring marker to front (highest z-index in SVG)
+    marker.on('mouseover', function() {
+        this.bringToFront();
     });
 
     // Update the mapping with marker reference
@@ -725,8 +769,12 @@ function createProducerMarker(producer) {
         weight: 2,
         opacity: 1,
         fillOpacity: 0.8,
-        className: 'producer-marker'
+        className: 'producer-marker',
+        pane: 'markerPane', // Ensure it's in the marker pane (top layer)
+        interactive: true // Ensure it responds to mouse events
     });
+
+    // Note: circleMarker doesn't support setZIndexOffset, z-index controlled via CSS
 
     const location = [
         producer.city,
@@ -743,6 +791,12 @@ function createProducerMarker(producer) {
     `;
 
     marker.bindPopup(popupContent);
+
+    // Add mouseover handler to bring marker to front (highest z-index in SVG)
+    marker.on('mouseover', function() {
+        this.bringToFront();
+    });
+
     return marker;
 }
 

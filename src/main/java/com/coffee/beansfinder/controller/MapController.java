@@ -65,24 +65,67 @@ public class MapController {
     }
 
     @GetMapping("/origins")
-    @Operation(summary = "Get all coffee origins with coordinates (excluding non-geographic origins)")
+    @Operation(summary = "Get all coffee origins with coordinates (excluding non-geographic origins, deduplicated by coordinates)")
     public ResponseEntity<List<OriginMapData>> getAllOriginsWithCoordinates() {
         List<OriginNode> origins = (List<OriginNode>) originNodeRepository.findAll();
 
+        // Filter and deduplicate by coordinates
         List<OriginMapData> mapData = origins.stream()
                 .filter(origin -> origin.getLatitude() != null && origin.getLongitude() != null)
                 .filter(origin -> !isNonGeographicOrigin(origin.getCountry())) // Exclude "Various", "Blend", etc.
+                .filter(origin -> !isNonGeographicOrigin(origin.getRegion())) // Also check region for blends
                 .map(origin -> new OriginMapData(
                         origin.getId(),
                         origin.getCountry(),
                         origin.getRegion(),
                         origin.getLatitude(),
                         origin.getLongitude(),
-                        countProductsFromOrigin(origin.getCountry())
+                        countProductsFromOrigin(origin.getCountry(), origin.getRegion())
                 ))
+                .filter(origin -> origin.getProductCount() > 0) // Exclude origins with no products
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(mapData);
+        // Deduplicate by coordinates (group by lat/lon with small tolerance)
+        Map<String, OriginMapData> uniqueOrigins = new LinkedHashMap<>();
+        for (OriginMapData origin : mapData) {
+            // Create coordinate key with 4 decimal places (~11m precision)
+            String coordKey = String.format("%.4f,%.4f", origin.getLatitude(), origin.getLongitude());
+
+            if (!uniqueOrigins.containsKey(coordKey)) {
+                // First occurrence - use the most specific region name (longest string)
+                uniqueOrigins.put(coordKey, origin);
+            } else {
+                // Merge: keep the one with more specific region name, but SUM the product counts
+                OriginMapData existing = uniqueOrigins.get(coordKey);
+                long totalProducts = existing.getProductCount() + origin.getProductCount();
+
+                if (isMoreSpecific(origin.getRegion(), existing.getRegion())) {
+                    // Use the more specific region name, but with combined product count
+                    OriginMapData merged = new OriginMapData(
+                            origin.getId(),
+                            origin.getCountry(),
+                            origin.getRegion(),
+                            origin.getLatitude(),
+                            origin.getLongitude(),
+                            totalProducts
+                    );
+                    uniqueOrigins.put(coordKey, merged);
+                } else {
+                    // Keep existing region name, but update product count
+                    OriginMapData merged = new OriginMapData(
+                            existing.getId(),
+                            existing.getCountry(),
+                            existing.getRegion(),
+                            existing.getLatitude(),
+                            existing.getLongitude(),
+                            totalProducts
+                    );
+                    uniqueOrigins.put(coordKey, merged);
+                }
+            }
+        }
+
+        return ResponseEntity.ok(new ArrayList<>(uniqueOrigins.values()));
     }
 
     @GetMapping("/producers")
@@ -132,7 +175,7 @@ public class MapController {
                             origin.getRegion(),
                             origin.getLatitude(),
                             origin.getLongitude(),
-                            countProductsFromOrigin(origin.getCountry())
+                            countProductsFromOrigin(origin.getCountry(), origin.getRegion())
                     )));
         }
 
@@ -194,19 +237,62 @@ public class MapController {
                 ))
                 .collect(Collectors.toList());
 
-        // Get all origins with coordinates, excluding non-geographic origins
-        List<OriginMapData> origins = ((List<OriginNode>) originNodeRepository.findAll()).stream()
+        // Get all origins with coordinates, excluding non-geographic origins, and deduplicate
+        List<OriginMapData> allOrigins = ((List<OriginNode>) originNodeRepository.findAll()).stream()
                 .filter(origin -> origin.getLatitude() != null && origin.getLongitude() != null)
                 .filter(origin -> !isNonGeographicOrigin(origin.getCountry())) // Exclude "Various", "Blend", etc.
+                .filter(origin -> !isNonGeographicOrigin(origin.getRegion())) // Also check region for blends
                 .map(origin -> new OriginMapData(
                         origin.getId(),
                         origin.getCountry(),
                         origin.getRegion(),
                         origin.getLatitude(),
                         origin.getLongitude(),
-                        countProductsFromOrigin(origin.getCountry())
+                        countProductsFromOrigin(origin.getCountry(), origin.getRegion())
                 ))
+                .filter(origin -> origin.getProductCount() > 0) // Exclude origins with no products
                 .collect(Collectors.toList());
+
+        // Deduplicate by coordinates (group by lat/lon with small tolerance)
+        Map<String, OriginMapData> uniqueOrigins = new LinkedHashMap<>();
+        for (OriginMapData origin : allOrigins) {
+            // Create coordinate key with 4 decimal places (~11m precision)
+            String coordKey = String.format("%.4f,%.4f", origin.getLatitude(), origin.getLongitude());
+
+            if (!uniqueOrigins.containsKey(coordKey)) {
+                uniqueOrigins.put(coordKey, origin);
+            } else {
+                // Merge: keep the one with more specific region name, but SUM the product counts
+                OriginMapData existing = uniqueOrigins.get(coordKey);
+                long totalProducts = existing.getProductCount() + origin.getProductCount();
+
+                if (isMoreSpecific(origin.getRegion(), existing.getRegion())) {
+                    // Use the more specific region name, but with combined product count
+                    OriginMapData merged = new OriginMapData(
+                            origin.getId(),
+                            origin.getCountry(),
+                            origin.getRegion(),
+                            origin.getLatitude(),
+                            origin.getLongitude(),
+                            totalProducts
+                    );
+                    uniqueOrigins.put(coordKey, merged);
+                } else {
+                    // Keep existing region name, but update product count
+                    OriginMapData merged = new OriginMapData(
+                            existing.getId(),
+                            existing.getCountry(),
+                            existing.getRegion(),
+                            existing.getLatitude(),
+                            existing.getLongitude(),
+                            totalProducts
+                    );
+                    uniqueOrigins.put(coordKey, merged);
+                }
+            }
+        }
+
+        List<OriginMapData> origins = new ArrayList<>(uniqueOrigins.values());
 
         // Get all producers with coordinates
         List<ProducerMapData> producers = ((List<ProducerNode>) producerNodeRepository.findAll()).stream()
@@ -284,9 +370,31 @@ public class MapController {
         return productRepository.countByBrandId(brandId);
     }
 
-    private long countProductsFromOrigin(String country) {
+    /**
+     * Count products from a specific origin by matching country AND region EXACTLY.
+     * This ensures accurate counts for specific origin nodes (e.g., "Boquete" vs "Santa Clara" both in Panama)
+     */
+    private long countProductsFromOrigin(String country, String region) {
         return productRepository.findAll().stream()
-                .filter(p -> country.equalsIgnoreCase(p.getOrigin()))
+                .filter(p -> {
+                    // Match country
+                    if (!country.equalsIgnoreCase(p.getOrigin())) {
+                        return false;
+                    }
+
+                    // If origin has no region, count all products from this country with no region
+                    if (region == null || region.trim().isEmpty()) {
+                        return p.getRegion() == null || p.getRegion().trim().isEmpty();
+                    }
+
+                    // Match region - EXACT match only (case-insensitive)
+                    String productRegion = p.getRegion();
+                    if (productRegion == null) {
+                        return false;
+                    }
+
+                    return region.equalsIgnoreCase(productRegion);
+                })
                 .count();
     }
 
@@ -547,23 +655,48 @@ public class MapController {
     }
 
     /**
-     * Check if an origin is non-geographic (blend, various, etc.)
+     * Check if an origin is non-geographic (blend, various, multi-origin, etc.)
      */
     private boolean isNonGeographicOrigin(String country) {
         if (country == null) return true;
 
         String normalized = country.trim().toLowerCase();
 
-        // List of non-geographic origin names to exclude from map
-        return normalized.equals("various") ||
-               normalized.equals("blend") ||
-               normalized.equals("blended") ||
-               normalized.equals("mixed") ||
-               normalized.equals("multiple") ||
-               normalized.equals("unknown") ||
-               normalized.equals("n/a") ||
-               normalized.equals("na") ||
-               normalized.isEmpty();
+        // Exact matches for non-geographic origins
+        if (normalized.equals("various") ||
+            normalized.equals("blend") ||
+            normalized.equals("blended") ||
+            normalized.equals("mixed") ||
+            normalized.equals("multiple") ||
+            normalized.equals("unknown") ||
+            normalized.equals("n/a") ||
+            normalized.equals("na") ||
+            normalized.equals("single origin") ||
+            normalized.isEmpty()) {
+            return true;
+        }
+
+        // Pattern-based filtering for blends and multi-origins
+        return normalized.startsWith("blend") ||          // "Blend (Colombia", "Blend (Brazil"
+               normalized.contains(" & ") ||               // "Colombia & Ethiopia", "Uganda & Mexico"
+               normalized.contains(" and ") ||             // "Brazil and Ethiopia"
+               normalized.contains("%") ||                 // "30% Brazil", "20% Nicaragua)"
+               normalized.endsWith(")") && !normalized.contains("(") ||  // "Brazil)", "Ethiopia)" - malformed parsing
+               normalized.startsWith("(") && !normalized.contains(")") || // "(Colombia" - malformed parsing
+               (normalized.contains(",") && normalized.split(",").length > 2); // Multi-region blends with 3+ regions
+    }
+
+    /**
+     * Determine if one region name is more specific than another.
+     * More specific = longer string with more location details
+     */
+    private boolean isMoreSpecific(String region1, String region2) {
+        if (region1 == null && region2 == null) return false;
+        if (region1 == null) return false;
+        if (region2 == null) return true;
+
+        // Prefer longer, more detailed region names
+        return region1.length() > region2.length();
     }
 
     /**
