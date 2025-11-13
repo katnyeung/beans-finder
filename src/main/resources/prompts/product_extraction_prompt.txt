@@ -22,6 +22,10 @@ Important rules:
 1. Return ONLY the JSON object, no other text
 2. If information is not found, use null
 3. Normalize process names (e.g., "Honey Anaerobic" not "honey-anaerobic")
-4. Extract all tasting notes mentioned (e.g., "Nashi pear", "oolong", "cherimoya")
+4. Extract ALL tasting notes from the content, including:
+   - Notes in simple lists (e.g., "blackcurrant, mango, honey")
+   - Notes embedded in prose descriptions (e.g., "We're tasting: blackcurrant, blackberry and tomato leaf. In the cup it's unctuous and syrupy - blackcurrant, mango, honey...")
+   - Look for sections labeled "Tasting Notes", "We're tasting", "Flavour", "Notes", etc.
+   - Extract individual flavor words from descriptive sentences (e.g., from "blackcurrant, blackberry and a hint of tomato leaf" extract ["blackcurrant", "blackberry", "tomato leaf"])
 5. Ensure product_name is always populated
 6. Clean and standardize values (proper capitalization, no extra whitespace)

@@ -277,6 +277,33 @@ public class KnowledgeGraphController {
     }
 
     /**
+     * Delete invalid origin nodes (blends, multi-origins, malformed data)
+     * Examples: "Blend (Colombia", "Brazil)", "Huila, Minas Gerais, Sidamo"
+     */
+    @PostMapping("/cleanup-invalid-origins")
+    public ResponseEntity<Map<String, Object>> cleanupInvalidOrigins() {
+        try {
+            log.info("Starting cleanup of invalid origin nodes...");
+
+            int deletedCount = graphService.deleteInvalidOriginNodes();
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("deletedCount", deletedCount);
+            response.put("message", "Successfully deleted " + deletedCount + " invalid origin nodes");
+
+            log.info("Deleted {} invalid origin nodes", deletedCount);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to cleanup invalid origins: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
      * Cleanup and merge duplicate flavor nodes (case-insensitive)
      * Example: "smooth" (23) + "Smooth" (9) → "smooth" (32)
      * Also marks non-flavor descriptors to stay in 'other' category

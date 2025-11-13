@@ -14,6 +14,7 @@ This document provides context for Claude Code when working on the beans-finder 
 - **Neo4j 5.14** - Knowledge graph for flavor relationships
 - **Perplexity API** - LLM-powered data extraction from HTML
 - **OpenAI GPT-4o-mini** - Text extraction (20x cheaper than Perplexity)
+- **Grok (X.AI)** - RAG-powered chatbot with Neo4j knowledge graph
 - **Playwright** - JavaScript rendering for dynamic sites
 - **Jsoup** - HTML parsing
 - **Vanilla JavaScript** - Frontend (no frameworks)
@@ -27,6 +28,7 @@ This document provides context for Claude Code when working on the beans-finder 
 - **brand_approvals** - Approval workflow tracking
 - **location_coordinates** - Geocoding cache for brands, origins, producers (reduces API calls)
 - **country_weather_data** - Historical weather data cache (monthly aggregates, 2020-2025)
+- **chatbot_conversations** - Persistent conversation state with JSONB for messages (includes products) and shown_product_ids (V5 migration)
 
 ### Key Relationships
 - **One-to-Many**: CoffeeBrand → CoffeeProduct
@@ -85,8 +87,9 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
   - **Country Boundaries**: GeoJSON overlays from Natural Earth dataset
   - **Color-Based Visualization**:
     - Each brand assigned a unique color from 30-color vibrant palette
-    - **Brand markers**: Square shape with unique color (visually distinct from circular origins)
-    - **Origin markers**: Circular shape in green (default)
+    - **Brand markers**: Square shape with unique color (visually distinct from circular origins), z-index: 100
+    - **Origin markers**: Circular shape in green (default), **z-index: 1000 (highest priority for easy clicking)**
+    - **Producer markers**: Circular shape in brown, z-index: 500
     - Hover over brand: related origin markers change to brand's color + blink animation
     - Click brand: lock color highlighting (persistent until another brand clicked)
     - No connection lines (cleaner, less cluttered view)
@@ -97,8 +100,9 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
     - Click origin marker: shows popup with all related brands and products
     - Products grouped by brand with brand color coding
     - Each product shown with clickable link, price, roast level
-  - **Country Click Weather Charts** (NEW):
-    - Click any country boundary: shows popup with historical weather data
+  - **Climate Button Weather Charts**:
+    - Climate button positioned below top 3 flavor labels for each country
+    - Click "🌡️ Climate" button: shows popup with historical weather data (doesn't block country region clicks)
     - Year-over-year monthly comparison (2020-2025)
     - 3 metrics with tabbed interface: Temperature (°C), Rainfall (mm), Solar Radiation (W/m²)
     - Chart.js area charts with layered visualization
@@ -132,30 +136,64 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - **Frontend**: Chart.js for interactive line graphs
 - **Cost**: $0 (completely free API)
 
-### 7. Crawler Architecture
+### 7. RAG-Powered Chatbot (LLM-Driven Architecture)
+- **Service**: `ChatbotService.java` + `GrokService.java`
+- **LLM**: Grok (X.AI) - Cost similar to GPT-4o-mini (~$0.15/$0.60 per 1M tokens)
+- **RAG Strategy**: Neo4j knowledge graph as context source (Grok = Brain, Neo4j = Knowledge Base)
+- **Prompt Templates**: `src/main/resources/config/grok-decision-prompt.txt` + `grok-ranking-prompt.txt` (hot-editable)
+- **Architecture**: **LLM-Driven (NOT Rule-Based) + Stateless (Client-Side State)**
+  1. **User Query** → Receive conversation history from client (localStorage)
+  2. **Reference Product** → Provided by client in request
+  3. **Build GraphContext** → Neo4j count queries (same origin, same roast, similar flavors, etc.)
+  4. **Grok Decision** → Call Grok with full context → Grok decides what graph query to run (returns JSON)
+  5. **Execute Query** → Run Neo4j query based on Grok's decision (e.g., MORE_CATEGORY, SAME_ORIGIN)
+  6. **Filter Shown** → Remove products already shown (client sends shown product IDs)
+  7. **Grok Ranking** → Call Grok again to rank top 15 candidates → Return top 5 with reasons
+  8. **Client Saves State** → Client persists conversation, shown products, reference product to localStorage
+- **Features**:
+  - **Client-Side State Management**: All conversations stored in browser localStorage (no database persistence)
+  - **Privacy-First**: Each user has independent conversation history (no shared state)
+  - **Full Conversation History**: Messages include product recommendations for complete replay
+  - **Comparative Search**: "Show me something more bitter/fruity/cheaper/lighter roast"
+  - **SCA Category Mapping**: "more bitter" → MORE_CATEGORY queryType with scaCategory='roasted'
+  - **Graph Query Types**: SIMILAR_FLAVORS, SAME_ORIGIN, MORE_CATEGORY, SAME_ORIGIN_MORE_CATEGORY, etc.
+  - **Grok-Generated Quick Actions**: Suggested next action buttons (e.g., "More Bitter ☕", "Same Origin 🌍")
+  - **Reference Product Context**: Click product → "Ask Chatbot" → Set as reference for comparisons
+  - **Shown Products Tracking**: Client tracks shown product IDs to avoid duplicates
+- **Frontend Integration**:
+  - Chat panel integrated into `products.html` and `brands.html` (collapsible, bottom-right)
+  - "Ask Chatbot" button on every product row
+  - Pre-fills chat with "Tell me more about [product]"
+  - Quick action buttons auto-generated by Grok (intent → natural language query)
+  - Recommendations shown as cards with "View Product" and "Find Similar" buttons
+  - LocalStorage persistence for: conversationHistory, shownProductIds, referenceProductId
+- **Cost Optimization**: Only top 15 graph-filtered candidates sent to Grok (vs. entire catalog)
+- **Endpoints**:
+  - `POST /api/chatbot/query` - Main chat endpoint (client sends: query, messages, shownProductIds, referenceProductId)
+
+### 8. Crawler Architecture
 
 #### Hybrid AI Strategy
-- **OpenAI GPT-4o-mini**: Text extraction (primary, $0.0004 per product)
+- **OpenAI GPT-4o-mini**: Text extraction (primary, ~$0.0008 per product with 20KB context)
 - **Playwright**: JavaScript rendering for dynamic sites
 - **Perplexity**: Brand discovery only (not used for product extraction due to cost)
 
 #### Sitemap Crawling Flow
 1. **Cleanup**: Delete existing products (PostgreSQL + Neo4j)
-2. **Sitemap Parsing**: Auto-detect product sitemaps, extract URLs
-3. **Keyword Filtering**: Reverse filter excludes 100+ non-coffee keywords:
-   - **Equipment brands**: Hario, Kalita, Wilfa, Baratza, Fellow, Acaia, La Marzocco, Sage, etc.
-   - **Equipment types**: grinder, kettle, scale, dripper, machine, brewer, filter-paper
-   - **Merchandise**: tote, mug, cup, t-shirt, keepcup, huskee
-   - **Cleaning**: cafetto, puly, cleaner, descaler
-   - **Subscriptions & gifts**: subscription, gift-card, voucher
-   - **Other**: tea, capsule, pod, training, course
-4. **Playwright + OpenAI Extraction**: Render JS → Extract text → OpenAI extraction
+2. **Sitemap Parsing**: Auto-detect product sitemaps, extract URLs with metadata
+3. **Two-Stage Filtering** (zero OpenAI cost until page extraction):
+   - **Stage 1 - URL Filter**: Exclude collection pages (`/shop/`, `/products/`) and obvious non-coffee paths
+   - **Stage 2 - Title Filter**: Parse `<image:title>` from sitemap XML and filter by product name
+     - **Inclusion patterns** (coffee-specific): Country names (Ethiopia, Colombia, Kenya), coffee terms (espresso, blend, decaf, roast), processing methods (natural, washed, honey), varieties (geisha, bourbon, typica)
+     - **Exclusion patterns** (equipment/merch): Equipment brands (Hario, Acaia, Fellow, La Marzocco), equipment types (grinder, kettle, scale, machine), courses (SCA, training), merchandise (mug, tote, t-shirt), tea products
+   - **Result**: 125 URLs → ~27 coffee products (78% reduction before any API calls)
+4. **Playwright + OpenAI Extraction**: Render JS → Extract text → OpenAI extraction (only for filtered coffee URLs)
 5. **Save & Sync**: Save to PostgreSQL, map SCA flavors, sync to Neo4j, rebuild map cache
 
 #### Cost Analysis (40 products)
-- **Current approach**: Playwright + OpenAI = ~$0.016 (cost-effective)
-- **Old approach (deprecated)**: Perplexity batch = ~$3.47 (200x more expensive, limited to 15 products)
-- **Per product cost**: $0.0004 (OpenAI GPT-4o-mini)
+- **Current approach**: Playwright + OpenAI = ~$0.032 (cost-effective)
+- **Old approach (deprecated)**: Perplexity batch = ~$3.47 (100x more expensive, limited to 15 products)
+- **Per product cost**: ~$0.0008 (OpenAI GPT-4o-mini with 20KB context for detailed tasting notes)
 
 ## Important Files
 
@@ -166,14 +204,16 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - `src/main/resources/config/sca-lexicon.yaml` - SCA flavor wheel (YAML-editable)
 
 ### Backend
-- `entity/` - CoffeeBrand, CoffeeProduct, BrandApproval, LocationCoordinates, CountryWeatherData
-- `service/` - CrawlerService, PerplexityApiService, OpenAIService, PlaywrightScraperService, SCAFlavorWheelService, KnowledgeGraphService, NominatimGeolocationService, OpenMeteoWeatherService
-- `controller/` - BrandController, ProductController, CrawlerController, KnowledgeGraphController, FlavorWheelController, MapController, GeolocationController
+- `entity/` - CoffeeBrand, CoffeeProduct, BrandApproval, LocationCoordinates, CountryWeatherData, ConversationContext (@Entity)
+- `dto/` - ChatbotRequest, ChatbotResponse, ProductRecommendation, GraphContext, GrokDecision, ExtractedProductData
+- `repository/` - ConversationRepository (JPA), ProductNodeRepository (Neo4j with graph count queries)
+- `service/` - CrawlerService, PerplexityApiService, OpenAIService, GrokService, ChatbotService (LLM-driven), PlaywrightScraperService, SCAFlavorWheelService, KnowledgeGraphService, NominatimGeolocationService, OpenMeteoWeatherService
+- `controller/` - BrandController, ProductController, CrawlerController, ChatbotController, KnowledgeGraphController, FlavorWheelController, MapController, GeolocationController
 
 ### Frontend
 - `resources/static/*.html` - index, brands, products, flavor-wheel, map
-- `resources/static/js/*.js` - brands, products, flavor-wheel, map (vanilla JS + Leaflet.js for maps)
-- `resources/static/css/styles.css` - Coffee-themed styling
+- `resources/static/js/*.js` - brands, products, chatbot, flavor-wheel, map (vanilla JS + Leaflet.js for maps)
+- `resources/static/css/styles.css` - Coffee-themed styling (includes chatbot panel styles)
 
 ## API Endpoints Summary
 
@@ -204,10 +244,10 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 ### Map & Geolocation
 **Map Visualization**:
 - `GET /api/map/brands` - All brands with coordinates
-- `GET /api/map/origins` - All coffee origins with coordinates
+- `GET /api/map/origins` - All coffee origins with coordinates (deduplicated by coordinates with 4 decimal precision ~11m, excludes blends/multi-origins)
 - `GET /api/map/producers` - All producers with coordinates
 - `GET /api/map/connections/{brandId}` - Brand → Origins → Producers mapping
-- `GET /api/map/data` - Complete dataset for map (brands, origins, producers, connections)
+- `GET /api/map/data` - Complete dataset for map (brands, origins, producers, connections, deduplicated origins, filtered blends)
 
 **Geocoding Operations**:
 - `POST /api/geolocation/geocode-brand/{brandId}` - Geocode a single brand (uses address → city → country fallback)
@@ -227,6 +267,17 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
   - Response includes: temperatureByYear, rainfallByYear, soilMoistureByYear, solarRadiationByYear
   - Data format: {year: [12 monthly values]} for year-over-year comparison
   - Returns 404 if no data available for country
+
+### Chatbot (RAG-Powered, Stateless)
+- `POST /api/chatbot/query` - Ask chatbot for coffee recommendations
+  - Request: `{query, messages[], shownProductIds[], referenceProductId?}`
+  - Response: `{products[], explanation, suggestedActions[]}`
+  - Client manages: conversation history, shown products, reference product (all in localStorage)
+  - Supports: Exact product search, vague keywords, comparative search
+  - Examples:
+    - "Show me fruity Ethiopian coffee under £15"
+    - "Find something similar to this product" (with referenceProductId)
+    - "Show me something more bitter" (client tracks reference product)
 
 ### Knowledge Graph
 **Query**:
@@ -314,6 +365,7 @@ SPRING_DATASOURCE_USERNAME=postgres
 SPRING_DATASOURCE_PASSWORD=password
 PERPLEXITY_API_KEY=pplx-xxxxx
 OPENAI_API_KEY=sk-xxxxx
+GROK_API_KEY=xai-xxxxx
 NEO4J_URI=bolt://localhost:7687
 NEO4J_USERNAME=neo4j
 NEO4J_PASSWORD=password

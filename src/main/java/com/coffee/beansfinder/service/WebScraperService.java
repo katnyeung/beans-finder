@@ -287,7 +287,7 @@ public class WebScraperService {
     /**
      * Extract product URLs from sitemap.xml
      * Automatically handles sitemap indexes by first checking for product-specific sitemaps
-     * Filters to only coffee/coffee bean products
+     * Filters to only coffee/coffee bean products using both URL patterns AND image titles
      */
     public List<String> extractProductUrlsFromSitemap(String sitemapUrl) {
         List<String> productUrls = new ArrayList<>();
@@ -319,23 +319,49 @@ public class WebScraperService {
                 }
 
                 // Parse XML sitemap - URLs are in <loc> tags within <url> elements
-                Elements urlElements = sitemapDoc.get().select("url > loc");
+                Elements urlElements = sitemapDoc.get().select("url");
 
                 int totalUrls = 0;
                 int coffeeUrls = 0;
+                int titleFilteredOut = 0;
+                int urlFilteredOut = 0;
 
                 for (Element urlElement : urlElements) {
-                    String url = urlElement.text();
+                    Element locElement = urlElement.selectFirst("loc");
+                    if (locElement == null) continue;
+
+                    String url = locElement.text();
                     totalUrls++;
 
-                    if (!url.isEmpty() && isCoffeeProduct(url)) {
-                        productUrls.add(url);
-                        coffeeUrls++;
+                    if (url.isEmpty()) continue;
+
+                    // Step 1: URL-based filter (fast, excludes collection pages)
+                    if (!isCoffeeProductUrl(url)) {
+                        urlFilteredOut++;
+                        continue;
+                    }
+
+                    // Step 2: Title-based filter (more accurate, uses sitemap metadata)
+                    // Try both <image:title> and <title> tags (different sitemap formats)
+                    Element imageTitle = urlElement.selectFirst("title");
+                    String title = imageTitle != null ? imageTitle.text() : "";
+
+                    if (!title.isEmpty() && !isCoffeeProductTitle(title)) {
+                        log.debug("Filtered by title '{}': {}", title, url);
+                        titleFilteredOut++;
+                        continue;
+                    }
+
+                    // Passed both filters
+                    productUrls.add(url);
+                    coffeeUrls++;
+                    if (!title.isEmpty()) {
+                        log.debug("Coffee product: '{}' - {}", title, url);
                     }
                 }
 
-                log.info("Extracted {} coffee product URLs from {} total URLs in {}",
-                         coffeeUrls, totalUrls, sitemap);
+                log.info("Extracted {} coffee URLs from {} total (filtered {} by URL, {} by title) in {}",
+                         coffeeUrls, totalUrls, urlFilteredOut, titleFilteredOut, sitemap);
             }
 
             log.info("Total: {} coffee product URLs extracted from {} sitemap(s)",
@@ -349,12 +375,30 @@ public class WebScraperService {
     }
 
     /**
-     * Check if URL is likely a coffee bean product
-     * Since we're getting URLs from product sitemaps, we use an exclusion-based approach
-     * rather than inclusion - assume it's a product unless it matches known non-coffee patterns
+     * Check if URL is likely a coffee bean product (URL-based filter only)
+     * Fast filter to exclude collection pages and obvious non-coffee paths
      */
-    private boolean isCoffeeProduct(String url) {
+    private boolean isCoffeeProductUrl(String url) {
         String lowerUrl = url.toLowerCase();
+
+        // Exclude collection/category/catalog pages (ending with trailing slash or no path after directory)
+        // Examples: /shop/, /products/, /collections/, /all/, /coffee/
+        if (lowerUrl.endsWith("/shop/") ||
+            lowerUrl.endsWith("/shop") ||
+            lowerUrl.endsWith("/products/") ||
+            lowerUrl.endsWith("/products") ||
+            lowerUrl.endsWith("/product/") ||
+            lowerUrl.endsWith("/product") ||
+            lowerUrl.endsWith("/coffees/") ||
+            lowerUrl.endsWith("/coffees") ||
+            lowerUrl.endsWith("/coffee/") ||
+            lowerUrl.endsWith("/coffee") ||
+            lowerUrl.endsWith("/collections/") ||
+            lowerUrl.endsWith("/collections") ||
+            lowerUrl.endsWith("/all/") ||
+            lowerUrl.endsWith("/all")) {
+            return false;
+        }
 
         // First check: must be in a product URL path
         boolean isInProductPath = lowerUrl.contains("/products/") ||
@@ -537,6 +581,109 @@ public class WebScraperService {
 
         // If it passed all exclusion checks, it's likely a coffee bean product
         return true;
+    }
+
+    /**
+     * Check if product title indicates it's a coffee bean product
+     * Uses sitemap <image:title> metadata for accurate filtering (zero API cost)
+     *
+     * INCLUSION patterns (coffee-specific):
+     * - Country names (Ethiopia, Colombia, Brazil, Kenya, etc.)
+     * - Coffee types (espresso, blend, filter, decaf, roast, house)
+     * - Processing (natural, washed, honey, anaerobic)
+     * - Varieties (geisha, bourbon, typica, caturra, SL28, etc.)
+     *
+     * EXCLUSION patterns (equipment/merch):
+     * - Equipment (scale, grinder, kettle, dripper, machine, brewer)
+     * - Accessories (mug, cup, bottle, tote, t-shirt, apron)
+     * - Courses (training, course, fundamentals, professional)
+     * - Brands (Hario, Chemex, AeroPress, Acaia, Fellow, Wilfa, La Marzocco)
+     */
+    private boolean isCoffeeProductTitle(String title) {
+        if (title == null || title.isEmpty()) {
+            return true; // No title = can't filter, let URL filter handle it
+        }
+
+        String lowerTitle = title.toLowerCase();
+
+        // STEP 1: EXCLUSION - Equipment, courses, merchandise
+        String[] excludePatterns = {
+            // Equipment brands
+            "acaia", "hario", "chemex", "aeropress", "kalita", "wilfa", "baratza",
+            "comandante", "timemore", "fellow", "felicita", "la marzocco", "sage",
+            "bambino", "ceado", "mahlkonig", "puqpress", "moccamaster", "bru ", "modbar",
+            "linea mini", "linea pb", "linea micra", " gs3", " kb90", " ek43", "ek omnia",
+
+            // Equipment types
+            "scale", "grinder", "kettle", "dripper", "server", "carafe", "brewer",
+            "machine", "portafilter", "tamper", "basket", "pitcher", "jug",
+            "french press", "pour over set", "immersion dripper", "buono", "stagg",
+
+            // Filters & accessories
+            "filter paper", "v60", "chemex", "water filter", "peak water",
+
+            // Storage & cups
+            "mug", "cup", "bottle", "flask", "canister", "jar", "atmos", "keepcup",
+            "huskee", "miir", "camp mug",
+
+            // Merchandise
+            "tote", "t-shirt", "tshirt", "hoodie", "apron", "towel", "coaster",
+
+            // Cleaning
+            "brush", "cloth", "cleaner", "descaler", "cleaning", "puly", "cafetto",
+
+            // Courses & training
+            "course", "training", "fundamentals", "professional", "intermediate",
+            "foundation", "sca ", "barista skills", "brewing ", "latte art",
+
+            // Other
+            "gift card", "voucher", "subscription", "capsule", "nespresso", "pod",
+            "podback", "hot chocolate", "chai", "tea", "earl grey", "peppermint",
+            "chamomile", "rooibos", "hibiscus", "lemongrass", "yunnan green",
+            "breakfast blend" // This is tea, not coffee
+        };
+
+        for (String pattern : excludePatterns) {
+            if (lowerTitle.contains(pattern)) {
+                return false;
+            }
+        }
+
+        // STEP 2: INCLUSION - Coffee-specific patterns
+        // If title contains coffee country names, processing, or coffee-specific terms
+        String[] coffeePatterns = {
+            // Countries (top coffee origins)
+            "ethiopia", "colombia", "brazil", "kenya", "guatemala", "honduras",
+            "costa rica", "peru", "rwanda", "burundi", "uganda", "tanzania",
+            "indonesia", "yemen", "panama", "nicaragua", "el salvador", "mexico",
+            "myanmar", "china", "india", "malawi", "zambia", "timor", "burundi",
+
+            // Coffee-specific terms
+            "espresso", "filter", "omni", "house", "village", "decaf", "organic",
+            "single origin", "roast", "micro", "lot", "estate", "finca", "fazenda",
+
+            // Processing methods
+            "natural", "washed", "honey", "anaerobic", "carbonic", "fermented",
+
+            // Coffee varieties
+            "geisha", "bourbon", "typica", "caturra", "catuai", "pacamara", "sl28",
+            "sl34", "sidra", "pink bourbon", "red bourbon", "yellow bourbon",
+
+            // Regions (famous coffee regions)
+            "yirgacheffe", "sidamo", "guji", "huila", "nariño", "cauca", "antioquia",
+            "minas gerais", "sul de minas", "cerrado", "mogiana", "nyeri", "kirinyaga"
+        };
+
+        for (String pattern : coffeePatterns) {
+            if (lowerTitle.contains(pattern)) {
+                return true; // Definitely coffee
+            }
+        }
+
+        // STEP 3: DEFAULT - If no exclusion matched and no coffee pattern matched
+        // Assume it's NOT coffee (conservative approach to save OpenAI costs)
+        // Better to miss a few edge cases than crawl equipment
+        return false;
     }
 
     /**

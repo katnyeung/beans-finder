@@ -26,15 +26,31 @@
     <main class="container">
         <div class="page-header">
             <h2>Coffee Brands</h2>
-            <p>Click on a brand to view available products</p>
+            <p>Ask the AI chatbot to find your perfect coffee</p>
         </div>
 
-        <div class="filter-bar">
-            <input type="text" id="searchInput" placeholder="Search brands..." class="search-input">
-            <button onclick="loadBrands()" class="btn btn-secondary">Refresh</button>
+        <!-- AI Chat Search Interface -->
+        <div class="chat-search-container">
+            <div class="chat-search-header">
+                <h3>☕ Ask AI to Find Coffee</h3>
+                <button id="chat-clear-btn" class="btn-clear-inline" title="Clear conversation">🔄 Clear</button>
+            </div>
+
+            <div id="chat-messages" class="chat-messages-inline">
+                <div class="chat-message bot-message">
+                    <div class="message-text">
+                        Ask me anything! Try: "Show me fruity Ethiopian coffees" or "Find something more bitter"
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-inline-container">
+                <textarea id="chat-input" placeholder="e.g., 'Show me fruity coffees under £15'" rows="2"></textarea>
+                <button id="chat-send-btn" class="btn-send-inline">Send</button>
+            </div>
         </div>
 
-        <div id="loading" class="loading">Loading brands...</div>
+        <div id="loading" class="loading" style="display: none;">Loading brands...</div>
         <div id="error" class="error" style="display: none;"></div>
 
         <div class="table-container">
@@ -66,5 +82,6 @@
     </footer>
 
     <script src="/js/brands.js"></script>
+    <script src="/js/chatbot.js"></script>
 </body>
 </html>

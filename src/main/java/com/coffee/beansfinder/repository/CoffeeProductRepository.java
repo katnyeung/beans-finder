@@ -31,9 +31,19 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     List<CoffeeProduct> findByBrandId(Long brandId);
 
     /**
-     * Find products by origin
+     * Find products by origin (country)
      */
     List<CoffeeProduct> findByOrigin(String origin);
+
+    /**
+     * Find products by region (exact match, case-insensitive)
+     */
+    List<CoffeeProduct> findByRegionIgnoreCase(String region);
+
+    /**
+     * Find products by origin (country) and region (exact match)
+     */
+    List<CoffeeProduct> findByOriginAndRegionIgnoreCase(String origin, String region);
 
     /**
      * Find products by process
