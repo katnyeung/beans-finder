@@ -207,9 +207,11 @@
         <div class="map-header">
             <h1>☕ Coffee Origins Map</h1>
             <div class="map-controls">
-                <button class="filter-btn active" id="filter-brands">Show Brands</button>
-                <button class="filter-btn active" id="filter-origins">Show Origins</button>
-                <button class="filter-btn active" id="filter-producers">Show Producers</button>
+                <button class="filter-btn active" id="filter-brands">Hide Brands</button>
+                <button class="filter-btn active" id="filter-origins">Hide Origins</button>
+                <button class="filter-btn active" id="filter-producers">Hide Producers</button>
+                <button class="filter-btn" id="filter-climate">Show Climate</button>
+                <button class="filter-btn" id="filter-flavors">Show Flavors</button>
                 <button class="filter-btn active" id="filter-connections">Show Connections</button>
                 <button class="filter-btn" onclick="window.location.href='/'">← Back to Home</button>
             </div>
@@ -248,9 +250,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
-
-    <!-- Turf.js for geographic calculations -->
-    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 
     <!-- Chart.js for weather data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>

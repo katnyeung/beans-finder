@@ -50,6 +50,7 @@ public class MapCacheService {
         try {
             rebuildMapDataCache();
             rebuildFlavorDataCache();
+            rebuildFlavorWheelCache();
 
             long duration = System.currentTimeMillis() - startTime;
             log.info("=== Cache rebuild completed in {}ms ===", duration);
@@ -97,6 +98,26 @@ public class MapCacheService {
         } catch (Exception e) {
             log.error("Failed to rebuild flavors-by-country.json", e);
             throw new RuntimeException("Failed to rebuild flavor data cache", e);
+        }
+    }
+
+    /**
+     * Rebuild flavor-wheel-data.json cache file (writes to both src and target directories)
+     */
+    public void rebuildFlavorWheelCache() {
+        log.info("Rebuilding flavor-wheel-data.json...");
+
+        try {
+            Map<String, Object> flavorWheelData = buildFlavorWheelData();
+
+            // Write to both src and target directories
+            writeJsonToFile(flavorWheelData, CACHE_DIR_SRC + "flavor-wheel-data.json");
+            writeJsonToFile(flavorWheelData, CACHE_DIR_TARGET + "flavor-wheel-data.json");
+
+            log.info("Successfully rebuilt flavor-wheel-data.json");
+        } catch (Exception e) {
+            log.error("Failed to rebuild flavor-wheel-data.json", e);
+            throw new RuntimeException("Failed to rebuild flavor wheel data cache", e);
         }
     }
 
@@ -447,5 +468,89 @@ public class MapCacheService {
         countryMap.put("CUBA", "CU");
 
         return countryMap.getOrDefault(normalized, normalized.substring(0, Math.min(2, normalized.length())));
+    }
+
+    /**
+     * Build flavor wheel data (same logic as FlavorWheelController.getFlavorWheelData())
+     */
+    private Map<String, Object> buildFlavorWheelData() {
+        log.info("Building flavor wheel data...");
+
+        // Single efficient query - returns raw map data
+        List<Map<String, Object>> allFlavorData = flavorNodeRepository.findAllFlavorsWithProductCountsAsMap();
+
+        // Group by category
+        Map<String, List<Map<String, Object>>> categoryMap = new HashMap<>();
+        Map<String, Integer> categoryCounts = new HashMap<>();
+
+        for (Map<String, Object> row : allFlavorData) {
+            String category = (String) row.get("category");
+            String flavorName = (String) row.get("flavorName");
+            Object productCountObj = row.get("productCount");
+
+            // Handle both Long and Integer types
+            Long productCount = null;
+            if (productCountObj instanceof Long) {
+                productCount = (Long) productCountObj;
+            } else if (productCountObj instanceof Integer) {
+                productCount = ((Integer) productCountObj).longValue();
+            }
+
+            // Skip if missing data
+            if (flavorName == null || productCount == null || productCount == 0) {
+                continue;
+            }
+
+            // Ensure category is never null (defensive programming)
+            if (category == null || category.isEmpty()) {
+                category = "other";
+            }
+
+            categoryMap.putIfAbsent(category, new ArrayList<>());
+
+            Map<String, Object> flavor = new HashMap<>();
+            flavor.put("name", flavorName);
+            flavor.put("productCount", productCount.intValue());
+
+            categoryMap.get(category).add(flavor);
+            categoryCounts.merge(category, productCount.intValue(), Integer::sum);
+        }
+
+        // Build final categories list
+        List<Map<String, Object>> categories = new ArrayList<>();
+        int totalProducts = 0;
+        int totalFlavors = 0;
+
+        for (Map.Entry<String, List<Map<String, Object>>> entry : categoryMap.entrySet()) {
+            String categoryName = entry.getKey();
+            List<Map<String, Object>> flavors = entry.getValue();
+
+            // Limit "other" category to top 10 flavors to reduce visual clutter
+            if ("other".equals(categoryName) && flavors.size() > 10) {
+                flavors = flavors.subList(0, 10);
+            }
+
+            Map<String, Object> categoryData = new HashMap<>();
+            categoryData.put("name", categoryName);
+            categoryData.put("productCount", categoryCounts.get(categoryName));
+            categoryData.put("flavors", flavors);
+
+            categories.add(categoryData);
+            totalProducts += categoryCounts.get(categoryName);
+            totalFlavors += flavors.size();
+        }
+
+        // Sort categories by product count (descending)
+        categories.sort((a, b) -> Integer.compare((int) b.get("productCount"), (int) a.get("productCount")));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("categories", categories);
+        response.put("totalProducts", totalProducts);
+        response.put("totalCategories", categories.size());
+        response.put("totalFlavors", totalFlavors);
+
+        log.info("Built flavor wheel data: {} categories, {} flavors, {} products", categories.size(), totalFlavors, totalProducts);
+
+        return response;
     }
 }

@@ -70,10 +70,11 @@ public class OpenAIService {
         }
 
         // Truncate if too large (GPT-4o-mini has 128K context, but we want to keep costs low)
-        // 20KB ≈ 5,000 tokens (allows for more detailed product descriptions like Scenery Coffee)
-        // Cost impact: ~$0.0008 per product (still 10x cheaper than Perplexity)
-        String textSnippet = productText.length() > 20000
-                ? productText.substring(0, 20000)
+        // 40KB ≈ 10,000 tokens for clean product text (no scripts/styles)
+        // Cost impact: ~$0.0015 per product (still very cheap)
+        // Increased from 20KB to capture all product details (origin, process, variety, etc.)
+        String textSnippet = productText.length() > 40000
+                ? productText.substring(0, 40000)
                 : productText;
 
         log.info("Extracting from text ({} chars) using OpenAI: {}", textSnippet.length(), productUrl);
@@ -124,24 +125,28 @@ public class OpenAIService {
                 Extract and return a JSON object with these fields:
                 {
                   "product_name": "Full product name (required)",
-                  "origin": "Country (e.g., Ethiopia, Colombia, Brazil) or null",
-                  "region": "Farm/Region (e.g., Sidama, Huehuetenango) or null",
-                  "process": "Processing method (Washed/Natural/Honey/Anaerobic/etc.) or null",
-                  "producer": "Farm or producer name or null",
-                  "variety": "Coffee variety (Bourbon/Geisha/Caturra/etc.) or null",
-                  "altitude": "Altitude (e.g., '1,800 MASL', '2000-2200m') or null",
-                  "tasting_notes": ["flavor1", "flavor2", "flavor3"] or [],
-                  "price": 12.50 (number) or null,
-                  "in_stock": true/false or null,
-                  "raw_description": "Full product description text"
+                  "origin": "Country/countries of origin - look for 'Country:', geographic names like Ethiopia, Colombia, Brazil, El Salvador, Kenya, etc. For blends with multiple origins, combine with ' / ' (e.g., 'Ethiopia / El Salvador') or null",
+                  "region": "Farm/Region/Growing area (e.g., Sidama, Huehuetenango, Yirgacheffe) or null",
+                  "process": "Processing method - look for: Natural, Washed, Honey, Anaerobic, Wet, Dry, Pulped Natural, Semi-Washed, etc. For multiple processes combine with '/' (e.g., 'Natural/Honey') or null",
+                  "producer": "Farm name, producer name, or cooperative - look for 'Producer:', farmer names, estate names, or 'Various Smallholders'. Combine multiple with 'and' (e.g., 'José Arnulfo Montiel and Various Smallholders') or null",
+                  "variety": "Coffee variety/cultivar - look for: Bourbon, Geisha, Caturra, Typica, Pacamara, Catuai, SL28, SL34, Heirloom, etc. Combine multiple with ', ' (e.g., 'Pacamara, Gibirinna 74110') or null",
+                  "altitude": "Altitude/elevation (e.g., '1,800 MASL', '2000-2200m', '1600m') or null",
+                  "tasting_notes": ["flavor1", "flavor2", "flavor3"] - Extract ALL flavors, descriptors, and cupping notes mentioned,
+                  "price": 12.50 (number) - Extract as decimal, remove currency symbols (e.g., "£23.50" → 23.50) or null,
+                  "in_stock": true if available/can add to cart, false if sold out/unavailable, or null if unclear,
+                  "raw_description": "Main product description text - capture the coffee's story, tasting profile, and key details"
                 }
 
-                Extraction rules:
-                - Extract ALL tasting notes/flavors mentioned (look for: taste, notes, flavor, cupping notes)
-                - Include descriptors like sweetness, acidity, body, mouthfeel
-                - price: Extract as decimal number, remove currency symbols (e.g., "£12.50" → 12.50)
-                - raw_description: Capture the main product description text
-                - Use null for missing fields, not empty strings
+                IMPORTANT extraction rules:
+                - origin: Look for field labels like "Country:", or geographic names in product details
+                - For blends, combine all origin countries (e.g., "Ethiopia / El Salvador" from "Ethiopia" and "El Salvador")
+                - process: Look for "Process:", "Processing:", or method names (Natural/Washed/Honey)
+                - producer: Look for "Producer:", farmer/farm names, or "Various Smallholders"
+                - variety: Look for "Variety:", cultivar names (Bourbon, Geisha, Pacamara, etc.)
+                - tasting_notes: Extract ALL flavor descriptors, not just the obvious ones
+                - in_stock: Check for "Add to Cart", "Buy Now", "Sold Out", "Out of Stock"
+                - price: Look for "Regular price", currency symbols (£, $, €), or price near buy button
+                - Use null for truly missing fields, not empty strings
                 - Return ONLY valid JSON, no markdown code blocks
 
                 Return the JSON object:

@@ -130,7 +130,9 @@ function createProductRow(product) {
 
     row.innerHTML = `
         <td>${product.id}</td>
-        <td class="product-name">${escapeHtml(product.productName)}</td>
+        <td class="product-name">
+            <a href="/product-detail.html?id=${product.id}" class="product-name-link">${escapeHtml(product.productName)}</a>
+        </td>
         <td>${escapeHtml(product.origin || 'N/A')}</td>
         <td>${escapeHtml(product.region || 'N/A')}</td>
         <td>${escapeHtml(product.process || 'N/A')}</td>
@@ -140,18 +142,7 @@ function createProductRow(product) {
         </td>
         <td>${priceText}</td>
         <td class="${stockClass}">${stockStatus}</td>
-        <td>
-            <button class="btn-chat" onclick="event.stopPropagation(); askChatbotAbout(${product.id}, '${escapeHtml(product.productName).replace(/'/g, "\\'")}')">
-                💬 Ask Chatbot
-            </button>
-        </td>
     `;
-
-    // Make row clickable if there's a seller URL
-    if (product.sellerUrl) {
-        row.className = 'clickable-row';
-        row.onclick = () => window.open(product.sellerUrl, '_blank');
-    }
 
     return row;
 }

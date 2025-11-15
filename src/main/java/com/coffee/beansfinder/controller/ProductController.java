@@ -28,6 +28,7 @@ public class ProductController {
     private final CoffeeProductRepository productRepository;
     private final CoffeeBrandRepository brandRepository;
     private final CrawlerService crawlerService;
+    private final com.coffee.beansfinder.service.KnowledgeGraphService knowledgeGraphService;
 
     /**
      * Get all products
@@ -38,12 +39,34 @@ public class ProductController {
     }
 
     /**
-     * Get product by ID
+     * Get product by ID with brand information
      */
     @GetMapping("/{id}")
-    public ResponseEntity<CoffeeProduct> getProductById(@PathVariable Long id) {
+    public ResponseEntity<ProductDetailDTO> getProductById(@PathVariable Long id) {
         return productRepository.findById(id)
-                .map(ResponseEntity::ok)
+                .map(product -> {
+                    ProductDetailDTO dto = new ProductDetailDTO(
+                            product.getId(),
+                            product.getProductName(),
+                            product.getBrand().getId(),
+                            product.getBrand().getName(),
+                            product.getOrigin(),
+                            product.getRegion(),
+                            product.getProcess(),
+                            product.getProducer(),
+                            product.getVariety(),
+                            product.getAltitude(),
+                            product.getRoastLevel(),
+                            product.getTastingNotesJson(),
+                            product.getScaFlavorsJson(),
+                            product.getSellerUrl(),
+                            product.getPrice(),
+                            product.getCurrency(),
+                            product.getInStock(),
+                            product.getRawDescription()
+                    );
+                    return ResponseEntity.ok(dto);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -124,6 +147,89 @@ public class ProductController {
     }
 
     /**
+     * Get related products from the same brand
+     */
+    @GetMapping("/{id}/related")
+    @Operation(summary = "Get related products", description = "Returns products from the same brand, excluding the current product")
+    public ResponseEntity<List<CoffeeProduct>> getRelatedProducts(
+            @PathVariable Long id,
+            @Parameter(description = "Maximum number of related products to return") @RequestParam(defaultValue = "6") int limit) {
+        return productRepository.findById(id)
+                .map(product -> {
+                    List<CoffeeProduct> related = productRepository.findByBrandId(product.getBrand().getId())
+                            .stream()
+                            .filter(p -> !p.getId().equals(id))
+                            .limit(limit)
+                            .toList();
+                    return ResponseEntity.ok(related);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * Sync roast levels from Neo4j to PostgreSQL for all products
+     */
+    @PostMapping("/sync-roast-levels")
+    @Operation(summary = "Sync roast levels", description = "Backfill roast level data from Neo4j to PostgreSQL for all products")
+    public ResponseEntity<String> syncRoastLevels() {
+        try {
+            List<CoffeeProduct> products = productRepository.findAll();
+            int synced = 0;
+
+            for (CoffeeProduct product : products) {
+                try {
+                    knowledgeGraphService.syncProductToGraph(product);
+                    synced++;
+                } catch (Exception e) {
+                    log.error("Failed to sync product {}: {}", product.getId(), e.getMessage());
+                }
+            }
+
+            return ResponseEntity.ok(String.format("Synced roast levels for %d/%d products", synced, products.size()));
+        } catch (Exception e) {
+            log.error("Failed to sync roast levels: {}", e.getMessage());
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Request update for a specific product (re-crawl)
+     */
+    @PostMapping("/{id}/request-update")
+    @Operation(summary = "Request product update", description = "Re-crawl the product page to update product information")
+    public ResponseEntity<String> requestProductUpdate(@PathVariable Long id) {
+        try {
+            // Find the product
+            CoffeeProduct product = productRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Product not found"));
+
+            // Check if product has a seller URL
+            if (product.getSellerUrl() == null || product.getSellerUrl().isEmpty()) {
+                return ResponseEntity.badRequest().body("Product has no seller URL to crawl");
+            }
+
+            // Re-crawl the product, passing the existing product ID
+            log.info("Re-crawling product {} (ID: {}) from URL: {}",
+                    product.getProductName(), id, product.getSellerUrl());
+
+            CoffeeProduct updatedProduct = crawlerService.crawlProduct(
+                    product.getBrand(),
+                    product.getSellerUrl(),
+                    id  // Pass the product ID to update the existing record
+            );
+
+            if (updatedProduct != null) {
+                return ResponseEntity.ok("Product updated successfully");
+            } else {
+                return ResponseEntity.status(500).body("Failed to update product");
+            }
+        } catch (Exception e) {
+            log.error("Failed to update product {}: {}", id, e.getMessage());
+            return ResponseEntity.status(500).body("Error: " + e.getMessage());
+        }
+    }
+
+    /**
      * Manually crawl a specific product
      */
     @PostMapping("/crawl")
@@ -166,5 +272,26 @@ public class ProductController {
             java.math.BigDecimal price,
             String currency,
             Boolean inStock
+    ) {}
+
+    public record ProductDetailDTO(
+            Long id,
+            String productName,
+            Long brandId,
+            String brandName,
+            String origin,
+            String region,
+            String process,
+            String producer,
+            String variety,
+            String altitude,
+            String roastLevel,
+            String tastingNotesJson,
+            String scaFlavorsJson,
+            String sellerUrl,
+            java.math.BigDecimal price,
+            String currency,
+            Boolean inStock,
+            String rawDescription
     ) {}
 }

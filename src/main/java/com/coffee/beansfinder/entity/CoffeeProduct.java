@@ -38,6 +38,7 @@ public class CoffeeProduct {
     private String producer;
     private String variety;
     private String altitude;
+    private String roastLevel; // Light, Medium, Dark, Omni, Unknown
 
     @Type(JsonBinaryType.class)
     @Column(columnDefinition = "jsonb")

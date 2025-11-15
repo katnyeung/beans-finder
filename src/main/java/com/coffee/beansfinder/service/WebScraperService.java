@@ -343,8 +343,19 @@ public class WebScraperService {
 
                     // Step 2: Title-based filter (more accurate, uses sitemap metadata)
                     // Try both <image:title> and <title> tags (different sitemap formats)
-                    Element imageTitle = urlElement.selectFirst("title");
-                    String title = imageTitle != null ? imageTitle.text() : "";
+                    String title = "";
+
+                    // Try <image:title> first (Shopify sitemaps use this)
+                    Element imageTitle = urlElement.selectFirst("image|title");
+                    if (imageTitle != null) {
+                        title = imageTitle.text();
+                    } else {
+                        // Fallback to regular <title> tag
+                        Element regularTitle = urlElement.selectFirst("title");
+                        if (regularTitle != null) {
+                            title = regularTitle.text();
+                        }
+                    }
 
                     if (!title.isEmpty() && !isCoffeeProductTitle(title)) {
                         log.debug("Filtered by title '{}': {}", title, url);
@@ -634,7 +645,9 @@ public class WebScraperService {
 
             // Courses & training
             "course", "training", "fundamentals", "professional", "intermediate",
-            "foundation", "sca ", "barista skills", "brewing ", "latte art",
+            "foundation", "sca ", "sca brewing", "sca barista", "barista skills",
+            "brewing foundation", "brewing intermediate", "brewing professional",
+            "latte art", "sensory", "green coffee", "roasting foundation",
 
             // Other
             "gift card", "voucher", "subscription", "capsule", "nespresso", "pod",

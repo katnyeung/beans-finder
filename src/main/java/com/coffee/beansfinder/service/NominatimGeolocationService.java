@@ -19,7 +19,7 @@ public class NominatimGeolocationService {
 
     private static final Logger logger = LoggerFactory.getLogger(NominatimGeolocationService.class);
     private static final String NOMINATIM_API_URL = "https://nominatim.openstreetmap.org/search";
-    private static final long RATE_LIMIT_MS = 1000; // 1 request per second
+    private static final long RATE_LIMIT_MS = 1500; // 1.5 seconds between requests (safer than 1 req/sec)
     private static Instant lastRequestTime = Instant.EPOCH;
 
     @Autowired
@@ -34,6 +34,13 @@ public class NominatimGeolocationService {
     public NominatimGeolocationService() {
         this.restTemplate = new RestTemplate();
         this.objectMapper = new ObjectMapper();
+
+        // Add User-Agent header once (required by Nominatim usage policy)
+        // IMPORTANT: Change contact email to your actual email
+        this.restTemplate.getInterceptors().add((request, body, execution) -> {
+            request.getHeaders().set("User-Agent", "CoffeeBeansFinderApp/1.0 (katnyeung@gmail.com)");
+            return execution.execute(request, body);
+        });
     }
 
     /**
@@ -131,12 +138,7 @@ public class NominatimGeolocationService {
 
             String url = builder.build().toUriString();
 
-            // Add User-Agent header (required by Nominatim)
-            restTemplate.getInterceptors().add((request, body, execution) -> {
-                request.getHeaders().add("User-Agent", "CoffeeBeansFinderApp/1.0 (contact@example.com)");
-                return execution.execute(request, body);
-            });
-
+            // User-Agent header is already set in constructor
             String response = restTemplate.getForObject(url, String.class);
 
             // Parse response

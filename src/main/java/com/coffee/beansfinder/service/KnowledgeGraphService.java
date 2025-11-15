@@ -203,6 +203,13 @@ public class KnowledgeGraphService {
             if (roastLevel != null) {
                 RoastLevelNode roastLevelNode = findOrCreateRoastLevel(roastLevel);
                 productNode.setRoastLevel(roastLevelNode);
+
+                // Sync roast level back to PostgreSQL if not already set
+                if (product.getRoastLevel() == null || !product.getRoastLevel().equals(roastLevel)) {
+                    product.setRoastLevel(roastLevel);
+                    coffeeProductRepository.save(product);
+                    log.info("Synced roast level '{}' to PostgreSQL for product {}", roastLevel, product.getId());
+                }
             }
 
             // Save product node with all relationships

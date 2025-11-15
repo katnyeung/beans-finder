@@ -301,62 +301,51 @@ public class CrawlerService {
     }
 
     /**
-     * Crawl a specific product URL
+     * Crawl a specific product URL using Playwright + OpenAI
      */
     @Transactional
     public CoffeeProduct crawlProduct(CoffeeBrand brand, String productUrl) {
+        return crawlProduct(brand, productUrl, null);
+    }
+
+    /**
+     * Crawl a specific product URL using Playwright + OpenAI
+     * @param brand The brand
+     * @param productUrl The product URL
+     * @param existingProductId Optional existing product ID to update (null to create new)
+     */
+    @Transactional
+    public CoffeeProduct crawlProduct(CoffeeBrand brand, String productUrl, Long existingProductId) {
         log.info("Crawling product: {} from brand: {}", productUrl, brand.getName());
 
         try {
-            // Fetch product page
-            Optional<Document> doc = scraperService.fetchPage(productUrl);
+            // Use Playwright to extract clean product text (removes scripts, styles, nav, footer)
+            log.info("Extracting product text with Playwright + OpenAI: {}", productUrl);
+            String productText = playwrightService.extractProductText(productUrl);
 
-            if (doc.isEmpty()) {
-                log.error("Failed to fetch product page: {}", productUrl);
+            if (productText == null || productText.isEmpty()) {
+                log.error("Playwright failed to extract product text: {}", productUrl);
                 return null;
             }
 
-            String htmlContent = doc.get().html();
+            log.info("Product text extracted successfully ({} chars), sending to OpenAI", productText.length());
 
-            // Check if this is a JavaScript-rendered site
-            if (playwrightService.isJavaScriptRendered(htmlContent)) {
-                log.info("Detected JavaScript-rendered site, using Playwright: {}", productUrl);
-                ExtractedProductData playwrightData = playwrightService.extractProductData(productUrl);
-
-                if (playwrightData != null && playwrightData.getProductName() != null) {
-                    log.info("Successfully extracted with Playwright: {}", playwrightData.getProductName());
-                    return processAndSaveProduct(brand, playwrightData,
-                            playwrightData.getRawDescription() != null ? playwrightData.getRawDescription() : "",
-                            productUrl);
-                } else {
-                    log.warn("Playwright extraction failed, falling back to Perplexity");
-                }
-            }
-
-            // Extract content using traditional scraping
-            String rawContent = scraperService.extractTextContent(doc.get());
-            WebScraperService.ProductPageMetadata metadata = scraperService.extractMetadata(doc.get());
-
-            // Use Perplexity to extract structured data
-            ExtractedProductData extractedData = perplexityService.extractProductData(
-                    rawContent + "\n\nTitle: " + metadata.title + "\n\nDescription: " + metadata.description,
+            // Use OpenAI to extract structured data from clean product text
+            ExtractedProductData extractedData = openAIService.extractFromText(
+                    productText,
                     brand.getName(),
                     productUrl
             );
 
-            // Check if Perplexity returned mostly empty data (sign of JavaScript rendering)
-            if (isMostlyEmpty(extractedData)) {
-                log.warn("Perplexity returned mostly empty data, trying Playwright fallback");
-                ExtractedProductData playwrightData = playwrightService.extractProductData(productUrl);
-
-                if (playwrightData != null && playwrightData.getProductName() != null) {
-                    log.info("Playwright fallback successful: {}", playwrightData.getProductName());
-                    extractedData = playwrightData;
-                }
+            if (extractedData == null || extractedData.getProductName() == null) {
+                log.error("OpenAI extraction failed for: {}", productUrl);
+                return null;
             }
 
-            // Process and save
-            return processAndSaveProduct(brand, extractedData, rawContent, productUrl);
+            log.info("Successfully extracted product: {}", extractedData.getProductName());
+
+            // Process and save (with existing product ID if provided)
+            return processAndSaveProduct(brand, extractedData, productText, productUrl, existingProductId);
 
         } catch (Exception e) {
             log.error("Error crawling product {}: {}", productUrl, e.getMessage(), e);
@@ -439,27 +428,48 @@ public class CrawlerService {
             ExtractedProductData extractedData,
             String rawContent,
             String url) {
+        return processAndSaveProduct(brand, extractedData, rawContent, url, null);
+    }
+
+    protected CoffeeProduct processAndSaveProduct(
+            CoffeeBrand brand,
+            ExtractedProductData extractedData,
+            String rawContent,
+            String url,
+            Long existingProductId) {
 
         try {
             // Map tasting notes to SCA categories
             SCAFlavorMapping scaMapping = scaService.mapTastingNotes(extractedData.getTastingNotes());
 
-            // Find existing product or create new
-            Optional<CoffeeProduct> existingProduct = productRepository.findByBrandAndProductName(
-                    brand,
-                    extractedData.getProductName()
-            );
-
+            // Find existing product by ID (if provided) or by URL
             CoffeeProduct product;
-            if (existingProduct.isPresent()) {
-                product = existingProduct.get();
-                log.info("Updating existing product: {}", product.getProductName());
+            if (existingProductId != null) {
+                // Use the provided product ID (most reliable)
+                Optional<CoffeeProduct> existingProduct = productRepository.findById(existingProductId);
+                if (existingProduct.isPresent()) {
+                    product = existingProduct.get();
+                    log.info("Updating existing product by ID ({}): {}", product.getId(), product.getProductName());
+                } else {
+                    log.warn("Product ID {} not found, creating new product", existingProductId);
+                    product = CoffeeProduct.builder()
+                            .brand(brand)
+                            .productName(extractedData.getProductName())
+                            .build();
+                }
             } else {
-                product = CoffeeProduct.builder()
-                        .brand(brand)
-                        .productName(extractedData.getProductName())
-                        .build();
-                log.info("Creating new product: {}", product.getProductName());
+                // Fallback to finding by URL (for sitemap crawling)
+                Optional<CoffeeProduct> existingProduct = productRepository.findBySellerUrl(url);
+                if (existingProduct.isPresent()) {
+                    product = existingProduct.get();
+                    log.info("Updating existing product by URL (ID: {}): {}", product.getId(), product.getProductName());
+                } else {
+                    product = CoffeeProduct.builder()
+                            .brand(brand)
+                            .productName(extractedData.getProductName())
+                            .build();
+                    log.info("Creating new product: {}", product.getProductName());
+                }
             }
 
             // Update product fields with cleaned/normalized origin
