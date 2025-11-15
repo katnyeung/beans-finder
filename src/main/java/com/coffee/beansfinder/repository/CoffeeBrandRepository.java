@@ -29,6 +29,11 @@ public interface CoffeeBrandRepository extends JpaRepository<CoffeeBrand, Long> 
     List<CoffeeBrand> findByApprovedTrue();
 
     /**
+     * Find all pending (not approved) brands
+     */
+    List<CoffeeBrand> findByApprovedFalse();
+
+    /**
      * Find brands by status
      */
     List<CoffeeBrand> findByStatus(String status);

@@ -384,6 +384,11 @@ public class ChatbotService {
             case MORE_CATEGORY:
                 if (refId != null && filters != null && filters.getScaCategory() != null) {
                     results = productNodeRepository.findByMoreCategory(refId, filters.getScaCategory(), maxContextProducts);
+                } else if (filters != null && filters.getScaCategory() != null) {
+                    // FALLBACK: No reference product, search all products with this SCA category
+                    log.info("MORE_CATEGORY without refId, searching all products with scaCategory: {}", filters.getScaCategory());
+                    results = productNodeRepository.findBySCACategory(filters.getScaCategory());
+                    results = results.stream().limit(maxContextProducts).collect(Collectors.toList());
                 } else {
                     results = Collections.emptyList();
                 }
@@ -392,6 +397,17 @@ public class ChatbotService {
             case SAME_ORIGIN_MORE_CATEGORY:
                 if (refId != null && filters != null && filters.getScaCategory() != null) {
                     results = productNodeRepository.findBySameOriginMoreCategory(refId, filters.getScaCategory(), maxContextProducts);
+                } else if (filters != null && filters.getOrigin() != null && filters.getScaCategory() != null) {
+                    // FALLBACK: No reference, but has origin + category filters
+                    log.info("SAME_ORIGIN_MORE_CATEGORY without refId, using filters: origin={}, category={}",
+                            filters.getOrigin(), filters.getScaCategory());
+                    List<ProductNode> originProducts = productNodeRepository.findByOriginCountry(filters.getOrigin());
+                    results = productNodeRepository.findBySCACategory(filters.getScaCategory());
+                    // Intersection: products matching both origin AND category
+                    results = results.stream()
+                            .filter(originProducts::contains)
+                            .limit(maxContextProducts)
+                            .collect(Collectors.toList());
                 } else {
                     results = Collections.emptyList();
                 }
@@ -400,6 +416,17 @@ public class ChatbotService {
             case SAME_ORIGIN_DIFFERENT_ROAST:
                 if (refId != null && filters != null && filters.getRoastLevel() != null) {
                     results = productNodeRepository.findBySameOriginDifferentRoast(refId, filters.getRoastLevel(), maxContextProducts);
+                } else if (filters != null && filters.getOrigin() != null && filters.getRoastLevel() != null) {
+                    // FALLBACK: No reference, but has origin + roast filters
+                    log.info("SAME_ORIGIN_DIFFERENT_ROAST without refId, using filters: origin={}, roast={}",
+                            filters.getOrigin(), filters.getRoastLevel());
+                    List<ProductNode> originProducts = productNodeRepository.findByOriginCountry(filters.getOrigin());
+                    List<ProductNode> roastProducts = productNodeRepository.findByRoastLevel(filters.getRoastLevel());
+                    // Intersection: products matching both origin AND roast
+                    results = originProducts.stream()
+                            .filter(roastProducts::contains)
+                            .limit(maxContextProducts)
+                            .collect(Collectors.toList());
                 } else {
                     results = Collections.emptyList();
                 }
@@ -528,9 +555,18 @@ public class ChatbotService {
 
                 String origin = "Unknown";
                 if (product.getOrigins() != null && !product.getOrigins().isEmpty()) {
+                    // Format origin as "Region, Country" or just "Country" if no region
+                    // Deduplicate to avoid showing "Colombia, Colombia"
                     origin = product.getOrigins().stream()
-                            .map(o -> o.getCountry())
-                            .collect(Collectors.joining(", "));
+                            .map(o -> {
+                                if (o.getRegion() != null && !o.getRegion().trim().isEmpty()) {
+                                    return o.getRegion() + ", " + o.getCountry();
+                                } else {
+                                    return o.getCountry();
+                                }
+                            })
+                            .distinct() // Remove duplicates
+                            .collect(Collectors.joining(" / ")); // Use " / " for multiple origins
                 }
 
                 List<String> flavors = new ArrayList<>();

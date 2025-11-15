@@ -28,12 +28,16 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     @Query("MATCH (p:Product)-[:FROM_ORIGIN]->(o:Origin) " +
            "WHERE o.country = $country " +
-           "RETURN p")
+           "WITH DISTINCT p " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByOriginCountry(@Param("country") String country);
 
     @Query("MATCH (p:Product)-[:HAS_PROCESS]->(pr:Process) " +
            "WHERE pr.type = $processType " +
-           "RETURN p")
+           "WITH DISTINCT p " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByProcessType(@Param("processType") String processType);
 
     @Query("MATCH (p:Product)-[:HAS_PROCESS]->(pr:Process), " +
@@ -50,7 +54,9 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      */
     @Query("MATCH (p:Product)-[:SOLD_BY]->(b:Brand) " +
            "WHERE b.name = $brandName " +
-           "RETURN p")
+           "WITH DISTINCT p " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByBrandName(@Param("brandName") String brandName);
 
     /**
@@ -58,7 +64,9 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      */
     @Query("MATCH (p:Product)-[:ROASTED_AT]->(r:RoastLevel) " +
            "WHERE r.level = $level " +
-           "RETURN p")
+           "WITH DISTINCT p " +
+           "MATCH (p)-[rel]-(related) " +
+           "RETURN p, collect(rel), collect(related)")
     List<ProductNode> findByRoastLevel(@Param("level") String level);
 
     /**

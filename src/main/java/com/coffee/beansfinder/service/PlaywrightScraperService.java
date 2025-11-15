@@ -124,9 +124,18 @@ public class PlaywrightScraperService {
                 // Extract only product-relevant content using CSS selectors
                 String productText = page.evaluate("""
                     () => {
-                        // Remove script, style, nav, footer, header
+                        // Safely remove script, style, nav, footer, header
+                        // Use try-catch to handle DOM mutations (elements already removed by page JS)
                         ['script', 'style', 'nav', 'footer', 'header', 'iframe'].forEach(tag => {
-                            document.querySelectorAll(tag).forEach(el => el.remove());
+                            document.querySelectorAll(tag).forEach(el => {
+                                try {
+                                    if (el.parentNode) {
+                                        el.parentNode.removeChild(el);
+                                    }
+                                } catch (e) {
+                                    // Element already removed or moved, ignore
+                                }
+                            });
                         });
 
                         // Try to find main product container

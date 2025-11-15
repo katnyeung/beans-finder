@@ -209,6 +209,13 @@ async function sendMessage() {
                     shownProductIds.push(product.id);
                 }
             });
+
+            // Auto-set reference product from first result (for quick actions to work)
+            // User can still override by clicking "Find Similar" on specific products
+            if (!referenceProductId) {
+                referenceProductId = data.products[0].id;
+                console.log('Auto-set reference product to:', referenceProductId, data.products[0].name);
+            }
         }
 
         // Save state
@@ -245,7 +252,13 @@ function displayMessage(message, sender) {
 
     const messageText = document.createElement('div');
     messageText.className = 'message-text';
-    messageText.textContent = message;
+
+    // Add '>' prefix for user messages
+    if (sender === 'user') {
+        messageText.innerHTML = `<strong>> ${message}</strong>`;
+    } else {
+        messageText.textContent = message;
+    }
 
     messageDiv.appendChild(messageText);
     chatMessages.appendChild(messageDiv);
@@ -255,22 +268,41 @@ function displayMessage(message, sender) {
 }
 
 /**
- * Display product cards (helper function for displaying products)
+ * Display product table (compact format)
  */
 function displayProductCards(products) {
     const chatMessages = document.getElementById('chat-messages');
-    const productsContainer = document.createElement('div');
-    productsContainer.className = 'chat-products';
+    const tableContainer = document.createElement('div');
+    tableContainer.className = 'chat-products-table-container';
 
+    const table = document.createElement('table');
+    table.className = 'chat-products-table';
+
+    // Table header
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr>
+            <th>Product</th>
+            <th>Price</th>
+            <th>Origin</th>
+            <th>Roast</th>
+            <th>Flavors</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+
+    // Table body
+    const tbody = document.createElement('tbody');
     products.forEach(product => {
-        const productCard = createChatProductCard(product);
-        productsContainer.appendChild(productCard);
+        const row = createChatProductRow(product);
+        tbody.appendChild(row);
     });
+    table.appendChild(tbody);
 
-    chatMessages.appendChild(productsContainer);
+    tableContainer.appendChild(table);
+    chatMessages.appendChild(tableContainer);
 
-    // Scroll to bottom
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    // Don't auto-scroll - let users see products without scrolling back up
 }
 
 /**
@@ -309,9 +341,6 @@ function displayBotResponse(data) {
 
         actionsContainer.appendChild(actionsRow);
         chatMessages.appendChild(actionsContainer);
-
-        // Scroll to bottom
-        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
     // Display error if any
@@ -374,71 +403,71 @@ function convertIntentToQuery(intent) {
 }
 
 /**
- * Create product card for chat
+ * Create compact table row for chatbot product recommendations
+ */
+function createChatProductRow(product) {
+    const row = document.createElement('tr');
+    row.className = 'chat-product-row';
+
+    // Product name + brand + reason column
+    const productCell = document.createElement('td');
+    productCell.className = 'product-name-cell';
+
+    let cellContent = '';
+    if (product.id) {
+        cellContent = `<a href="/product-detail.html?id=${product.id}" class="product-name-link">${product.name}</a>`;
+    } else {
+        cellContent = `<span class="product-name-text">${product.name}</span>`;
+    }
+    cellContent += `<br><small class="brand-name">${product.brand}</small>`;
+
+    // Add reason if available (critical for understanding Grok's recommendation)
+    if (product.reason) {
+        cellContent += `<br><small class="product-reason-text">${product.reason}</small>`;
+    }
+
+    productCell.innerHTML = cellContent;
+    row.appendChild(productCell);
+
+    // Price column
+    const priceCell = document.createElement('td');
+    priceCell.className = 'price-cell';
+    priceCell.textContent = product.price ? `£${product.price.toFixed(2)}` : 'N/A';
+    row.appendChild(priceCell);
+
+    // Origin column
+    const originCell = document.createElement('td');
+    originCell.className = 'origin-cell';
+    originCell.textContent = product.origin || 'Unknown';
+    row.appendChild(originCell);
+
+    // Roast level column
+    const roastCell = document.createElement('td');
+    roastCell.className = 'roast-cell';
+    roastCell.textContent = product.roastLevel || 'Unknown';
+    row.appendChild(roastCell);
+
+    // Flavors column (max 3 flavors, truncate with ellipsis)
+    const flavorsCell = document.createElement('td');
+    flavorsCell.className = 'flavors-cell';
+    if (product.flavors && product.flavors.length > 0) {
+        const flavorText = product.flavors.slice(0, 3).join(', ');
+        const hasMore = product.flavors.length > 3;
+        flavorsCell.textContent = hasMore ? `${flavorText}...` : flavorText;
+        flavorsCell.title = product.flavors.join(', '); // Full list on hover
+    } else {
+        flavorsCell.textContent = '-';
+    }
+    row.appendChild(flavorsCell);
+
+    return row;
+}
+
+/**
+ * Legacy function name for compatibility - now creates table row
  */
 function createChatProductCard(product) {
-    const card = document.createElement('div');
-    card.className = 'chat-product-card';
-
-    // Product name + brand (name is clickable link)
-    const title = document.createElement('div');
-    title.className = 'product-title';
-    if (product.url) {
-        title.innerHTML = `<a href="${product.url}" target="_blank" class="product-name-link"><strong>${product.name}</strong></a><br><small>by ${product.brand}</small>`;
-    } else {
-        title.innerHTML = `<strong>${product.name}</strong><br><small>by ${product.brand}</small>`;
-    }
-    card.appendChild(title);
-
-    // Price
-    const price = document.createElement('div');
-    price.className = 'product-price';
-    price.textContent = product.price
-        ? `£${product.price.toFixed(2)}`
-        : 'Price not available';
-    card.appendChild(price);
-
-    // Flavors
-    if (product.flavors && product.flavors.length > 0) {
-        const flavors = document.createElement('div');
-        flavors.className = 'product-flavors';
-        flavors.textContent = product.flavors.slice(0, 5).join(', ');
-        card.appendChild(flavors);
-    }
-
-    // Origin + Roast
-    const metadata = document.createElement('div');
-    metadata.className = 'product-metadata';
-    metadata.innerHTML = `
-        <small>
-            ${product.origin || 'Unknown origin'} ·
-            ${product.roastLevel || 'Unknown roast'}
-        </small>
-    `;
-    card.appendChild(metadata);
-
-    // Reason for recommendation
-    if (product.reason) {
-        const reason = document.createElement('div');
-        reason.className = 'product-reason';
-        reason.innerHTML = `<em>${product.reason}</em>`;
-        card.appendChild(reason);
-    }
-
-    // Actions
-    const actions = document.createElement('div');
-    actions.className = 'product-actions';
-
-    // "Find similar" button (only button needed, name is already a link)
-    const similarBtn = document.createElement('button');
-    similarBtn.className = 'btn-similar';
-    similarBtn.textContent = 'Find Similar';
-    similarBtn.onclick = () => setReferenceProductAndAsk(product.id, product.name);
-    actions.appendChild(similarBtn);
-
-    card.appendChild(actions);
-
-    return card;
+    return createChatProductRow(product);
 }
 
 /**

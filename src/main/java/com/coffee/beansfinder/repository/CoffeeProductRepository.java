@@ -61,6 +61,11 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     Optional<CoffeeProduct> findByBrandAndProductName(CoffeeBrand brand, String productName);
 
     /**
+     * Find product by seller URL (for updating existing products during re-crawl)
+     */
+    Optional<CoffeeProduct> findBySellerUrl(String sellerUrl);
+
+    /**
      * Check if product exists
      */
     boolean existsByBrandAndProductName(CoffeeBrand brand, String productName);

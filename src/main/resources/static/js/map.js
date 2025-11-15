@@ -23,6 +23,8 @@ let currentlyHoveredCountry = null;
 let showBrands = true;
 let showOrigins = true;
 let showProducers = true;
+let showClimate = false;
+let showFlavors = false;
 
 // Color palette for brands (vibrant, distinguishable colors)
 const colorPalette = [
@@ -60,22 +62,45 @@ function initMap() {
 }
 
 function setupEventListeners() {
-    document.getElementById('filter-brands').addEventListener('click', function() {
+    const brandsBtn = document.getElementById('filter-brands');
+    const originsBtn = document.getElementById('filter-origins');
+    const producersBtn = document.getElementById('filter-producers');
+    const climateBtn = document.getElementById('filter-climate');
+    const flavorsBtn = document.getElementById('filter-flavors');
+
+    brandsBtn.addEventListener('click', function() {
         showBrands = !showBrands;
         this.classList.toggle('active');
+        this.textContent = showBrands ? 'Hide Brands' : 'Show Brands';
         updateMapLayers();
     });
 
-    document.getElementById('filter-origins').addEventListener('click', function() {
+    originsBtn.addEventListener('click', function() {
         showOrigins = !showOrigins;
         this.classList.toggle('active');
+        this.textContent = showOrigins ? 'Hide Origins' : 'Show Origins';
         updateMapLayers();
     });
 
-    document.getElementById('filter-producers').addEventListener('click', function() {
+    producersBtn.addEventListener('click', function() {
         showProducers = !showProducers;
         this.classList.toggle('active');
+        this.textContent = showProducers ? 'Hide Producers' : 'Show Producers';
         updateMapLayers();
+    });
+
+    climateBtn.addEventListener('click', function() {
+        showClimate = !showClimate;
+        this.classList.toggle('active');
+        this.textContent = showClimate ? 'Hide Climate' : 'Show Climate';
+        updateFlavorLabelsVisibility();
+    });
+
+    flavorsBtn.addEventListener('click', function() {
+        showFlavors = !showFlavors;
+        this.classList.toggle('active');
+        this.textContent = showFlavors ? 'Hide Flavors' : 'Show Flavors';
+        updateFlavorLabelsVisibility();
     });
 
     // Remove the connections button handler as we no longer use connection lines
@@ -255,17 +280,8 @@ async function loadFlavorData() {
         countryFlavorData = await response.json();
         console.log('Loaded flavor data:', countryFlavorData);
 
-        // Add flavor labels to countries once boundaries are loaded
-        if (countryBoundaries) {
-            addFlavorLabelsToCountries();
-        } else {
-            // Wait for boundaries to load
-            setTimeout(() => {
-                if (countryBoundaries) {
-                    addFlavorLabelsToCountries();
-                }
-            }, 2000);
-        }
+        // Don't add flavor labels by default - wait for user to toggle them on
+        // Labels will be added when showClimate or showFlavors are toggled to true
     } catch (error) {
         console.error('Error loading flavor data:', error);
     }
@@ -304,27 +320,41 @@ function addFlavorLabelsToCountries() {
             .map(f => `${capitalizeFirstLetter(f.flavor)} ${Math.round(f.percentage)}%`)
             .join(' • ');
 
-        // Offset the label to the right of the country center
+        // Center the label on the country center
         const offsetLat = countryCenter.lat;
-        const offsetLng = countryCenter.lng + 1.5; // Shift 1.5 degrees to the right
+        const offsetLng = countryCenter.lng;
+
+        // Build content based on toggle states
+        let labelContent = '<div class="flavor-label-content">';
+
+        // Show country name
+        labelContent += `<div class="country-name">${countryName}</div>`;
+
+        // Conditionally show flavors
+        if (showFlavors) {
+            labelContent += `<div class="flavor-list">${flavorText}</div>`;
+        }
+
+        // Conditionally show climate button
+        if (showClimate) {
+            labelContent += `<button class="climate-btn" data-country="${countryName}" data-code="${countryCode}" data-lat="${countryCenter.lat}" data-lng="${countryCenter.lng}">
+                🌡️ Climate
+            </button>`;
+        }
+
+        labelContent += '</div>';
 
         // Create a permanent label (tooltip) for this country with climate button
         const label = L.tooltip({
             permanent: true,
-            direction: 'right',
+            direction: 'center',
             className: 'country-flavor-label',
             opacity: 1,
             interactive: true, // Make interactive so climate button can be clicked
-            offset: [10, 0] // Additional 10px offset to the right
+            offset: [0, 0] // No offset, center it
         })
         .setLatLng([offsetLat, offsetLng])
-        .setContent(`<div class="flavor-label-content">
-            <div class="country-name">${countryName}</div>
-            <div class="flavor-list">${flavorText}</div>
-            <button class="climate-btn" data-country="${countryName}" data-code="${countryCode}" data-lat="${countryCenter.lat}" data-lng="${countryCenter.lng}">
-                🌡️ Climate
-            </button>
-        </div>`)
+        .setContent(labelContent)
         .addTo(map);
 
         countryFlavorLabels.push(label);
@@ -336,6 +366,19 @@ function addFlavorLabelsToCountries() {
     }, 100);
 
     console.log(`Added ${countryFlavorLabels.length} flavor labels to countries`);
+}
+
+function updateFlavorLabelsVisibility() {
+    // If both climate and flavors are hidden, remove all labels
+    if (!showClimate && !showFlavors) {
+        countryFlavorLabels.forEach(label => map.removeLayer(label));
+        countryFlavorLabels = [];
+        console.log('All country labels hidden');
+        return;
+    }
+
+    // Otherwise, re-render labels with updated toggle states
+    addFlavorLabelsToCountries();
 }
 
 function capitalizeFirstLetter(string) {
@@ -352,13 +395,24 @@ function setupClimateButtons() {
     climateButtons.forEach(button => {
         button.addEventListener('click', function(e) {
             e.stopPropagation(); // Prevent event bubbling
+            e.preventDefault(); // Prevent default behavior
 
             const countryName = this.getAttribute('data-country');
             const countryCode = this.getAttribute('data-code');
             const lat = parseFloat(this.getAttribute('data-lat'));
             const lng = parseFloat(this.getAttribute('data-lng'));
 
+            console.log('Climate button clicked:', countryName);
+
             showWeatherPopup(countryName, countryCode, L.latLng(lat, lng));
+        });
+
+        // Also prevent mousedown/mouseup from propagating
+        button.addEventListener('mousedown', function(e) {
+            e.stopPropagation();
+        });
+        button.addEventListener('mouseup', function(e) {
+            e.stopPropagation();
         });
     });
 
@@ -595,8 +649,20 @@ function createOriginMarker(origin) {
     const coordKey = `${origin.latitude.toFixed(4)},${origin.longitude.toFixed(4)}`;
     const defaultColor = getOriginDefaultColor(coordKey);
 
+    // Scale radius based on product count
+    // 1 product = 6px, 2-3 = 8px, 4-5 = 10px, 6+ = 12px
+    let radius = 6;
+    const productCount = origin.productCount || 1;
+    if (productCount >= 6) {
+        radius = 12;
+    } else if (productCount >= 4) {
+        radius = 10;
+    } else if (productCount >= 2) {
+        radius = 8;
+    }
+
     const marker = L.circleMarker([origin.latitude, origin.longitude], {
-        radius: 6,
+        radius: radius,
         fillColor: defaultColor,
         color: '#2F4F2F',
         weight: 2,
@@ -716,15 +782,11 @@ function displayProductsPopup(origin, products) {
         // Brand name at the top with brand color
         content += `<div style="color: ${brandColor}; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px;">${brandName}</div>`;
 
-        // Product name
-        if (productUrl !== '#') {
-            content += `<a href="${productUrl}" target="_blank" style="color: #6B4423; text-decoration: none; font-weight: 500; display: block;">${productName}</a>`;
-        } else {
-            content += `<div style="color: #6B4423; font-weight: 500;">${productName}</div>`;
-        }
+        // Product name with detail link
+        content += `<a href="/product-detail.html?id=${product.id}" style="color: #6B4423; text-decoration: none; font-weight: 500; display: block;">${productName}</a>`;
 
         // Product details
-        content += `<div style="margin-top: 4px;">`;
+        content += `<div style="margin-top: 4px; display: flex; align-items: center; gap: 8px;">`;
         content += `<small style="color: #666;">Price: ${price}</small>`;
 
         if (product.process) {

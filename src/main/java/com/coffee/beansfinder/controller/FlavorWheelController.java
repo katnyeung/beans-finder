@@ -35,8 +35,12 @@ public class FlavorWheelController {
 
     @GetMapping("/data")
     @Operation(summary = "Get complete flavor wheel hierarchy",
-               description = "Returns all SCA categories with their flavors and product counts for visualization")
+               description = "Returns all SCA categories with their flavors and product counts for visualization (served from static cache)")
     public ResponseEntity<Map<String, Object>> getFlavorWheelData() {
+        // NOTE: This endpoint now uses static cache file (flavor-wheel-data.json)
+        // Frontend should load from /cache/flavor-wheel-data.json directly (zero Neo4j queries)
+        // This fallback is kept for API compatibility
+
         // Single efficient query - returns raw map data
         List<Map<String, Object>> allFlavorData = flavorNodeRepository.findAllFlavorsWithProductCountsAsMap();
 

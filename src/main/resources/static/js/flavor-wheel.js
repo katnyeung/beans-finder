@@ -32,9 +32,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Load flavor wheel hierarchy data
 async function loadFlavorWheelData() {
-    const response = await fetch(`${API_BASE}/data`);
+    // Try static cache file first (no Neo4j queries!)
+    let response = await fetch('/cache/flavor-wheel-data.json');
+
     if (!response.ok) {
-        throw new Error('Failed to fetch flavor wheel data');
+        // Fallback to API if cache doesn't exist
+        console.warn('Flavor wheel cache file not found, falling back to API');
+        response = await fetch(`${API_BASE}/data`);
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch flavor wheel data');
+        }
+    } else {
+        console.log('Loaded flavor wheel data from cache (no Neo4j queries)');
     }
 
     flavorWheelData = await response.json();
@@ -576,7 +586,7 @@ function renderProducts(products) {
     tbody.innerHTML = '';
 
     if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No products found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No products found</td></tr>';
         return;
     }
 
@@ -602,18 +612,20 @@ function renderProducts(products) {
             flavors = product.flavors.map(f => f.name).filter(n => n);
         }
 
-        // Create product name with link if URL exists
-        let productNameHtml;
-        if (product.sellerUrl) {
-            productNameHtml = `<a href="${escapeHtml(product.sellerUrl)}" target="_blank" rel="noopener noreferrer" class="product-link">${escapeHtml(product.productName || 'N/A')}</a>`;
-        } else {
-            productNameHtml = `<strong>${escapeHtml(product.productName || 'N/A')}</strong>`;
+        // Create product name with detail link
+        const productNameHtml = `<a href="/product-detail.html?id=${product.productId}" class="product-link">${escapeHtml(product.productName || 'N/A')}</a>`;
+
+        // Extract roast level
+        let roastLevel = 'N/A';
+        if (product.roastLevel && product.roastLevel.level) {
+            roastLevel = product.roastLevel.level;
         }
 
         row.innerHTML = `
             <td>${productNameHtml}</td>
             <td>${escapeHtml(brand)}</td>
             <td>${escapeHtml(originText)}</td>
+            <td>${escapeHtml(roastLevel)}</td>
             <td class="flavors-cell">${flavors.slice(0, 3).map(f => `<span class="flavor-tag">${escapeHtml(f)}</span>`).join(' ')}${flavors.length > 3 ? '...' : ''}</td>
             <td>${product.price ? `${product.currency || '£'}${product.price}` : 'N/A'}</td>
         `;
