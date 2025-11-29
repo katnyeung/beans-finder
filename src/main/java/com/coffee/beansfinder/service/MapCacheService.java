@@ -6,16 +6,18 @@ import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.graph.node.OriginNode;
 import com.coffee.beansfinder.graph.node.ProducerNode;
-import com.coffee.beansfinder.graph.repository.FlavorNodeRepository;
 import com.coffee.beansfinder.graph.repository.OriginNodeRepository;
 import com.coffee.beansfinder.graph.repository.ProducerNodeRepository;
+import com.coffee.beansfinder.graph.repository.TastingNoteNodeRepository;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
 import com.coffee.beansfinder.repository.CoffeeProductRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,30 +29,55 @@ import java.util.stream.Collectors;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class MapCacheService {
 
     private final CoffeeBrandRepository brandRepository;
     private final CoffeeProductRepository productRepository;
     private final OriginNodeRepository originNodeRepository;
     private final ProducerNodeRepository producerNodeRepository;
-    private final FlavorNodeRepository flavorNodeRepository;
+    private final TastingNoteNodeRepository tastingNoteNodeRepository;
 
-    // Write to both src and target directories to ensure cache is always fresh
+    // External cache directory (production) - set via application-prod.properties
+    @Value("${cache.external.dir:#{null}}")
+    private String externalCacheDir;
+
+    // Dev directories - write to both src and target
     private static final String CACHE_DIR_SRC = "src/main/resources/static/cache/";
     private static final String CACHE_DIR_TARGET = "target/classes/static/cache/";
+
+    public MapCacheService(CoffeeBrandRepository brandRepository,
+                           CoffeeProductRepository productRepository,
+                           OriginNodeRepository originNodeRepository,
+                           ProducerNodeRepository producerNodeRepository,
+                           TastingNoteNodeRepository tastingNoteNodeRepository) {
+        this.brandRepository = brandRepository;
+        this.productRepository = productRepository;
+        this.originNodeRepository = originNodeRepository;
+        this.producerNodeRepository = producerNodeRepository;
+        this.tastingNoteNodeRepository = tastingNoteNodeRepository;
+    }
+
+    // Cache for product counts by origin (loaded once per rebuild)
+    private Map<String, Long> productCountsByOriginCache;
 
     /**
      * Rebuild all cache files
      */
+    @Transactional(readOnly = true)
     public void rebuildAllCaches() {
         log.info("=== Starting cache rebuild ===");
         long startTime = System.currentTimeMillis();
 
         try {
+            // Pre-load product counts once to avoid repeated findAll() calls
+            preloadProductCounts();
+
             rebuildMapDataCache();
             rebuildFlavorDataCache();
             rebuildFlavorWheelCache();
+
+            // Clear the cache after rebuild
+            productCountsByOriginCache = null;
 
             long duration = System.currentTimeMillis() - startTime;
             log.info("=== Cache rebuild completed in {}ms ===", duration);
@@ -61,7 +88,66 @@ public class MapCacheService {
     }
 
     /**
-     * Rebuild map-data.json cache file (writes to both src and target directories)
+     * Rebuild all cache files asynchronously (called after crawl to avoid blocking)
+     */
+    @Async
+    public void rebuildAllCachesAsync() {
+        log.info("=== Starting ASYNC cache rebuild ===");
+        try {
+            // Small delay to ensure crawl transaction is fully committed
+            Thread.sleep(2000);
+            rebuildAllCaches();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Async cache rebuild interrupted");
+        } catch (Exception e) {
+            log.error("Async cache rebuild failed", e);
+        }
+    }
+
+    /**
+     * Pre-load product counts by origin to avoid N+1 queries
+     */
+    private void preloadProductCounts() {
+        log.info("Pre-loading product counts by origin...");
+        productCountsByOriginCache = new HashMap<>();
+
+        // Load all products once and group by origin+region
+        List<CoffeeProduct> allProducts = productRepository.findAll();
+
+        for (CoffeeProduct product : allProducts) {
+            String origin = product.getOrigin();
+            String region = product.getRegion();
+
+            if (origin == null) continue;
+
+            // Create key for country+region combination
+            String key = createOriginKey(origin, region);
+            productCountsByOriginCache.merge(key, 1L, Long::sum);
+
+            // Also count for country-only (no region)
+            String countryOnlyKey = createOriginKey(origin, null);
+            if (!key.equals(countryOnlyKey)) {
+                // Don't double-count if region is null
+            }
+        }
+
+        log.info("Pre-loaded {} origin keys", productCountsByOriginCache.size());
+    }
+
+    /**
+     * Create a unique key for origin + region combination
+     */
+    private String createOriginKey(String country, String region) {
+        String normalizedCountry = country.toLowerCase().trim();
+        if (region == null || region.trim().isEmpty()) {
+            return normalizedCountry + "::";
+        }
+        return normalizedCountry + "::" + region.toLowerCase().trim();
+    }
+
+    /**
+     * Rebuild map-data.json cache file
      */
     public void rebuildMapDataCache() {
         log.info("Rebuilding map-data.json...");
@@ -70,9 +156,8 @@ public class MapCacheService {
             // Build complete map data using optimized queries
             MapController.CompleteMapData mapData = buildCompleteMapData();
 
-            // Write to both src and target directories
-            writeJsonToFile(mapData, CACHE_DIR_SRC + "map-data.json");
-            writeJsonToFile(mapData, CACHE_DIR_TARGET + "map-data.json");
+            // Write to appropriate directories based on environment
+            writeCacheFile(mapData, "map-data.json");
 
             log.info("Successfully rebuilt map-data.json");
         } catch (Exception e) {
@@ -82,7 +167,7 @@ public class MapCacheService {
     }
 
     /**
-     * Rebuild flavors-by-country.json cache file (writes to both src and target directories)
+     * Rebuild flavors-by-country.json cache file
      */
     public void rebuildFlavorDataCache() {
         log.info("Rebuilding flavors-by-country.json...");
@@ -90,9 +175,8 @@ public class MapCacheService {
         try {
             List<CountryFlavorDTO> flavorData = buildFlavorData();
 
-            // Write to both src and target directories
-            writeJsonToFile(flavorData, CACHE_DIR_SRC + "flavors-by-country.json");
-            writeJsonToFile(flavorData, CACHE_DIR_TARGET + "flavors-by-country.json");
+            // Write to appropriate directories based on environment
+            writeCacheFile(flavorData, "flavors-by-country.json");
 
             log.info("Successfully rebuilt flavors-by-country.json");
         } catch (Exception e) {
@@ -102,7 +186,7 @@ public class MapCacheService {
     }
 
     /**
-     * Rebuild flavor-wheel-data.json cache file (writes to both src and target directories)
+     * Rebuild flavor-wheel-data.json cache file
      */
     public void rebuildFlavorWheelCache() {
         log.info("Rebuilding flavor-wheel-data.json...");
@@ -110,14 +194,31 @@ public class MapCacheService {
         try {
             Map<String, Object> flavorWheelData = buildFlavorWheelData();
 
-            // Write to both src and target directories
-            writeJsonToFile(flavorWheelData, CACHE_DIR_SRC + "flavor-wheel-data.json");
-            writeJsonToFile(flavorWheelData, CACHE_DIR_TARGET + "flavor-wheel-data.json");
+            // Write to appropriate directories based on environment
+            writeCacheFile(flavorWheelData, "flavor-wheel-data.json");
 
             log.info("Successfully rebuilt flavor-wheel-data.json");
         } catch (Exception e) {
             log.error("Failed to rebuild flavor-wheel-data.json", e);
             throw new RuntimeException("Failed to rebuild flavor wheel data cache", e);
+        }
+    }
+
+    /**
+     * Write cache file to appropriate directory based on environment.
+     * In production (externalCacheDir set): writes to external directory only.
+     * In development: writes to both src and target directories.
+     */
+    private void writeCacheFile(Object data, String filename) throws IOException {
+        if (externalCacheDir != null && !externalCacheDir.isEmpty()) {
+            // Production: write to external directory
+            String path = externalCacheDir + filename;
+            writeJsonToFile(data, path);
+            log.info("Wrote cache to external directory: {}", path);
+        } else {
+            // Development: write to both src and target directories
+            writeJsonToFile(data, CACHE_DIR_SRC + filename);
+            writeJsonToFile(data, CACHE_DIR_TARGET + filename);
         }
     }
 
@@ -239,6 +340,7 @@ public class MapCacheService {
 
     /**
      * Build connections between brands, origins, and producers
+     * Optimized: loads all products once and groups by brand
      */
     private List<MapController.ConnectionLine> buildConnections(
             List<MapController.BrandMapData> brands,
@@ -248,39 +350,70 @@ public class MapCacheService {
 
         List<MapController.ConnectionLine> connections = new ArrayList<>();
 
-        // Fetch all products for approved brands in one query
-        List<CoffeeProduct> allProducts = brandIds.isEmpty() ?
-                Collections.emptyList() :
-                productRepository.findByBrandId(brandIds.get(0)); // This needs improvement
-
-        // Group products by brand
-        Map<Long, List<CoffeeProduct>> productsByBrand = new HashMap<>();
-        for (CoffeeProduct product : allProducts) {
-            productsByBrand.computeIfAbsent(product.getBrand().getId(), k -> new ArrayList<>()).add(product);
+        if (brandIds.isEmpty()) {
+            return connections;
         }
+
+        // Load ALL products once (uses the same data from preloadProductCounts)
+        List<CoffeeProduct> allProducts = productRepository.findAll();
+
+        // Group products by brand ID
+        Map<Long, List<CoffeeProduct>> productsByBrand = allProducts.stream()
+                .filter(p -> p.getBrand() != null)
+                .collect(Collectors.groupingBy(p -> p.getBrand().getId()));
 
         // Build connections for each brand
         for (MapController.BrandMapData brand : brands) {
-            List<CoffeeProduct> products = productRepository.findByBrandId(brand.getId());
+            List<CoffeeProduct> products = productsByBrand.getOrDefault(brand.getId(), Collections.emptyList());
 
-            // Brand -> Origins
-            Set<String> originCountries = products.stream()
-                    .map(CoffeeProduct::getOrigin)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+            // Brand -> Origins: Connect to specific regions only
+            // Build set of (country, region) pairs from products
+            Set<String> originKeys = new HashSet<>();
+            Set<String> countriesWithNoRegion = new HashSet<>(); // Countries where brand has products with no region specified
 
-            for (String country : originCountries) {
-                origins.stream()
-                        .filter(origin -> origin.getCountry().equalsIgnoreCase(country))
-                        .forEach(origin -> connections.add(new MapController.ConnectionLine(
-                                "brand-origin",
-                                brand.getId().toString(),
-                                origin.getId(),
-                                brand.getLatitude(),
-                                brand.getLongitude(),
-                                origin.getLatitude(),
-                                origin.getLongitude()
-                        )));
+            for (CoffeeProduct product : products) {
+                String country = product.getOrigin();
+                String region = product.getRegion();
+                if (country != null) {
+                    String countryLower = country.toLowerCase().trim();
+                    if (region != null && !region.trim().isEmpty()) {
+                        // Exact country+region key
+                        String key = countryLower + "::" + region.toLowerCase().trim();
+                        originKeys.add(key);
+                    } else {
+                        // Product has country but no region - track separately
+                        countriesWithNoRegion.add(countryLower);
+                    }
+                }
+            }
+
+            // Connect to matching origins
+            for (MapController.OriginMapData origin : origins) {
+                String originCountry = origin.getCountry().toLowerCase().trim();
+                String originRegion = origin.getRegion();
+
+                boolean shouldConnect = false;
+
+                if (originRegion != null && !originRegion.trim().isEmpty()) {
+                    // Origin has a region - only connect if brand has products from this exact region
+                    String originKey = originCountry + "::" + originRegion.toLowerCase().trim();
+                    shouldConnect = originKeys.contains(originKey);
+                } else {
+                    // Origin has no region (country-level) - connect if brand has products from this country with no region
+                    shouldConnect = countriesWithNoRegion.contains(originCountry);
+                }
+
+                if (shouldConnect) {
+                    connections.add(new MapController.ConnectionLine(
+                            "brand-origin",
+                            brand.getId().toString(),
+                            origin.getId(),
+                            brand.getLatitude(),
+                            brand.getLongitude(),
+                            origin.getLatitude(),
+                            origin.getLongitude()
+                    ));
+                }
             }
 
             // Origins -> Producers
@@ -293,7 +426,8 @@ public class MapCacheService {
             for (String producerName : producerNames) {
                 producers.stream()
                         .filter(producer -> producer.getName().toLowerCase().contains(producerName.toLowerCase()))
-                        .forEach(producer -> {
+                        .findFirst() // Only one connection per producer
+                        .ifPresent(producer -> {
                             origins.stream()
                                     .filter(origin -> origin.getCountry().equalsIgnoreCase(producer.getCountry()))
                                     .findFirst()
@@ -314,10 +448,10 @@ public class MapCacheService {
     }
 
     /**
-     * Build flavor data
+     * Build flavor data (uses TastingNoteNode 4-tier hierarchy)
      */
     private List<CountryFlavorDTO> buildFlavorData() {
-        List<Map<String, Object>> rawData = flavorNodeRepository.findTopFlavorsByCountry();
+        List<Map<String, Object>> rawData = tastingNoteNodeRepository.findTopTastingNotesByCountry();
         List<CountryFlavorDTO> result = new ArrayList<>();
 
         for (Map<String, Object> dataMap : rawData) {
@@ -368,29 +502,16 @@ public class MapCacheService {
 
     /**
      * Count products from a specific origin by matching country AND region EXACTLY.
+     * Uses pre-loaded cache to avoid N+1 queries.
      */
     private long countProductsFromOrigin(String country, String region) {
-        return productRepository.findAll().stream()
-                .filter(p -> {
-                    // Match country
-                    if (!country.equalsIgnoreCase(p.getOrigin())) {
-                        return false;
-                    }
+        if (productCountsByOriginCache == null) {
+            log.warn("Product counts cache not initialized, returning 0");
+            return 0;
+        }
 
-                    // If origin has no region, count all products from this country with no region
-                    if (region == null || region.trim().isEmpty()) {
-                        return p.getRegion() == null || p.getRegion().trim().isEmpty();
-                    }
-
-                    // Match region - EXACT match only (case-insensitive)
-                    String productRegion = p.getRegion();
-                    if (productRegion == null) {
-                        return false;
-                    }
-
-                    return region.equalsIgnoreCase(productRegion);
-                })
-                .count();
+        String key = createOriginKey(country, region);
+        return productCountsByOriginCache.getOrDefault(key, 0L);
     }
 
     /**
@@ -471,13 +592,13 @@ public class MapCacheService {
     }
 
     /**
-     * Build flavor wheel data (same logic as FlavorWheelController.getFlavorWheelData())
+     * Build flavor wheel data (uses TastingNoteNode 4-tier hierarchy)
      */
     private Map<String, Object> buildFlavorWheelData() {
         log.info("Building flavor wheel data...");
 
-        // Single efficient query - returns raw map data
-        List<Map<String, Object>> allFlavorData = flavorNodeRepository.findAllFlavorsWithProductCountsAsMap();
+        // Single efficient query - returns raw map data from TastingNoteNode hierarchy
+        List<Map<String, Object>> allFlavorData = tastingNoteNodeRepository.findAllTastingNotesWithProductCountsAsMap();
 
         // Group by category
         Map<String, List<Map<String, Object>>> categoryMap = new HashMap<>();

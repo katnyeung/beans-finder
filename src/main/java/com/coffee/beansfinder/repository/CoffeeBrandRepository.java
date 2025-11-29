@@ -49,4 +49,9 @@ public interface CoffeeBrandRepository extends JpaRepository<CoffeeBrand, Long> 
      * Find brands by country
      */
     List<CoffeeBrand> findByCountry(String country);
+
+    /**
+     * Check if brand exists by website URL
+     */
+    boolean existsByWebsite(String website);
 }

@@ -14,6 +14,7 @@ let brandColors = {}; // Maps brand ID to unique color
 let countryToOrigins = {}; // Maps country name to origin markers
 let countryNameToCode = {}; // Maps country names to ISO codes
 let countryFlavorLabels = []; // Store flavor label markers
+let connectionLines = []; // Store connection lines (brand → origin)
 
 // State tracking
 let currentlySelectedBrand = null;
@@ -103,11 +104,40 @@ function setupEventListeners() {
         updateFlavorLabelsVisibility();
     });
 
-    // Remove the connections button handler as we no longer use connection lines
+    // Show Connections toggle - controls whether lines are drawn on brand click
     const connectionsBtn = document.getElementById('filter-connections');
     if (connectionsBtn) {
-        connectionsBtn.style.display = 'none'; // Hide the connections toggle
+        connectionsBtn.addEventListener('click', function() {
+            this.classList.toggle('active');
+            const isActive = this.classList.contains('active');
+            this.textContent = isActive ? 'Hide Connections' : 'Show Connections';
+
+            // If turning off connections, clear any existing lines
+            if (!isActive) {
+                clearConnectionLines();
+            } else if (currentlySelectedBrand) {
+                // If turning on and brand is selected, draw lines
+                drawBrandConnectionLines(currentlySelectedBrand);
+            }
+        });
     }
+
+    // Click on map to deselect brand and clear connections
+    map.on('click', function(e) {
+        // Only deselect if clicking on the map background (not on a marker)
+        if (e.originalEvent.target === map.getContainer().querySelector('.leaflet-tile-pane') ||
+            e.originalEvent.target.classList.contains('leaflet-container')) {
+            if (currentlySelectedBrand !== null) {
+                const prevBrand = brandMarkers.find(b => b.data.id === currentlySelectedBrand);
+                if (prevBrand) {
+                    updateBrandMarkerSize(prevBrand.marker, 16, 2);
+                }
+                currentlySelectedBrand = null;
+                resetOriginColors();
+                clearConnectionLines();
+            }
+        }
+    });
 }
 
 async function loadCountryBoundaries() {
@@ -559,10 +589,12 @@ function createBrandMarker(brand) {
     marker.brandColor = brandColor;
 
     const popupContent = `
-        <div class="popup-title">☕ ${brand.name}</div>
+        <div class="popup-title">
+            <a href="/products.html?brandId=${brand.id}" class="popup-link" style="color: #005F73; text-decoration: none;">☕ ${brand.name}</a>
+        </div>
         <div class="popup-info">
             <strong>Country:</strong> ${brand.country || 'Unknown'}<br>
-            <strong>Products:</strong> ${brand.productCount}<br>
+            <strong>Products:</strong> <a href="/products.html?brandId=${brand.id}" class="popup-link">${brand.productCount}</a><br>
             ${brand.website ? `<a href="${brand.website}" target="_blank" class="popup-link">Visit Website →</a>` : ''}
         </div>
     `;
@@ -586,11 +618,15 @@ function createBrandMarker(brand) {
         }
     });
 
-    marker.on('click', function() {
+    marker.on('click', function(e) {
+        // Stop event propagation to prevent map click handler
+        L.DomEvent.stopPropagation(e);
+
         // Toggle selection
         if (currentlySelectedBrand === brand.id) {
             currentlySelectedBrand = null;
             resetOriginColors();
+            clearConnectionLines();
             updateBrandMarkerSize(marker, 16, 2);
         } else {
             // Reset previous selection
@@ -602,6 +638,8 @@ function createBrandMarker(brand) {
             }
             currentlySelectedBrand = brand.id;
             highlightBrandOrigins(brand.id);
+            // Draw connection lines if toggle is active
+            drawBrandConnectionLines(brand.id);
             // Make selected brand marker more prominent
             updateBrandMarkerSize(marker, 20, 3);
         }
@@ -642,6 +680,96 @@ function highlightBrandOrigins(brandId) {
             }
         }
     });
+}
+
+/**
+ * Draw curved connection lines from a brand to all its coffee origins
+ */
+function drawBrandConnectionLines(brandId) {
+    // Check if connections toggle is active
+    const connectionsBtn = document.getElementById('filter-connections');
+    if (!connectionsBtn || !connectionsBtn.classList.contains('active')) {
+        return;
+    }
+
+    // Clear any existing lines first
+    clearConnectionLines();
+
+    const brand = brandMarkers.find(b => b.data.id === brandId);
+    if (!brand) return;
+
+    const brandColor = brandColors[brandId];
+    const brandLatLng = [brand.data.latitude, brand.data.longitude];
+    const originCoords = brandToOrigins[brandId] || new Set();
+
+    // Draw line to each origin
+    originCoords.forEach(coordKey => {
+        const [lat, lng] = coordKey.split(',').map(parseFloat);
+
+        // Create a curved line using a bezier-like path
+        const line = createCurvedLine(brandLatLng, [lat, lng], brandColor);
+        line.addTo(map);
+        connectionLines.push(line);
+    });
+}
+
+/**
+ * Create a curved line between two points using intermediate points
+ */
+function createCurvedLine(startLatLng, endLatLng, color) {
+    // Calculate midpoint and offset it for curve effect
+    const midLat = (startLatLng[0] + endLatLng[0]) / 2;
+    const midLng = (startLatLng[1] + endLatLng[1]) / 2;
+
+    // Calculate distance for curve amplitude
+    const latDiff = Math.abs(startLatLng[0] - endLatLng[0]);
+    const lngDiff = Math.abs(startLatLng[1] - endLatLng[1]);
+    const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+
+    // Curve offset perpendicular to line (scaled by distance)
+    const curveOffset = distance * 0.15;
+
+    // Determine curve direction (perpendicular to the line)
+    const angle = Math.atan2(endLatLng[0] - startLatLng[0], endLatLng[1] - startLatLng[1]);
+    const perpAngle = angle + Math.PI / 2;
+
+    const controlLat = midLat + Math.sin(perpAngle) * curveOffset;
+    const controlLng = midLng + Math.cos(perpAngle) * curveOffset;
+
+    // Create smooth curve with multiple points
+    const curvePoints = [];
+    const steps = 20;
+
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        // Quadratic bezier curve formula
+        const lat = Math.pow(1 - t, 2) * startLatLng[0] +
+                    2 * (1 - t) * t * controlLat +
+                    Math.pow(t, 2) * endLatLng[0];
+        const lng = Math.pow(1 - t, 2) * startLatLng[1] +
+                    2 * (1 - t) * t * controlLng +
+                    Math.pow(t, 2) * endLatLng[1];
+        curvePoints.push([lat, lng]);
+    }
+
+    // Create polyline with the curved points
+    return L.polyline(curvePoints, {
+        color: color,
+        weight: 2,
+        opacity: 0.7,
+        dashArray: '5, 5', // Dashed line for visual appeal
+        className: 'connection-line'
+    });
+}
+
+/**
+ * Clear all connection lines from the map
+ */
+function clearConnectionLines() {
+    connectionLines.forEach(line => {
+        map.removeLayer(line);
+    });
+    connectionLines = [];
 }
 
 function createOriginMarker(origin) {
@@ -765,7 +893,7 @@ async function showOriginProducts(origin) {
 function displayProductsPopup(origin, products) {
     // Create popup content with products
     let content = `<div style="max-height: 400px; overflow-y: auto; min-width: 300px;">`;
-    content += `<h3 style="color: #6B4423; margin-bottom: 10px;">☕ Products from ${origin.region || origin.country}</h3>`;
+    content += `<h3 style="color: #005F73; margin-bottom: 10px;">☕ Products from ${origin.region || origin.country}</h3>`;
     content += `<div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">Total: ${products.length} product${products.length !== 1 ? 's' : ''}</div>`;
 
     products.forEach(product => {
@@ -783,7 +911,7 @@ function displayProductsPopup(origin, products) {
         content += `<div style="color: ${brandColor}; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px;">${brandName}</div>`;
 
         // Product name with detail link
-        content += `<a href="/product-detail.html?id=${product.id}" style="color: #6B4423; text-decoration: none; font-weight: 500; display: block;">${productName}</a>`;
+        content += `<a href="/product-detail.html?id=${product.id}" style="color: #005F73; text-decoration: none; font-weight: 500; display: block;">${productName}</a>`;
 
         // Product details
         content += `<div style="margin-top: 4px; display: flex; align-items: center; gap: 8px;">`;
@@ -812,7 +940,7 @@ function displayProductsPopup(origin, products) {
 
 function getBrandColorByName(brandName) {
     // Find brand color by name
-    if (!mapData.brands) return '#6B4423';
+    if (!mapData.brands) return '#005F73';
 
     const brand = mapData.brands.find(b => b.name === brandName);
     if (brand && brandColors[brand.id]) {
@@ -820,7 +948,7 @@ function getBrandColorByName(brandName) {
     }
 
     // Fallback color
-    return '#6B4423';
+    return '#005F73';
 }
 
 function createProducerMarker(producer) {
@@ -886,6 +1014,7 @@ function clearMapLayers() {
     brandMarkers.forEach(m => map.removeLayer(m.marker));
     originMarkers.forEach(m => map.removeLayer(m.marker));
     producerMarkers.forEach(m => map.removeLayer(m.marker));
+    clearConnectionLines();
 
     brandMarkers = [];
     originMarkers = [];
@@ -1198,7 +1327,7 @@ function createWeatherChart(canvas, weatherData, metric) {
                         size: 16,
                         weight: 'bold'
                     },
-                    color: '#6B4423'
+                    color: '#005F73'
                 },
                 tooltip: {
                     mode: 'index',
@@ -1219,7 +1348,7 @@ function createWeatherChart(canvas, weatherData, metric) {
                     title: {
                         display: true,
                         text: getMetricUnit(metric),
-                        color: '#6B4423'
+                        color: '#005F73'
                     },
                     grid: {
                         color: 'rgba(0,0,0,0.1)'
@@ -1229,7 +1358,7 @@ function createWeatherChart(canvas, weatherData, metric) {
                     title: {
                         display: true,
                         text: 'Month',
-                        color: '#6B4423'
+                        color: '#005F73'
                     },
                     grid: {
                         display: false

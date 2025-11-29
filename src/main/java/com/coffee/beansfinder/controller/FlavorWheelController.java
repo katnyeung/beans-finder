@@ -1,11 +1,10 @@
 package com.coffee.beansfinder.controller;
 
 import com.coffee.beansfinder.dto.FlavorCountDTO;
-import com.coffee.beansfinder.graph.node.FlavorNode;
 import com.coffee.beansfinder.graph.node.ProductNode;
-import com.coffee.beansfinder.graph.repository.FlavorNodeRepository;
 import com.coffee.beansfinder.graph.repository.ProductNodeRepository;
 import com.coffee.beansfinder.graph.repository.SCACategoryRepository;
+import com.coffee.beansfinder.graph.repository.TastingNoteNodeRepository;
 import com.coffee.beansfinder.service.SCAFlavorWheelService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,7 +24,7 @@ public class FlavorWheelController {
     private ProductNodeRepository productNodeRepository;
 
     @Autowired
-    private FlavorNodeRepository flavorNodeRepository;
+    private TastingNoteNodeRepository tastingNoteNodeRepository;
 
     @Autowired
     private SCACategoryRepository scaCategoryRepository;
@@ -41,8 +40,8 @@ public class FlavorWheelController {
         // Frontend should load from /cache/flavor-wheel-data.json directly (zero Neo4j queries)
         // This fallback is kept for API compatibility
 
-        // Single efficient query - returns raw map data
-        List<Map<String, Object>> allFlavorData = flavorNodeRepository.findAllFlavorsWithProductCountsAsMap();
+        // Single efficient query - returns raw map data from TastingNoteNode 4-tier hierarchy
+        List<Map<String, Object>> allFlavorData = tastingNoteNodeRepository.findAllTastingNotesWithProductCountsAsMap();
 
         System.out.println("=== FLAVOR WHEEL DATA DEBUG ===");
         System.out.println("Total rows returned: " + allFlavorData.size());
@@ -220,8 +219,8 @@ public class FlavorWheelController {
     @Operation(summary = "Debug endpoint - see raw flavor data",
                description = "Returns raw flavor data from repository for debugging")
     public ResponseEntity<Map<String, Object>> debugRawFlavorData() {
-        // Return raw map data directly from query
-        List<Map<String, Object>> rawData = flavorNodeRepository.findAllFlavorsWithProductCountsAsMap();
+        // Return raw map data directly from query (TastingNoteNode 4-tier hierarchy)
+        List<Map<String, Object>> rawData = tastingNoteNodeRepository.findAllTastingNotesWithProductCountsAsMap();
 
         // Log first item for debugging
         if (!rawData.isEmpty()) {
@@ -343,7 +342,7 @@ public class FlavorWheelController {
 
         String normalizedFlavor = flavor.toLowerCase();
 
-        List<Map<String, Object>> rawData = flavorNodeRepository.findCorrelatedFlavors(normalizedFlavor);
+        List<Map<String, Object>> rawData = tastingNoteNodeRepository.findCorrelatedTastingNotes(normalizedFlavor);
 
         List<Map<String, Object>> correlations = new ArrayList<>();
         for (Map<String, Object> row : rawData) {

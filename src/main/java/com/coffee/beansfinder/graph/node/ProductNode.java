@@ -41,9 +41,13 @@ public class ProductNode {
     @Builder.Default
     private Set<ProcessNode> processes = new HashSet<>();
 
-    @Relationship(type = "HAS_FLAVOR", direction = Relationship.Direction.OUTGOING)
+    /**
+     * 4-tier SCA Flavor Wheel hierarchy relationship (Tier 4 - raw tasting notes)
+     * Product -> TastingNote -> Attribute -> Subcategory -> SCACategory
+     */
+    @Relationship(type = "HAS_TASTING_NOTE", direction = Relationship.Direction.OUTGOING)
     @Builder.Default
-    private Set<FlavorNode> flavors = new HashSet<>();
+    private Set<TastingNoteNode> tastingNotes = new HashSet<>();
 
     @Relationship(type = "ROASTED_AT", direction = Relationship.Direction.OUTGOING)
     private RoastLevelNode roastLevel;

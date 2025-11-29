@@ -186,7 +186,7 @@ function renderFlavorGrid() {
     const centerItem = {
         type: 'center',
         label: 'SCA Wheel',
-        color: '#6B4423',
+        color: '#005F73',
         opacity: 1,
         span: 1,
         onClick: null
@@ -606,10 +606,10 @@ function renderProducts(products) {
         }
         const originText = origins.length > 0 ? origins.join(', ') : 'N/A';
 
-        // Extract flavors from relationships
+        // Extract flavors from tastingNotes (4-tier hierarchy)
         let flavors = [];
-        if (product.flavors && Array.isArray(product.flavors)) {
-            flavors = product.flavors.map(f => f.name).filter(n => n);
+        if (product.tastingNotes && Array.isArray(product.tastingNotes)) {
+            flavors = product.tastingNotes.map(tn => tn.rawText || tn.id).filter(n => n);
         }
 
         // Create product name with detail link

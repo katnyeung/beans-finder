@@ -1,5 +1,6 @@
 package com.coffee.beansfinder.controller;
 
+import com.coffee.beansfinder.dto.CrawlSummary;
 import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
@@ -56,19 +57,21 @@ public class CrawlerController {
     }
 
     /**
-     * Crawl all products from brand's sitemap using Perplexity AI
+     * Crawl all products from brand's sitemap using incremental hash-based change detection.
+     * Only calls OpenAI for new or changed products, saving API costs.
+     *
      * @param brandId The brand ID to crawl products for
-     * @return Summary of the crawling operation
+     * @return CrawlSummary with stats on new/updated/unchanged/deleted products
      */
     @Operation(
-        summary = "Crawl all products from sitemap",
-        description = "Fetches the brand's sitemap.xml, extracts all product URLs, and uses Perplexity AI to extract data for each product"
+        summary = "Crawl all products from sitemap (incremental)",
+        description = "Fetches the brand's sitemap.xml, extracts all product URLs, and uses hash-based change detection to only process new or changed products. Returns summary with new/updated/unchanged/deleted counts and API cost saved."
     )
     @PostMapping("/crawl-from-sitemap")
     public ResponseEntity<?> crawlFromSitemap(
             @Parameter(description = "Brand ID") @RequestParam Long brandId) {
 
-        log.info("Sitemap crawl requested for Brand ID: {}", brandId);
+        log.info("Incremental sitemap crawl requested for Brand ID: {}", brandId);
 
         // Validate brand exists
         CoffeeBrand brand = brandRepository.findById(brandId)
@@ -81,16 +84,12 @@ public class CrawlerController {
         }
 
         try {
-            log.info("Starting sitemap crawl for brand: {} using sitemap: {}",
+            log.info("Starting incremental sitemap crawl for brand: {} using sitemap: {}",
                      brand.getName(), brand.getSitemapUrl());
 
-            crawlerService.crawlBrandFromSitemap(brand);
+            CrawlSummary summary = crawlerService.crawlBrandFromSitemap(brand);
 
-            return ResponseEntity.ok(new SitemapCrawlResponse(
-                    "Sitemap crawl initiated for " + brand.getName(),
-                    brand.getSitemapUrl(),
-                    "Check logs for detailed progress"
-            ));
+            return ResponseEntity.ok(summary);
 
         } catch (Exception e) {
             log.error("Unexpected error crawling from sitemap: {}", e.getMessage(), e);

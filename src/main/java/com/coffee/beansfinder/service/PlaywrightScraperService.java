@@ -138,6 +138,31 @@ public class PlaywrightScraperService {
                             });
                         });
 
+                        // Remove hidden elements (hidden attribute, display:none, visibility:hidden)
+                        document.querySelectorAll('[hidden], [style*="display: none"], [style*="display:none"]').forEach(el => {
+                            try {
+                                if (el.parentNode) {
+                                    el.parentNode.removeChild(el);
+                                }
+                            } catch (e) {
+                                // Element already removed, ignore
+                            }
+                        });
+
+                        // Also remove elements with computed style hidden
+                        document.querySelectorAll('*').forEach(el => {
+                            try {
+                                const style = window.getComputedStyle(el);
+                                if (style.display === 'none' || style.visibility === 'hidden') {
+                                    if (el.parentNode) {
+                                        el.parentNode.removeChild(el);
+                                    }
+                                }
+                            } catch (e) {
+                                // Ignore errors
+                            }
+                        });
+
                         // Try to find main product container
                         const selectors = [
                             'main',

@@ -3,18 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coffee Brands - Coffee Finder</title>
+    <title>Coffee Brands - Graphee.link</title>
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <h1>☕ Coffee Finder</h1>
+                <a href="/" class="logo-link">
+                    <img src="/graphee_logo.png" alt="Graphee.link" class="nav-logo">
+                    <span class="brand-name">Graphee.link</span>
+                </a>
                 <p class="tagline">Discover Specialty Coffee</p>
             </div>
             <div class="nav-links">
                 <a href="/">Home</a>
+                <a href="/chat.html">Chat</a>
                 <a href="/brands.html" class="active">Brands</a>
                 <a href="/flavor-wheel.html">Flavor Wheel</a>
                 <a href="/map.html">Map</a>
@@ -25,34 +31,58 @@
     <main class="container">
         <div class="page-header">
             <h2>Coffee Brands</h2>
-            <p>Ask the AI chatbot to find your perfect coffee</p>
+            <p>Browse specialty coffee roasters and their products</p>
         </div>
 
-        <!-- AI Chat Search Interface -->
-        <div class="chat-search-container">
-            <div class="chat-search-header">
-                <h3>☕ Ask AI to Find Coffee</h3>
-                <button id="chat-clear-btn" class="btn-clear-inline" title="Clear conversation">🔄 Clear</button>
-            </div>
-
-            <div id="chat-messages" class="chat-messages-inline">
-                <div class="chat-message bot-message">
-                    <div class="message-text">
-                        Ask me anything! Try: "Show me fruity Ethiopian coffees" or "Find something more bitter"
-                    </div>
+        <!-- New Products Section (Collapsible) -->
+        <div id="new-products-section" class="new-products-section-compact" style="display: none;">
+            <div class="section-header-compact" onclick="toggleNewProducts()">
+                <div class="section-title">
+                    <span class="collapse-icon" id="collapse-icon">▼</span>
+                    <h3>🆕 New This Week</h3>
+                    <span id="new-products-count" class="badge-small"></span>
                 </div>
             </div>
-
-            <div class="chat-input-inline-container">
-                <textarea id="chat-input" placeholder="e.g., 'Show me fruity coffees under £15'" rows="2"></textarea>
-                <button id="chat-send-btn" class="btn-send-inline">Send</button>
+            <div id="new-products-container" class="new-products-scroll">
+                <!-- New products will be loaded here -->
             </div>
+        </div>
+
+        <!-- Search and Actions Toolbar -->
+        <div class="brands-toolbar">
+            <div class="search-container">
+                <input type="text" id="product-search" class="search-input" placeholder="Search products by name...">
+            </div>
+            <div class="brands-toolbar-buttons">
+                <a href="/chat.html" class="btn-ai-chat">Ask AI</a>
+                <button id="suggest-brand-btn" class="btn-suggest-brand">+ Suggest Brand</button>
+            </div>
+        </div>
+
+        <!-- Search Results (hidden by default) -->
+        <div id="search-results" class="table-container" style="display: none;">
+            <h3 id="search-results-title"></h3>
+            <table class="data-table" id="searchResultsTable">
+                <thead>
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Brand</th>
+                        <th>Origin</th>
+                        <th>Roast</th>
+                        <th>Price</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="searchResultsContainer">
+                </tbody>
+            </table>
         </div>
 
         <div id="loading" class="loading" style="display: none;">Loading brands...</div>
         <div id="error" class="error" style="display: none;"></div>
 
-        <div class="table-container">
+        <!-- Brands Table -->
+        <div id="brands-section" class="table-container">
             <table class="data-table" id="brandsTable">
                 <thead>
                     <tr>
@@ -68,11 +98,35 @@
                     </tr>
                 </thead>
                 <tbody id="brandsContainer">
-                    <!-- Brands will be loaded here -->
                 </tbody>
             </table>
         </div>
     </main>
+
+    <!-- Suggest Brand Modal -->
+    <div id="suggest-brand-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Suggest a Coffee Brand</h3>
+                <button class="modal-close" onclick="closeSuggestModal()">&times;</button>
+            </div>
+            <form id="suggest-brand-form">
+                <div class="form-group">
+                    <label for="brand-name">Brand Name *</label>
+                    <input type="text" id="brand-name" required placeholder="e.g., Hasbean Coffee">
+                </div>
+                <div class="form-group">
+                    <label for="brand-url">Website URL *</label>
+                    <input type="url" id="brand-url" required placeholder="https://example.com">
+                </div>
+                <div class="recaptcha-container">
+                    <div class="g-recaptcha" data-sitekey="6Le-OBssAAAAAEGS9EaSX1INLe9JwEwmehAThPqK"></div>
+                </div>
+                <button type="submit" id="submit-suggestion-btn" class="btn-submit-suggestion">Submit Suggestion</button>
+                <div id="form-message" class="form-message" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
 
     <footer>
         <div class="container">
@@ -81,6 +135,5 @@
     </footer>
 
     <script src="/js/brands.js"></script>
-    <script src="/js/chatbot.js"></script>
 </body>
 </html>

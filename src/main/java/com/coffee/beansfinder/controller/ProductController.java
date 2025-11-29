@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -39,6 +40,54 @@ public class ProductController {
     }
 
     /**
+     * Get new products (created in the last N days)
+     */
+    @Operation(
+        summary = "Get new products",
+        description = "Returns products that were first discovered/added within the specified number of days"
+    )
+    @GetMapping("/new")
+    public List<NewProductDTO> getNewProducts(
+            @Parameter(description = "Number of days to look back (default: 7)")
+            @RequestParam(defaultValue = "7") int days) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
+        log.info("Fetching products created after: {}", cutoff);
+        List<CoffeeProduct> products = productRepository.findByCreatedDateAfter(cutoff);
+
+        return products.stream()
+                .filter(p -> p.getBrand() != null)
+                .map(p -> new NewProductDTO(
+                        p.getId(),
+                        p.getProductName(),
+                        p.getBrand().getId(),
+                        p.getBrand().getName(),
+                        p.getOrigin(),
+                        p.getRoastLevel(),
+                        p.getPrice(),
+                        p.getPriceVariantsJson(),
+                        p.getCurrency(),
+                        p.getCreatedDate()
+                ))
+                .toList();
+    }
+
+    /**
+     * Get recently updated products (updated in the last N days)
+     */
+    @Operation(
+        summary = "Get recently updated products",
+        description = "Returns products that were updated within the specified number of days"
+    )
+    @GetMapping("/updated")
+    public List<CoffeeProduct> getRecentlyUpdatedProducts(
+            @Parameter(description = "Number of days to look back (default: 7)")
+            @RequestParam(defaultValue = "7") int days) {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
+        log.info("Fetching products updated after: {}", cutoff);
+        return productRepository.findByLastUpdateDateAfter(cutoff);
+    }
+
+    /**
      * Get product by ID with brand information
      */
     @GetMapping("/{id}")
@@ -61,6 +110,7 @@ public class ProductController {
                             product.getScaFlavorsJson(),
                             product.getSellerUrl(),
                             product.getPrice(),
+                            product.getPriceVariantsJson(),
                             product.getCurrency(),
                             product.getInStock(),
                             product.getRawDescription()
@@ -87,22 +137,69 @@ public class ProductController {
     }
 
     /**
+     * Search products by name
+     */
+    @Operation(
+        summary = "Search products by name",
+        description = "Search products by name (case-insensitive partial match)"
+    )
+    @GetMapping("/search")
+    public List<ProductSearchResultDTO> searchProductsByName(
+            @Parameter(description = "Search query") @RequestParam String query,
+            @Parameter(description = "Maximum results to return") @RequestParam(defaultValue = "20") int limit) {
+
+        if (query == null || query.trim().length() < 2) {
+            return List.of();
+        }
+
+        log.info("Searching products for: '{}' (limit: {})", query, limit);
+
+        List<CoffeeProduct> products = productRepository.findByProductNameContainingIgnoreCase(query.trim());
+
+        return products.stream()
+                .filter(p -> p.getBrand() != null)
+                .limit(limit)
+                .map(product -> new ProductSearchResultDTO(
+                        product.getId(),
+                        product.getProductName(),
+                        product.getBrand().getName(),
+                        product.getBrand().getId(),
+                        product.getOrigin(),
+                        product.getRoastLevel(),
+                        product.getPrice(),
+                        product.getPriceVariantsJson(),
+                        product.getCurrency(),
+                        product.getInStock()
+                ))
+                .toList();
+    }
+
+    /**
      * Get products by origin (region or country) with brand information (for map display).
-     * First tries to match by region (exact match), then falls back to country.
+     * Search order:
+     * 1. Exact region match (case-insensitive)
+     * 2. Partial region match (case-insensitive, for "Lintong, Sumatra" matching "Lintong")
+     * 3. Exact country match (case-insensitive)
      */
     @GetMapping("/origin/{origin}/with-brand")
     public List<ProductWithBrandDTO> getProductsByOriginWithBrand(@PathVariable String origin) {
         List<CoffeeProduct> products;
 
-        // Try searching by region first (for specific origins like "Santa Clara, Renacimiento, Chiriqui")
+        // 1. Try exact region match first (case-insensitive)
         products = productRepository.findByRegionIgnoreCase(origin);
 
-        // If no results, try searching by country (origin field)
+        // 2. If no results, try partial region match (for "Lintong, Sumatra" matching "Lintong")
         if (products.isEmpty()) {
-            products = productRepository.findByOrigin(origin);
+            products = productRepository.findByRegionContainingIgnoreCase(origin);
+        }
+
+        // 3. If still no results, try country match (case-insensitive)
+        if (products.isEmpty()) {
+            products = productRepository.findByOriginIgnoreCase(origin);
         }
 
         return products.stream()
+                .filter(product -> product.getBrand() != null) // Safety check
                 .map(product -> new ProductWithBrandDTO(
                         product.getId(),
                         product.getProductName(),
@@ -193,10 +290,10 @@ public class ProductController {
     }
 
     /**
-     * Request update for a specific product (re-crawl)
+     * Request update for a specific product (flags for admin re-crawl)
      */
     @PostMapping("/{id}/request-update")
-    @Operation(summary = "Request product update", description = "Re-crawl the product page to update product information")
+    @Operation(summary = "Request product update", description = "Flag product for admin to re-crawl later")
     public ResponseEntity<String> requestProductUpdate(@PathVariable Long id) {
         try {
             // Find the product
@@ -208,23 +305,15 @@ public class ProductController {
                 return ResponseEntity.badRequest().body("Product has no seller URL to crawl");
             }
 
-            // Re-crawl the product, passing the existing product ID
-            log.info("Re-crawling product {} (ID: {}) from URL: {}",
-                    product.getProductName(), id, product.getSellerUrl());
+            // Flag the product for update
+            product.setUpdateRequested(true);
+            productRepository.save(product);
 
-            CoffeeProduct updatedProduct = crawlerService.crawlProduct(
-                    product.getBrand(),
-                    product.getSellerUrl(),
-                    id  // Pass the product ID to update the existing record
-            );
+            log.info("Flagged product for update: {} (ID: {})", product.getProductName(), id);
 
-            if (updatedProduct != null) {
-                return ResponseEntity.ok("Product updated successfully");
-            } else {
-                return ResponseEntity.status(500).body("Failed to update product");
-            }
+            return ResponseEntity.ok("Update request submitted. An admin will review and refresh this product.");
         } catch (Exception e) {
-            log.error("Failed to update product {}: {}", id, e.getMessage());
+            log.error("Failed to flag product {}: {}", id, e.getMessage());
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
@@ -290,8 +379,35 @@ public class ProductController {
             String scaFlavorsJson,
             String sellerUrl,
             java.math.BigDecimal price,
+            String priceVariantsJson,
             String currency,
             Boolean inStock,
             String rawDescription
+    ) {}
+
+    public record ProductSearchResultDTO(
+            Long id,
+            String productName,
+            String brandName,
+            Long brandId,
+            String origin,
+            String roastLevel,
+            java.math.BigDecimal price,
+            String priceVariantsJson,
+            String currency,
+            Boolean inStock
+    ) {}
+
+    public record NewProductDTO(
+            Long id,
+            String productName,
+            Long brandId,
+            String brandName,
+            String origin,
+            String roastLevel,
+            java.math.BigDecimal price,
+            String priceVariantsJson,
+            String currency,
+            LocalDateTime createdDate
     ) {}
 }

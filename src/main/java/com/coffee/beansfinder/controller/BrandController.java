@@ -572,6 +572,115 @@ public class BrandController {
     public record ErrorResponse(String message) {}
 
     /**
+     * DTO for public brand suggestion
+     */
+    public record SuggestBrandRequest(
+            String name,
+            String websiteUrl,
+            String recaptchaToken
+    ) {}
+
+    /**
+     * Suggest a brand (public endpoint with reCAPTCHA)
+     */
+    @Operation(
+        summary = "Suggest a brand",
+        description = "Public endpoint for users to suggest a new coffee brand. Requires reCAPTCHA verification."
+    )
+    @PostMapping("/suggest")
+    public ResponseEntity<String> suggestBrand(@RequestBody SuggestBrandRequest request) {
+        log.info("Brand suggestion received: {} ({})", request.name, request.websiteUrl);
+
+        try {
+            // Validate input
+            if (request.name == null || request.name.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Brand name is required");
+            }
+            if (request.websiteUrl == null || request.websiteUrl.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Website URL is required");
+            }
+
+            // Validate reCAPTCHA
+            if (request.recaptchaToken == null || request.recaptchaToken.isEmpty()) {
+                return ResponseEntity.badRequest().body("CAPTCHA verification is required");
+            }
+
+            // Verify reCAPTCHA with Google
+            boolean captchaValid = verifyRecaptcha(request.recaptchaToken);
+            if (!captchaValid) {
+                log.warn("reCAPTCHA verification failed for brand suggestion: {}", request.name);
+                return ResponseEntity.badRequest().body("CAPTCHA verification failed. Please try again.");
+            }
+
+            // Check if brand already exists
+            if (brandRepository.existsByName(request.name.trim())) {
+                log.warn("Brand already exists: {}", request.name);
+                return ResponseEntity.badRequest().body("This brand already exists in our database");
+            }
+
+            // Check if website URL already exists
+            if (brandRepository.existsByWebsite(request.websiteUrl.trim())) {
+                log.warn("Website already exists: {}", request.websiteUrl);
+                return ResponseEntity.badRequest().body("A brand with this website already exists");
+            }
+
+            // Create brand (pending approval)
+            CoffeeBrand brand = CoffeeBrand.builder()
+                    .name(request.name.trim())
+                    .website(request.websiteUrl.trim())
+                    .status("pending_approval")
+                    .approved(false)
+                    .build();
+
+            brand = brandRepository.save(brand);
+            log.info("Brand suggestion saved: {} (ID: {})", brand.getName(), brand.getId());
+
+            return ResponseEntity.ok("Thank you! Your suggestion has been submitted for review.");
+
+        } catch (Exception e) {
+            log.error("Error processing brand suggestion: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body("An error occurred. Please try again later.");
+        }
+    }
+
+    /**
+     * Verify reCAPTCHA token with Google
+     */
+    private boolean verifyRecaptcha(String token) {
+        try {
+            String secretKey = System.getenv("RECAPTCHA_SECRET_KEY");
+            if (secretKey == null || secretKey.isEmpty()) {
+                // If no secret key configured, allow (development mode)
+                log.warn("RECAPTCHA_SECRET_KEY not configured - skipping verification");
+                return true;
+            }
+
+            String verifyUrl = "https://www.google.com/recaptcha/api/siteverify";
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+
+            String formData = "secret=" + java.net.URLEncoder.encode(secretKey, "UTF-8")
+                    + "&response=" + java.net.URLEncoder.encode(token, "UTF-8");
+
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(verifyUrl))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(formData))
+                    .build();
+
+            java.net.http.HttpResponse<String> response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+
+            // Parse response (simple JSON parsing)
+            String body = response.body();
+            return body.contains("\"success\": true") || body.contains("\"success\":true");
+
+        } catch (Exception e) {
+            log.error("reCAPTCHA verification error: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Batch extract addresses for existing brands using Perplexity AI
      */
     @Operation(

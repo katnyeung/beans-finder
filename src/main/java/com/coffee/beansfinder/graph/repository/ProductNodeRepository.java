@@ -14,12 +14,12 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     Optional<ProductNode> findByProductId(Long productId);
 
-    @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor) " +
-           "WHERE f.name CONTAINS $flavorName " +
+    @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
+           "WHERE tn.rawText CONTAINS $flavorName " +
            "RETURN p")
     List<ProductNode> findByFlavorNameContaining(@Param("flavorName") String flavorName);
 
-    @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor)-[:BELONGS_TO_CATEGORY]->(c:SCACategory) " +
+    @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory) " +
            "WHERE c.name = $categoryName " +
            "WITH DISTINCT p " +
            "MATCH (p)-[r]-(related) " +
@@ -41,9 +41,9 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
     List<ProductNode> findByProcessType(@Param("processType") String processType);
 
     @Query("MATCH (p:Product)-[:HAS_PROCESS]->(pr:Process), " +
-           "(p)-[:HAS_FLAVOR]->(f:Flavor) " +
+           "(p)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
            "WHERE pr.type CONTAINS $processType " +
-           "AND f.name CONTAINS $flavorName " +
+           "AND tn.rawText CONTAINS $flavorName " +
            "RETURN p")
     List<ProductNode> findByProcessAndFlavor(
             @Param("processType") String processType,
@@ -71,10 +71,10 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     /**
      * Find products by exact flavor name (for flavor wheel)
-     * Using MATCH with pattern to load relationships
+     * Uses TastingNote with normalized ID (lowercase)
      */
-    @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor) " +
-           "WHERE f.name = $flavorName " +
+    @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
+           "WHERE tn.id = $flavorName " +
            "WITH DISTINCT p " +
            "MATCH (p)-[r]-(related) " +
            "RETURN p, collect(r), collect(related)")
@@ -82,10 +82,11 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     /**
      * Find products that have ALL specified flavors (AND logic)
+     * Uses TastingNote IDs (normalized lowercase)
      */
-    @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor) " +
-           "WHERE f.name IN $flavorNames " +
-           "WITH p, COUNT(DISTINCT f) as matchCount " +
+    @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
+           "WHERE tn.id IN $flavorNames " +
+           "WITH p, COUNT(DISTINCT tn) as matchCount " +
            "WHERE matchCount = $requiredCount " +
            "RETURN p")
     List<ProductNode> findByAllFlavors(
@@ -94,9 +95,10 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     /**
      * Find products that have ANY of the specified flavors (OR logic)
+     * Uses TastingNote IDs (normalized lowercase)
      */
-    @Query("MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor) " +
-           "WHERE f.name IN $flavorNames " +
+    @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
+           "WHERE tn.id IN $flavorNames " +
            "RETURN DISTINCT p")
     List<ProductNode> findByAnyFlavor(@Param("flavorNames") List<String> flavorNames);
 
@@ -139,8 +141,9 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     /**
      * Count products with similar flavors (any overlap)
+     * Uses TastingNote for flavor matching
      */
-    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_FLAVOR]->(f:Flavor)<-[:HAS_FLAVOR]-(p:Product) " +
+    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(tn:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
            "WHERE p.productId <> $refId " +
            "RETURN COUNT(DISTINCT p)")
     long countBySimilarFlavors(@Param("refId") Long refId);
@@ -165,10 +168,11 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     /**
      * Find products with similar flavor overlap (ranked by count)
+     * Level 1: Exact TastingNote match
      */
-    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_FLAVOR]->(f:Flavor)<-[:HAS_FLAVOR]-(p:Product) " +
+    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(tn:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
            "WHERE p.productId <> $refId " +
-           "WITH p, COUNT(DISTINCT f) as flavorOverlap " +
+           "WITH p, COUNT(DISTINCT tn) as flavorOverlap " +
            "ORDER BY flavorOverlap DESC " +
            "LIMIT $limit " +
            "MATCH (p)-[r]-(related) " +
@@ -176,12 +180,39 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
     List<ProductNode> findSimilarByFlavorOverlap(@Param("refId") Long refId, @Param("limit") int limit);
 
     /**
+     * Find products with similar Attribute overlap (ranked by count)
+     * Level 2: Match by Attribute (e.g., "lemon" matches other lemon products)
+     */
+    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(:TastingNote)-[:MATCHES]->(a:Attribute)<-[:MATCHES]-(:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
+           "WHERE p.productId <> $refId " +
+           "WITH p, COUNT(DISTINCT a) as attributeOverlap " +
+           "ORDER BY attributeOverlap DESC " +
+           "LIMIT $limit " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findSimilarByAttributeOverlap(@Param("refId") Long refId, @Param("limit") int limit);
+
+    /**
+     * Find products with similar Subcategory overlap (ranked by count)
+     * Level 3: Match by Subcategory (e.g., "citrus_fruit" matches all citrus products)
+     */
+    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(:TastingNote)-[:MATCHES]->(:Attribute)-[:BELONGS_TO]->(s:Subcategory)<-[:BELONGS_TO]-(:Attribute)<-[:MATCHES]-(:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
+           "WHERE p.productId <> $refId " +
+           "WITH p, COUNT(DISTINCT s) as subcategoryOverlap " +
+           "ORDER BY subcategoryOverlap DESC " +
+           "LIMIT $limit " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findSimilarBySubcategoryOverlap(@Param("refId") Long refId, @Param("limit") int limit);
+
+    /**
      * Find products with MORE of a specific SCA category
+     * Traverses 4-tier hierarchy: TastingNote -> Attribute -> Subcategory -> SCACategory
      */
     @Query("MATCH (ref:Product {productId: $refId}) " +
-           "MATCH (p:Product)-[:HAS_FLAVOR]->(f:Flavor)-[:BELONGS_TO_CATEGORY]->(c:SCACategory {name: $category}) " +
+           "MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory {name: $category}) " +
            "WHERE p.productId <> $refId " +
-           "WITH p, COUNT(DISTINCT f) as categoryCount " +
+           "WITH p, COUNT(DISTINCT tn) as categoryCount " +
            "ORDER BY categoryCount DESC " +
            "LIMIT $limit " +
            "MATCH (p)-[r]-(related) " +
@@ -189,12 +220,30 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
     List<ProductNode> findByMoreCategory(@Param("refId") Long refId, @Param("category") String category, @Param("limit") int limit);
 
     /**
+     * Find products with MORE of a specific SCA category WHILE preserving base flavor overlap
+     * Requires at least 1 shared tasting note with reference product
+     * This preserves the original flavor profile when user asks for "more X" (e.g., "more bitter" from fruity coffee)
+     */
+    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(refTn:TastingNote) " +
+           "MATCH (p:Product)-[:HAS_TASTING_NOTE]->(refTn) " +
+           "WHERE p.productId <> $refId " +
+           "WITH p, COUNT(DISTINCT refTn) as baseOverlap " +
+           "MATCH (p)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory {name: $category}) " +
+           "WITH p, baseOverlap, COUNT(DISTINCT tn) as categoryCount " +
+           "ORDER BY categoryCount DESC, baseOverlap DESC " +
+           "LIMIT $limit " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findByMoreCategoryWithFlavorOverlap(@Param("refId") Long refId, @Param("category") String category, @Param("limit") int limit);
+
+    /**
      * Find products from same origin with MORE of a specific SCA category
+     * Traverses 4-tier hierarchy: TastingNote -> Attribute -> Subcategory -> SCACategory
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:FROM_ORIGIN]->(o:Origin)<-[:FROM_ORIGIN]-(p:Product) " +
            "WHERE p.productId <> $refId " +
-           "MATCH (p)-[:HAS_FLAVOR]->(f:Flavor)-[:BELONGS_TO_CATEGORY]->(c:SCACategory {name: $category}) " +
-           "WITH p, COUNT(DISTINCT f) as categoryCount " +
+           "MATCH (p)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory {name: $category}) " +
+           "WITH p, COUNT(DISTINCT tn) as categoryCount " +
            "ORDER BY categoryCount DESC " +
            "LIMIT $limit " +
            "MATCH (p)-[r]-(related) " +

@@ -33,14 +33,31 @@ public class ProductRecommendation {
     private String brand;
 
     /**
-     * Price
+     * Price (smallest/default)
      */
     private BigDecimal price;
+
+    /**
+     * Price variants (different sizes)
+     */
+    private List<PriceVariant> priceVariants;
 
     /**
      * Currency (default: GBP)
      */
     private String currency;
+
+    /**
+     * Price variant for different sizes
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PriceVariant {
+        private String size;
+        private BigDecimal price;
+    }
 
     /**
      * Flavor notes
