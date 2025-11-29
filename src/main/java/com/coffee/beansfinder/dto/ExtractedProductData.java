@@ -42,6 +42,9 @@ public class ExtractedProductData {
 
     private BigDecimal price;
 
+    @JsonProperty("price_variants")
+    private List<PriceVariant> priceVariants;
+
     @JsonProperty("in_stock")
     private Boolean inStock;
 
@@ -50,4 +53,16 @@ public class ExtractedProductData {
 
     @JsonProperty("raw_description")
     private String rawDescription;
+
+    /**
+     * Price variant for different sizes (e.g., 250g, 1kg)
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PriceVariant {
+        private String size;
+        private BigDecimal price;
+    }
 }

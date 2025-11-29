@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coffee Origins Map - Beans Finder</title>
+    <title>Coffee Origins Map - Graphee.link</title>
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
     <link rel="stylesheet" href="css/styles.css">
 
     <!-- Leaflet CSS -->
@@ -25,7 +26,7 @@
         }
 
         .map-header {
-            background: linear-gradient(135deg, #6B4423 0%, #8B5A3C 100%);
+            background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
             color: white;
             padding: 1rem 2rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -61,7 +62,7 @@
 
         .filter-btn.active {
             background: white;
-            color: #6B4423;
+            color: #005F73;
         }
 
         #map {
@@ -84,7 +85,7 @@
         .legend-title {
             font-weight: 600;
             margin-bottom: 0.5rem;
-            color: #6B4423;
+            color: #005F73;
         }
 
         .legend-item {
@@ -127,7 +128,7 @@
         }
 
         .connection-brand {
-            background-color: #8B5A3C;
+            background-color: #0A9396;
         }
 
         .connection-origin {
@@ -156,7 +157,7 @@
 
         .spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #6B4423;
+            border-top: 4px solid #005F73;
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -182,7 +183,7 @@
         .popup-title {
             font-weight: 600;
             font-size: 1.1rem;
-            color: #6B4423;
+            color: #005F73;
             margin-bottom: 0.5rem;
         }
 
@@ -192,7 +193,7 @@
         }
 
         .popup-link {
-            color: #8B5A3C;
+            color: #0A9396;
             text-decoration: none;
             font-weight: 500;
         }
@@ -205,15 +206,22 @@
 <body>
     <div class="map-container">
         <div class="map-header">
-            <h1>☕ Coffee Origins Map</h1>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <a href="/" style="display: flex; align-items: center;">
+                    <img src="/graphee_logo.png" alt="Graphee.link" style="height: 50px; border-radius: 8px;">
+                </a>
+                <h1>Coffee Origins Map</h1>
+            </div>
             <div class="map-controls">
                 <button class="filter-btn active" id="filter-brands">Hide Brands</button>
                 <button class="filter-btn active" id="filter-origins">Hide Origins</button>
                 <button class="filter-btn active" id="filter-producers">Hide Producers</button>
                 <button class="filter-btn" id="filter-climate">Show Climate</button>
                 <button class="filter-btn" id="filter-flavors">Show Flavors</button>
-                <button class="filter-btn active" id="filter-connections">Show Connections</button>
-                <button class="filter-btn" onclick="window.location.href='/'">← Back to Home</button>
+                <button class="filter-btn active" id="filter-connections">Hide Connections</button>
+                <a href="/chat.html" class="filter-btn">Chat</a>
+                <a href="/brands.html" class="filter-btn">Brands</a>
+                <a href="/" class="filter-btn">Home</a>
             </div>
         </div>
 
@@ -234,7 +242,11 @@
                 <span>Producers/Farms</span>
             </div>
             <div class="legend-item">
-                <span style="font-size: 0.85rem; color: #666; font-style: italic;">Hover brands to see color-coded origins</span>
+                <span class="legend-line" style="border-top: 2px dashed #005F73;"></span>
+                <span>Supply Chain Connection</span>
+            </div>
+            <div class="legend-item">
+                <span style="font-size: 0.85rem; color: #666; font-style: italic;">Click a brand to see connections to origins</span>
             </div>
         </div>
     </div>

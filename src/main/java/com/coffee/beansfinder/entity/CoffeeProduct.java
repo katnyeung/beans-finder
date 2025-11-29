@@ -51,13 +51,22 @@ public class CoffeeProduct {
     private String sellerUrl;
     private BigDecimal price;
 
+    @Type(JsonBinaryType.class)
+    @Column(columnDefinition = "jsonb")
+    private String priceVariantsJson; // JSON array of {size, price} objects
+
     @Column(length = 3)
     private String currency = "GBP";
 
     private Boolean inStock = true;
 
+    @Column(length = 64)
+    private String contentHash; // SHA-256 hash of Playwright-extracted text for change detection
+
+    private LocalDateTime createdDate; // When product was first discovered (never changes)
+
     @Column(nullable = false)
-    private LocalDateTime lastUpdateDate;
+    private LocalDateTime lastUpdateDate; // When product content was last updated
 
     @Column(nullable = false)
     private String crawlStatus = "pending"; // pending, in_progress, done, error
@@ -68,13 +77,22 @@ public class CoffeeProduct {
     @Column(columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean updateRequested = false; // Flag for admin to re-crawl
+
     @PrePersist
     protected void onCreate() {
-        lastUpdateDate = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        lastUpdateDate = now;
+        if (createdDate == null) {
+            createdDate = now; // Only set on first insert
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         lastUpdateDate = LocalDateTime.now();
+        // createdDate is never updated - it stays as the original creation time
     }
 }

@@ -31,14 +31,24 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     List<CoffeeProduct> findByBrandId(Long brandId);
 
     /**
-     * Find products by origin (country)
+     * Find products by origin (country) - case sensitive
      */
     List<CoffeeProduct> findByOrigin(String origin);
+
+    /**
+     * Find products by origin (country) - case insensitive
+     */
+    List<CoffeeProduct> findByOriginIgnoreCase(String origin);
 
     /**
      * Find products by region (exact match, case-insensitive)
      */
     List<CoffeeProduct> findByRegionIgnoreCase(String region);
+
+    /**
+     * Find products by region containing (partial match, case-insensitive)
+     */
+    List<CoffeeProduct> findByRegionContainingIgnoreCase(String region);
 
     /**
      * Find products by origin (country) and region (exact match)
@@ -120,4 +130,47 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
         String getOrigin();
         Long getCount();
     }
+
+    // ===== New methods for incremental crawling =====
+
+    /**
+     * Find products created after a specific date (new products)
+     */
+    List<CoffeeProduct> findByCreatedDateAfter(LocalDateTime cutoffDate);
+
+    /**
+     * Find products updated after a specific date
+     */
+    List<CoffeeProduct> findByLastUpdateDateAfter(LocalDateTime cutoffDate);
+
+    /**
+     * Find product by brand and seller URL (for efficient lookup during crawl)
+     */
+    Optional<CoffeeProduct> findByBrandAndSellerUrl(CoffeeBrand brand, String sellerUrl);
+
+    /**
+     * Find all products for a brand as a map keyed by sellerUrl
+     * (Used for efficient lookup during incremental crawl)
+     */
+    @Query("SELECT p FROM CoffeeProduct p WHERE p.brand = :brand")
+    List<CoffeeProduct> findAllByBrand(@Param("brand") CoffeeBrand brand);
+
+    // ===== Admin update request methods =====
+
+    /**
+     * Find products flagged for update
+     */
+    List<CoffeeProduct> findByUpdateRequestedTrue();
+
+    /**
+     * Count products flagged for update
+     */
+    long countByUpdateRequestedTrue();
+
+    // ===== Search methods =====
+
+    /**
+     * Search products by name (case-insensitive, partial match)
+     */
+    List<CoffeeProduct> findByProductNameContainingIgnoreCase(String productName);
 }

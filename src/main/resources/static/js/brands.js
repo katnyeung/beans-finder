@@ -4,12 +4,116 @@ const API_BASE = '/api';
 // Store brands data for sorting
 let brandsData = [];
 let currentSort = { column: null, ascending: true };
+let searchTimeout = null;
 
 // Load brands on page load
 document.addEventListener('DOMContentLoaded', () => {
+    loadNewProducts();
     loadBrands();
-    setupSearch();
+    setupProductSearch();
+    setupSuggestBrandModal();
 });
+
+// Load new products (last 7 days)
+async function loadNewProducts() {
+    const section = document.getElementById('new-products-section');
+    const container = document.getElementById('new-products-container');
+    const countBadge = document.getElementById('new-products-count');
+
+    try {
+        const response = await fetch(`${API_BASE}/products/new?days=7`);
+
+        if (!response.ok) {
+            console.error('Failed to load new products');
+            return;
+        }
+
+        const products = await response.json();
+
+        if (products.length === 0) {
+            // No new products, hide section
+            section.style.display = 'none';
+            return;
+        }
+
+        // Show section and update count
+        section.style.display = 'block';
+        countBadge.textContent = `${products.length} new`;
+
+        // Render product cards
+        container.innerHTML = '';
+        products.slice(0, 12).forEach(product => {
+            const card = createNewProductCard(product);
+            container.appendChild(card);
+        });
+
+    } catch (err) {
+        console.error('Error loading new products:', err);
+    }
+}
+
+// Toggle new products section collapse
+function toggleNewProducts() {
+    const container = document.getElementById('new-products-container');
+    const icon = document.getElementById('collapse-icon');
+
+    if (container.classList.contains('collapsed')) {
+        container.classList.remove('collapsed');
+        icon.classList.remove('collapsed');
+    } else {
+        container.classList.add('collapsed');
+        icon.classList.add('collapsed');
+    }
+}
+
+function createNewProductCard(product) {
+    const card = document.createElement('div');
+    card.className = 'new-product-card';
+
+    // Format price
+    let priceText = '';
+    if (product.priceVariantsJson) {
+        try {
+            const variants = typeof product.priceVariantsJson === 'string'
+                ? JSON.parse(product.priceVariantsJson)
+                : product.priceVariantsJson;
+            if (Array.isArray(variants) && variants.length > 0 && variants[0].price != null) {
+                priceText = `${product.currency || 'GBP'} ${variants[0].price}`;
+            }
+        } catch (e) {}
+    }
+    if (!priceText && product.price) {
+        priceText = `${product.currency || 'GBP'} ${product.price}`;
+    }
+
+    // Format date
+    let dateText = '';
+    if (product.createdDate) {
+        const date = new Date(product.createdDate);
+        const now = new Date();
+        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+        if (diffDays === 0) {
+            dateText = 'Added today';
+        } else if (diffDays === 1) {
+            dateText = 'Added yesterday';
+        } else {
+            dateText = `Added ${diffDays} days ago`;
+        }
+    }
+
+    card.innerHTML = `
+        <a href="/product-detail.html?id=${product.id}" class="product-name">${escapeHtml(product.productName)}</a>
+        <div class="product-brand">${escapeHtml(product.brandName || 'Unknown Brand')}</div>
+        <div class="product-meta">
+            ${priceText ? `<span class="product-price">${priceText}</span>` : ''}
+            ${product.origin ? `<span class="product-origin">${escapeHtml(product.origin)}</span>` : ''}
+            ${product.roastLevel ? `<span>${escapeHtml(product.roastLevel)}</span>` : ''}
+        </div>
+        ${dateText ? `<div class="product-date">${dateText}</div>` : ''}
+    `;
+
+    return card;
+}
 
 // Load all brands
 async function loadBrands() {
@@ -137,47 +241,266 @@ function sortTable(column) {
     renderBrands(sortedBrands);
 }
 
-// Setup search functionality
-function setupSearch() {
-    const searchInput = document.getElementById('searchInput');
-    let timeoutId;
+// ==================== Product Search ====================
+
+function setupProductSearch() {
+    const searchInput = document.getElementById('product-search');
+    if (!searchInput) return;
 
     searchInput.addEventListener('input', (e) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-            filterBrands(e.target.value.toLowerCase());
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+
+        if (query.length < 2) {
+            hideSearchResults();
+            return;
+        }
+
+        searchTimeout = setTimeout(() => {
+            searchProducts(query);
         }, 300);
+    });
+
+    // Handle Enter key
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = e.target.value.trim();
+            if (query.length >= 2) {
+                clearTimeout(searchTimeout);
+                searchProducts(query);
+            }
+        }
     });
 }
 
-// Filter brands by search term
-function filterBrands(searchTerm) {
-    const rows = document.querySelectorAll('.clickable-row');
-    let visibleCount = 0;
+async function searchProducts(query) {
+    const resultsSection = document.getElementById('search-results');
+    const resultsTitle = document.getElementById('search-results-title');
+    const resultsContainer = document.getElementById('searchResultsContainer');
+    const brandsSection = document.getElementById('brands-section');
 
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
+    try {
+        const response = await fetch(`${API_BASE}/products/search?query=${encodeURIComponent(query)}&limit=20`);
 
-        if (text.includes(searchTerm)) {
-            row.style.display = '';
-            visibleCount++;
+        if (!response.ok) {
+            throw new Error('Search failed');
+        }
+
+        const products = await response.json();
+
+        if (products.length === 0) {
+            resultsTitle.textContent = `No products found for "${query}"`;
+            resultsContainer.innerHTML = `
+                <tr>
+                    <td colspan="6" class="empty-state">No products match your search. Try the AI Chat for more options.</td>
+                </tr>
+            `;
         } else {
-            row.style.display = 'none';
+            resultsTitle.textContent = `Found ${products.length} product${products.length > 1 ? 's' : ''} for "${query}"`;
+            resultsContainer.innerHTML = '';
+
+            products.forEach(product => {
+                const row = createProductSearchRow(product);
+                resultsContainer.appendChild(row);
+            });
+        }
+
+        resultsSection.style.display = 'block';
+        brandsSection.style.display = 'none';
+
+    } catch (err) {
+        console.error('Error searching products:', err);
+        resultsTitle.textContent = 'Search Error';
+        resultsContainer.innerHTML = `
+            <tr>
+                <td colspan="6" class="empty-state">Failed to search products. Please try again.</td>
+            </tr>
+        `;
+        resultsSection.style.display = 'block';
+    }
+}
+
+function createProductSearchRow(product) {
+    const row = document.createElement('tr');
+
+    // Format price
+    let priceText = 'N/A';
+    if (product.priceVariantsJson) {
+        try {
+            const variants = typeof product.priceVariantsJson === 'string'
+                ? JSON.parse(product.priceVariantsJson)
+                : product.priceVariantsJson;
+            if (Array.isArray(variants) && variants.length > 0) {
+                const firstVariant = variants[0];
+                if (firstVariant.price != null) {
+                    priceText = `${product.currency || 'GBP'} ${firstVariant.price}`;
+                }
+            }
+        } catch (e) {}
+    }
+    if (priceText === 'N/A' && product.price) {
+        priceText = `${product.currency || 'GBP'} ${product.price}`;
+    }
+
+    row.innerHTML = `
+        <td><a href="/product-detail.html?id=${product.id}">${escapeHtml(product.productName)}</a></td>
+        <td>${escapeHtml(product.brandName || 'Unknown')}</td>
+        <td>${escapeHtml(product.origin || 'N/A')}</td>
+        <td>${escapeHtml(product.roastLevel || 'N/A')}</td>
+        <td>${priceText}</td>
+        <td>
+            <a href="/product-detail.html?id=${product.id}" class="btn btn-small">Details</a>
+        </td>
+    `;
+
+    return row;
+}
+
+function hideSearchResults() {
+    const resultsSection = document.getElementById('search-results');
+    const brandsSection = document.getElementById('brands-section');
+
+    resultsSection.style.display = 'none';
+    brandsSection.style.display = 'block';
+}
+
+// ==================== Suggest Brand Modal ====================
+
+function setupSuggestBrandModal() {
+    const suggestBtn = document.getElementById('suggest-brand-btn');
+    const modal = document.getElementById('suggest-brand-modal');
+    const form = document.getElementById('suggest-brand-form');
+
+    if (suggestBtn) {
+        suggestBtn.addEventListener('click', openSuggestModal);
+    }
+
+    // Close modal when clicking outside
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeSuggestModal();
+            }
+        });
+    }
+
+    // Handle form submission
+    if (form) {
+        form.addEventListener('submit', handleSuggestSubmit);
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            closeSuggestModal();
         }
     });
+}
 
-    // Show empty state if no results
-    const container = document.getElementById('brandsContainer');
-    const existingEmpty = container.querySelector('.empty-state');
+function openSuggestModal() {
+    const modal = document.getElementById('suggest-brand-modal');
+    if (modal) {
+        modal.classList.add('active');
+        document.getElementById('brand-name').focus();
+    }
+}
 
-    if (visibleCount === 0 && searchTerm && !existingEmpty) {
-        const emptyRow = document.createElement('tr');
-        emptyRow.innerHTML = `
-            <td colspan="5" class="empty-state">No brands match your search term: "${escapeHtml(searchTerm)}"</td>
-        `;
-        container.appendChild(emptyRow);
-    } else if (visibleCount > 0 && existingEmpty) {
-        existingEmpty.parentElement.remove();
+function closeSuggestModal() {
+    const modal = document.getElementById('suggest-brand-modal');
+    const form = document.getElementById('suggest-brand-form');
+    const message = document.getElementById('form-message');
+
+    if (modal) {
+        modal.classList.remove('active');
+    }
+
+    // Reset form
+    if (form) {
+        form.reset();
+    }
+
+    // Reset reCAPTCHA
+    if (typeof grecaptcha !== 'undefined') {
+        grecaptcha.reset();
+    }
+
+    // Hide message
+    if (message) {
+        message.style.display = 'none';
+    }
+}
+
+async function handleSuggestSubmit(e) {
+    e.preventDefault();
+
+    const brandName = document.getElementById('brand-name').value.trim();
+    const brandUrl = document.getElementById('brand-url').value.trim();
+    const submitBtn = document.getElementById('submit-suggestion-btn');
+    const message = document.getElementById('form-message');
+
+    // Get reCAPTCHA response
+    let recaptchaToken = '';
+    if (typeof grecaptcha !== 'undefined') {
+        recaptchaToken = grecaptcha.getResponse();
+    }
+
+    if (!recaptchaToken) {
+        showFormMessage('Please complete the CAPTCHA verification.', 'error');
+        return;
+    }
+
+    if (!brandName || !brandUrl) {
+        showFormMessage('Please fill in all required fields.', 'error');
+        return;
+    }
+
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    try {
+        const response = await fetch(`${API_BASE}/brands/suggest`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: brandName,
+                websiteUrl: brandUrl,
+                recaptchaToken: recaptchaToken
+            })
+        });
+
+        const result = await response.text();
+
+        if (response.ok) {
+            showFormMessage('Thank you! Your suggestion has been submitted for review.', 'success');
+            setTimeout(() => {
+                closeSuggestModal();
+            }, 2000);
+        } else {
+            showFormMessage(result || 'Failed to submit suggestion. Please try again.', 'error');
+            // Reset reCAPTCHA on error
+            if (typeof grecaptcha !== 'undefined') {
+                grecaptcha.reset();
+            }
+        }
+
+    } catch (err) {
+        console.error('Error submitting suggestion:', err);
+        showFormMessage('An error occurred. Please try again later.', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Suggestion';
+    }
+}
+
+function showFormMessage(text, type) {
+    const message = document.getElementById('form-message');
+    if (message) {
+        message.textContent = text;
+        message.className = 'form-message ' + type;
+        message.style.display = 'block';
     }
 }
 

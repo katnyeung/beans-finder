@@ -132,8 +132,9 @@ public class OpenAIService {
                   "variety": "Coffee variety/cultivar - look for: Bourbon, Geisha, Caturra, Typica, Pacamara, Catuai, SL28, SL34, Heirloom, etc. Combine multiple with ', ' (e.g., 'Pacamara, Gibirinna 74110') or null",
                   "altitude": "Altitude/elevation (e.g., '1,800 MASL', '2000-2200m', '1600m') or null",
                   "tasting_notes": ["flavor1", "flavor2", "flavor3"] - Extract ALL flavors, descriptors, and cupping notes mentioned,
-                  "price": 12.50 (number) - Extract as decimal, remove currency symbols (e.g., "£23.50" → 23.50) or null,
-                  "in_stock": true if available/can add to cart, false if sold out/unavailable, or null if unclear,
+                  "price": 12.50 (number) - The SMALLEST/cheapest price option as decimal, remove currency symbols (e.g., "£10.00" → 10.00) or null,
+                  "price_variants": [{"size": "250g", "price": 10.00}, {"size": "1kg", "price": 35.00}] - ALL available size/price combinations, or null if only one price,
+                  "in_stock": true (default) or false ONLY if page explicitly says "out of stock", "sold out", "unavailable", or "currently unavailable",
                   "raw_description": "Main product description text - capture the coffee's story, tasting profile, and key details"
                 }
 
@@ -144,8 +145,9 @@ public class OpenAIService {
                 - producer: Look for "Producer:", farmer/farm names, or "Various Smallholders"
                 - variety: Look for "Variety:", cultivar names (Bourbon, Geisha, Pacamara, etc.)
                 - tasting_notes: Extract ALL flavor descriptors, not just the obvious ones
-                - in_stock: Check for "Add to Cart", "Buy Now", "Sold Out", "Out of Stock"
-                - price: Look for "Regular price", currency symbols (£, $, €), or price near buy button
+                - in_stock: DEFAULT TO TRUE. Only set to false if the product is CLEARLY unavailable for purchase. Ignore hidden HTML elements or template text like "Unavailable" in hidden divs. If you see "Add to Cart", "Buy Now", "Add to Bag", or price options visible, the product IS in stock (true). Only set false if you see prominent "SOLD OUT", "OUT OF STOCK", or disabled purchase buttons as the main call-to-action.
+                - price: Extract the SMALLEST price (usually the smallest bag size like 200g or 250g)
+                - price_variants: If multiple sizes exist (e.g., "200g £10 | 1kg £35"), extract ALL as array. Look for size selectors, dropdown options, or multiple price listings.
                 - Use null for truly missing fields, not empty strings
                 - Return ONLY valid JSON, no markdown code blocks
 
@@ -326,6 +328,167 @@ public class OpenAIService {
         prompt.append("\nReturn ONLY a valid JSON object mapping each flavor to its category.\n");
         prompt.append("Format: {\"flavor1\": \"category\", \"flavor2\": \"category\", ...}\n");
         prompt.append("Example: {\"strawberry\": \"fruity\", \"jasmine\": \"floral\", \"caramel\": \"sweet\"}\n");
+
+        return prompt.toString();
+    }
+
+    /**
+     * Generate embedding for text using OpenAI text-embedding-3-small
+     * Cost: ~$0.00002 per embedding (1,536 dimensions)
+     * Use case: Semantic caching, similarity search
+     *
+     * @param text Text to embed (e.g., user query or product description)
+     * @return 1,536-dimension embedding vector
+     */
+    public float[] embedText(String text) {
+        if (apiKey == null || apiKey.isEmpty()) {
+            log.warn("OpenAI API key not configured");
+            return null;
+        }
+
+        if (text == null || text.isEmpty()) {
+            log.warn("Empty text provided for embedding");
+            return null;
+        }
+
+        try {
+            // Create request
+            Map<String, Object> request = Map.of(
+                "input", text,
+                "model", "text-embedding-3-small" // 1,536 dimensions, $0.00002 per 1K tokens
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
+
+            // Call OpenAI embedding API
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "https://api.openai.com/v1/embeddings",
+                    entity,
+                    String.class
+            );
+
+            // Parse response
+            JsonNode rootNode = objectMapper.readTree(response.getBody());
+            JsonNode embeddingNode = rootNode
+                    .path("data")
+                    .get(0)
+                    .path("embedding");
+
+            // Convert to float array
+            float[] embedding = new float[embeddingNode.size()];
+            for (int i = 0; i < embeddingNode.size(); i++) {
+                embedding[i] = (float) embeddingNode.get(i).asDouble();
+            }
+
+            log.debug("Generated embedding for text: {} chars → {} dimensions",
+                    text.length(), embedding.length);
+
+            return embedding;
+
+        } catch (Exception e) {
+            log.error("Failed to generate embedding: {}", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
+     * Map tasting notes to SCA Flavor Wheel attributes (Tier 3) using GPT-4o-mini.
+     * Returns the best matching attribute for each tasting note.
+     * Cost: ~$0.0002 per batch of 50 notes
+     *
+     * @param tastingNotes List of raw tasting notes (e.g., "bright citrus acidity", "blackberry jam")
+     * @param availableAttributes List of valid attribute IDs from the hierarchy (e.g., "blackberry", "lemon", "caramel")
+     * @return Map of tasting note -> attribute ID (or null if no good match)
+     */
+    public Map<String, String> mapTastingNotesToAttributes(List<String> tastingNotes, List<String> availableAttributes) {
+        if (apiKey == null || apiKey.isEmpty()) {
+            throw new IllegalStateException("OpenAI API key not configured");
+        }
+
+        if (tastingNotes == null || tastingNotes.isEmpty()) {
+            return Map.of();
+        }
+
+        String prompt = buildAttributeMappingPrompt(tastingNotes, availableAttributes);
+
+        try {
+            Map<String, Object> requestBody = Map.of(
+                    "model", model,
+                    "messages", List.of(
+                            Map.of("role", "system", "content", "You are a coffee flavor expert. Match tasting notes to the closest SCA flavor wheel attribute."),
+                            Map.of("role", "user", "content", prompt)
+                    ),
+                    "temperature", 0.1,
+                    "max_tokens", 2000
+            );
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(apiKey);
+
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+
+            log.info("Calling OpenAI to map {} tasting notes to attributes", tastingNotes.size());
+
+            ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, request, String.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("OpenAI API returned status: " + response.getStatusCode());
+            }
+
+            String responseBody = response.getBody();
+            JsonNode root = objectMapper.readTree(responseBody);
+
+            if (!root.has("choices") || root.get("choices").size() == 0) {
+                throw new RuntimeException("No choices in OpenAI response");
+            }
+
+            JsonNode firstChoice = root.get("choices").get(0);
+            if (!firstChoice.has("message") || !firstChoice.get("message").has("content")) {
+                throw new RuntimeException("No content in OpenAI response");
+            }
+
+            String jsonResponse = firstChoice.get("message").get("content").asText();
+            jsonResponse = cleanMarkdownCodeBlocks(jsonResponse);
+
+            return objectMapper.readValue(jsonResponse, Map.class);
+
+        } catch (Exception e) {
+            log.error("Failed to map tasting notes to attributes: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to map tasting notes: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Build prompt for attribute mapping
+     */
+    private String buildAttributeMappingPrompt(List<String> tastingNotes, List<String> availableAttributes) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("Match each coffee tasting note to the CLOSEST attribute from the SCA Flavor Wheel.\n\n");
+
+        prompt.append("Available attributes (choose ONLY from this list):\n");
+        for (String attr : availableAttributes) {
+            prompt.append("- ").append(attr).append("\n");
+        }
+
+        prompt.append("\nTasting notes to match:\n");
+        for (String note : tastingNotes) {
+            prompt.append("- ").append(note).append("\n");
+        }
+
+        prompt.append("\nRules:\n");
+        prompt.append("1. Match each note to the SINGLE closest attribute from the list above\n");
+        prompt.append("2. If a note contains an attribute word, use that (e.g., 'bright citrus' → 'citrus')\n");
+        prompt.append("3. If no good match exists, use null\n");
+        prompt.append("4. Match based on flavor meaning, not just words (e.g., 'berry-like sweetness' → 'berry')\n\n");
+
+        prompt.append("Return ONLY a valid JSON object.\n");
+        prompt.append("Format: {\"tasting note\": \"attribute\" or null}\n");
+        prompt.append("Example: {\"bright citrus acidity\": \"citrus\", \"jammy berries\": \"berry\", \"smooth finish\": null}\n");
 
         return prompt.toString();
     }

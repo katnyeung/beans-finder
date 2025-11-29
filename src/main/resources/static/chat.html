@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ask AI - Graphee.link</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/" class="logo-link">
+                    <img src="/graphee_logo.png" alt="Graphee.link" class="nav-logo">
+                    <span class="brand-name">Graphee.link</span>
+                </a>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/chat.html" class="active">Chat</a>
+                <a href="/brands.html">Brands</a>
+                <a href="/flavor-wheel.html">Flavor Wheel</a>
+                <a href="/map.html">Map</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="page-header">
+            <h2>Ask AI to Find Coffee</h2>
+            <p>Let our AI help you discover your perfect specialty coffee</p>
+        </div>
+
+        <div class="chat-container">
+            <div class="chat-container-header">
+                <span>Chat</span>
+                <button id="chat-clear-btn" class="btn-clear-fullpage" title="Clear conversation">Clear</button>
+            </div>
+
+            <div id="chat-messages" class="chat-messages-fullpage">
+                <div class="chat-message bot-message">
+                    <div class="message-text">
+                        Hi! I'm your coffee assistant. Ask me anything about specialty coffee. Try:
+                        <ul>
+                            <li>"Show me fruity Ethiopian coffees under £15"</li>
+                            <li>"Find me a light roast with floral notes"</li>
+                            <li>"What natural processed coffees do you have?"</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-fullpage-container">
+                <textarea id="chat-input" placeholder="Ask about coffee... e.g., 'Show me fruity coffees under £15'" rows="2"></textarea>
+                <button id="chat-send-btn" class="btn-send-fullpage">Send</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/chatbot.js"></script>
+</body>
+</html>

@@ -51,7 +51,141 @@ function initChatbot() {
         chatClearBtn.addEventListener('click', clearConversation);
     }
 
+    // Check for URL params (from product detail page "Ask Chatbot" button)
+    checkUrlParamsForChatbot();
+
     console.log('Chatbot initialized. History length:', conversationHistory.length);
+}
+
+/**
+ * Check URL params for chatbot prefill (from product detail page)
+ */
+function checkUrlParamsForChatbot() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const chatbotProductId = urlParams.get('chatbotProductId');
+    const chatbotProductName = urlParams.get('chatbotProductName');
+
+    if (chatbotProductId && chatbotProductName) {
+        console.log('Chatbot URL params found:', chatbotProductId, chatbotProductName);
+
+        // Clear existing conversation (reuse the clear button logic)
+        clearConversation();
+
+        // Set reference product for this product
+        referenceProductId = parseInt(chatbotProductId);
+        saveStateToStorage();
+
+        // Build product info card from URL params
+        const productName = decodeURIComponent(chatbotProductName);
+        const brandName = urlParams.get('brandName') || '';
+        const origin = urlParams.get('origin') || '';
+        const region = urlParams.get('region') || '';
+        const roastLevel = urlParams.get('roastLevel') || '';
+        const process = urlParams.get('process') || '';
+        const price = urlParams.get('price') || '';
+        const currency = urlParams.get('currency') || 'GBP';
+        const tastingNotes = urlParams.get('tastingNotes') || '';
+
+        // Display product info as a styled card
+        displayProductInfoCard({
+            id: chatbotProductId,
+            name: productName,
+            brand: brandName,
+            origin: origin,
+            region: region,
+            roastLevel: roastLevel,
+            process: process,
+            price: price,
+            currency: currency,
+            tastingNotes: tastingNotes ? tastingNotes.split(',') : []
+        });
+
+        // Pre-fill chat input with a suggestion
+        const chatInput = document.getElementById('chat-input');
+        if (chatInput) {
+            chatInput.value = '';
+            chatInput.placeholder = `Ask about ${productName}, e.g., "Find similar coffees" or "Show me more from ${origin || 'this origin'}"`;
+            chatInput.focus();
+        }
+
+        // Clean up URL
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+    }
+}
+
+/**
+ * Display product info card (no LLM call, just show prefilled data)
+ */
+function displayProductInfoCard(product) {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chat-message bot-message product-info-card';
+
+    // Build details list
+    let detailsHtml = '<ul class="product-details-list">';
+    if (product.brand) detailsHtml += `<li><strong>Brand:</strong> ${product.brand}</li>`;
+    if (product.origin) {
+        const location = product.region ? `${product.region}, ${product.origin}` : product.origin;
+        detailsHtml += `<li><strong>Origin:</strong> ${location}</li>`;
+    }
+    if (product.roastLevel) detailsHtml += `<li><strong>Roast:</strong> ${product.roastLevel}</li>`;
+    if (product.process) detailsHtml += `<li><strong>Process:</strong> ${product.process}</li>`;
+    if (product.price) detailsHtml += `<li><strong>Price:</strong> ${product.currency} ${product.price}</li>`;
+    if (product.tastingNotes && product.tastingNotes.length > 0) {
+        detailsHtml += `<li><strong>Tasting Notes:</strong> ${product.tastingNotes.join(', ')}</li>`;
+    }
+    detailsHtml += '</ul>';
+
+    messageDiv.innerHTML = `
+        <div class="message-text">
+            <div class="product-info-header">
+                <strong>${product.name}</strong>
+                <a href="/product-detail.html?id=${product.id}" target="_blank" class="view-product-link">View Product</a>
+            </div>
+            ${detailsHtml}
+            <p class="product-info-prompt">What would you like to know?</p>
+        </div>
+    `;
+
+    chatMessages.appendChild(messageDiv);
+
+    // Build quick action buttons based on product attributes
+    const quickActions = [];
+
+    quickActions.push({ label: 'Similar Flavors', icon: '🎯', intent: 'SIMILAR_FLAVORS' });
+
+    if (product.origin) {
+        quickActions.push({ label: `More from ${product.origin}`, icon: '🌍', intent: 'SAME_ORIGIN' });
+    }
+
+    if (product.roastLevel) {
+        quickActions.push({ label: `${product.roastLevel} Roasts`, icon: '🔥', intent: 'SAME_ROAST' });
+    }
+
+    if (product.tastingNotes && product.tastingNotes.length > 0) {
+        quickActions.push({ label: 'More Fruity', icon: '🍓', intent: 'MORE_FRUITY' });
+        quickActions.push({ label: 'More Bitter', icon: '☕', intent: 'MORE_BITTER' });
+    }
+
+    // Create quick actions container (reuse existing styles)
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'chat-quick-actions';
+
+    const actionsRow = document.createElement('div');
+    actionsRow.className = 'quick-actions-row';
+
+    quickActions.forEach(action => {
+        const actionButton = createQuickActionButton(action);
+        actionsRow.appendChild(actionButton);
+    });
+
+    actionsContainer.appendChild(actionsRow);
+    chatMessages.appendChild(actionsContainer);
+
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 /**
@@ -158,10 +292,16 @@ async function sendMessage() {
     // Display user message
     displayMessage(query, 'user');
 
+    // Log chat question for analytics
+    logChatQuestion(query);
+
     // Clear input
     chatInput.value = '';
     isWaitingForResponse = true;
     updateSendButton(true);
+
+    // Show loading indicator
+    showLoadingIndicator();
 
     try {
         // Build request with full client-side state
@@ -221,11 +361,18 @@ async function sendMessage() {
         // Save state
         saveStateToStorage();
 
-        // Display bot response
+        // Log chat answer for analytics (track which brands appeared in recommendations)
+        if (data.products && data.products.length > 0) {
+            logChatAnswer(data.products);
+        }
+
+        // Remove loading indicator and display bot response
+        removeLoadingIndicator();
         displayBotResponse(data);
 
     } catch (err) {
         console.error('Error:', err);
+        removeLoadingIndicator();
         const errorMsg = 'Sorry, I encountered an error. Please try again.';
 
         // Add error to history
@@ -265,6 +412,32 @@ function displayMessage(message, sender) {
 
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+/**
+ * Show loading indicator (animated dots only, no bubble)
+ */
+function showLoadingIndicator() {
+    const chatMessages = document.getElementById('chat-messages');
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'loading-indicator';
+    loadingDiv.id = 'loading-indicator';
+    loadingDiv.innerHTML = '<span>.</span><span>.</span><span>.</span>';
+
+    chatMessages.appendChild(loadingDiv);
+
+    // Scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+/**
+ * Remove loading indicator
+ */
+function removeLoadingIndicator() {
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.remove();
+    }
 }
 
 /**
@@ -404,35 +577,43 @@ function convertIntentToQuery(intent) {
 
 /**
  * Create compact table row for chatbot product recommendations
+ * Returns a DocumentFragment containing both the product row and optional reason row
  */
 function createChatProductRow(product) {
+    // Create a fragment to hold both rows
+    const fragment = document.createDocumentFragment();
+
+    // Main product row
     const row = document.createElement('tr');
     row.className = 'chat-product-row';
 
-    // Product name + brand + reason column
+    // Product name + brand column (WITHOUT reason - reason goes in separate row)
     const productCell = document.createElement('td');
     productCell.className = 'product-name-cell';
 
     let cellContent = '';
     if (product.id) {
-        cellContent = `<a href="/product-detail.html?id=${product.id}" class="product-name-link">${product.name}</a>`;
+        cellContent = `<a href="/product-detail.html?id=${product.id}" class="product-name-link" target="_blank">${product.name}</a>`;
     } else {
         cellContent = `<span class="product-name-text">${product.name}</span>`;
     }
     cellContent += `<br><small class="brand-name">${product.brand}</small>`;
 
-    // Add reason if available (critical for understanding Grok's recommendation)
-    if (product.reason) {
-        cellContent += `<br><small class="product-reason-text">${product.reason}</small>`;
-    }
-
     productCell.innerHTML = cellContent;
     row.appendChild(productCell);
 
-    // Price column
+    // Price column (with variants fallback)
     const priceCell = document.createElement('td');
     priceCell.className = 'price-cell';
-    priceCell.textContent = product.price ? `£${product.price.toFixed(2)}` : 'N/A';
+    if (product.priceVariants && product.priceVariants.length > 0) {
+        priceCell.textContent = product.priceVariants
+            .map(v => `${v.size}: £${v.price.toFixed(2)}`)
+            .join(' | ');
+    } else if (product.price) {
+        priceCell.textContent = `£${product.price.toFixed(2)}`;
+    } else {
+        priceCell.textContent = 'N/A';
+    }
     row.appendChild(priceCell);
 
     // Origin column
@@ -460,7 +641,23 @@ function createChatProductRow(product) {
     }
     row.appendChild(flavorsCell);
 
-    return row;
+    fragment.appendChild(row);
+
+    // Reason row (spans all columns) - SEPARATE ROW for better readability
+    if (product.reason) {
+        const reasonRow = document.createElement('tr');
+        reasonRow.className = 'chat-product-reason-row';
+
+        const reasonCell = document.createElement('td');
+        reasonCell.colSpan = 5; // Spans all 5 columns
+        reasonCell.className = 'product-reason-cell';
+        reasonCell.innerHTML = `<small class="product-reason-text">💡 ${product.reason}</small>`;
+
+        reasonRow.appendChild(reasonCell);
+        fragment.appendChild(reasonRow);
+    }
+
+    return fragment;
 }
 
 /**
@@ -544,6 +741,53 @@ function updateSendButton(isLoading) {
             // Inline chat (brands.html) - simple button
             sendBtn.textContent = isLoading ? 'Thinking...' : 'Send';
         }
+    }
+}
+
+/**
+ * Log chat question for analytics
+ */
+async function logChatQuestion(question) {
+    try {
+        await fetch('/api/analytics/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                actionType: 'chat_question',
+                metadata: JSON.stringify({ question: question.substring(0, 500) })
+            })
+        });
+    } catch (e) {
+        console.debug('Analytics log failed:', e);
+    }
+}
+
+/**
+ * Log chat answer for analytics (tracks brand appearances in recommendations)
+ */
+async function logChatAnswer(products) {
+    try {
+        // Extract product and brand IDs
+        const productIds = products.map(p => p.id);
+        const brandIds = [...new Set(products.map(p => p.brandId).filter(id => id))];
+
+        // Log each brand that appeared in recommendations
+        for (const brandId of brandIds) {
+            await fetch('/api/analytics/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    actionType: 'chat_answer',
+                    brandId: brandId,
+                    metadata: JSON.stringify({
+                        totalProducts: productIds.length,
+                        productIds: productIds
+                    })
+                })
+            });
+        }
+    } catch (e) {
+        console.debug('Analytics log failed:', e);
     }
 }
 

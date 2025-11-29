@@ -20,7 +20,7 @@ body {
 
 /* Navigation */
 .navbar {
-    background: linear-gradient(135deg, #6B4423 0%, #8B5A3C 100%);
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
     color: white;
     padding: 1.5rem 0;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -40,6 +40,26 @@ body {
 .nav-brand .tagline {
     font-size: 0.875rem;
     opacity: 0.9;
+}
+
+/* Logo styles */
+.logo-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    color: white;
+}
+
+.nav-logo {
+    height: 60px;
+    width: auto;
+    border-radius: 8px;
+}
+
+.brand-name {
+    font-size: 1.8rem;
+    font-weight: bold;
 }
 
 .nav-links {
@@ -78,7 +98,7 @@ main {
 
 .hero h2 {
     font-size: 2.5rem;
-    color: #6B4423;
+    color: #005F73;
     margin-bottom: 1rem;
 }
 
@@ -109,7 +129,7 @@ main {
 }
 
 .feature-card h3 {
-    color: #6B4423;
+    color: #005F73;
     margin-bottom: 1rem;
     font-size: 1.5rem;
 }
@@ -128,7 +148,7 @@ main {
 }
 
 .info h3 {
-    color: #6B4423;
+    color: #005F73;
     margin-bottom: 1rem;
 }
 
@@ -147,7 +167,7 @@ main {
 }
 
 .page-header h2 {
-    color: #6B4423;
+    color: #005F73;
     font-size: 2rem;
     margin-bottom: 0.5rem;
 }
@@ -174,7 +194,7 @@ main {
 
 .search-input:focus {
     outline: none;
-    border-color: #6B4423;
+    border-color: #005F73;
 }
 
 /* Buttons */
@@ -191,22 +211,22 @@ main {
 }
 
 .btn-primary {
-    background: #6B4423;
+    background: #005F73;
     color: white;
 }
 
 .btn-primary:hover {
-    background: #8B5A3C;
+    background: #0A9396;
 }
 
 .btn-secondary {
     background: white;
-    color: #6B4423;
-    border: 2px solid #6B4423;
+    color: #005F73;
+    border: 2px solid #005F73;
 }
 
 .btn-secondary:hover {
-    background: #6B4423;
+    background: #005F73;
     color: white;
 }
 
@@ -353,7 +373,7 @@ main {
 }
 
 .empty-state h3 {
-    color: #6B4423;
+    color: #005F73;
     margin-bottom: 1rem;
 }
 
@@ -427,7 +447,7 @@ footer p {
 
 .sort-indicator {
     font-size: 0.8em;
-    color: #6B4423;
+    color: #005F73;
     margin-left: 4px;
 }
 
@@ -446,7 +466,7 @@ footer p {
 }
 
 .wheel-info h3 {
-    color: #6B4423;
+    color: #005F73;
     margin-bottom: 1rem;
 }
 
@@ -471,7 +491,7 @@ footer p {
 
 .stat-item strong {
     font-size: 1.5rem;
-    color: #6B4423;
+    color: #005F73;
     display: block;
     margin-bottom: 0.25rem;
 }
@@ -493,12 +513,12 @@ footer p {
     background: #f8f9fa;
     padding: 1.5rem;
     border-radius: 4px;
-    border-left: 4px solid #6B4423;
+    border-left: 4px solid #005F73;
     margin-top: 2rem;
 }
 
 .selection-info h3 {
-    color: #6B4423;
+    color: #005F73;
     margin-bottom: 0.5rem;
 }
 
@@ -525,7 +545,7 @@ footer p {
 }
 
 .section-header h3 {
-    color: #6B4423;
+    color: #005F73;
     font-size: 1.5rem;
 }
 
@@ -562,6 +582,51 @@ footer p {
     border-bottom: 1px solid #e9ecef;
     border-right: 1px solid #f1f3f5;
     color: #495057;
+}
+
+/* Column widths for products table */
+#products-table th:nth-child(8),
+#products-table td:nth-child(8) {
+    /* Price column - wider for price variants */
+    min-width: 120px;
+}
+
+/* Price mini-table inside product table */
+.price-cell {
+    padding: 4px !important;
+}
+
+.price-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.price-table td {
+    padding: 2px 6px !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+.price-table td:first-child {
+    /* Size column */
+    color: #555;
+    white-space: nowrap;
+}
+
+.price-table td:last-child {
+    /* Price column */
+    text-align: right;
+    color: #005F73;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#products-table th:nth-child(9),
+#products-table td:nth-child(9) {
+    /* Stock column - narrower, just checkmark */
+    width: 50px;
+    text-align: center;
 }
 
 #products-table tbody tr {
@@ -752,7 +817,7 @@ footer p {
     height: 20px;
     margin-left: 10px;
     border: 3px solid rgba(107, 68, 35, 0.3);
-    border-top-color: #6B4423;
+    border-top-color: #005F73;
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -882,7 +947,7 @@ footer p {
 
 /* Center Cell Special Style */
 .center-cell {
-    background: #6B4423 !important;
+    background: #005F73 !important;
     font-size: 14px;
     font-weight: bold;
 }
@@ -912,7 +977,7 @@ footer p {
     width: 100%;
     max-width: 100%;
     background: white;
-    border-top: 3px solid #6B4423;
+    border-top: 3px solid #005F73;
     box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
@@ -928,7 +993,7 @@ footer p {
 
 @keyframes flash-border {
     0%, 100% {
-        border-top-color: #6B4423;
+        border-top-color: #005F73;
         box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
     }
     25% {
@@ -936,7 +1001,7 @@ footer p {
         box-shadow: 0 -8px 24px rgba(255, 215, 0, 0.6);
     }
     50% {
-        border-top-color: #6B4423;
+        border-top-color: #005F73;
         box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
     }
     75% {
@@ -955,7 +1020,7 @@ footer p {
 }
 
 .panel-header h3 {
-    color: #6B4423;
+    color: #005F73;
     font-size: 1.25rem;
     margin: 0;
 }
@@ -999,7 +1064,7 @@ footer p {
 
 .product-count {
     font-weight: 600;
-    color: #6B4423;
+    color: #005F73;
 }
 
 .panel-content .search-input {
@@ -1022,14 +1087,14 @@ footer p {
 
 /* Product link styling */
 .product-link {
-    color: #6B4423;
+    color: #005F73;
     text-decoration: none;
     font-weight: bold;
     transition: color 0.2s;
 }
 
 .product-link:hover {
-    color: #8B5A3C;
+    color: #0A9396;
     text-decoration: underline;
 }
 
@@ -1092,6 +1157,24 @@ footer p {
     animation: originBlink 1s ease-in-out infinite;
 }
 
+/* Connection lines from brand to origins */
+.connection-line {
+    pointer-events: none;
+}
+
+@keyframes connectionDash {
+    0% {
+        stroke-dashoffset: 0;
+    }
+    100% {
+        stroke-dashoffset: 20;
+    }
+}
+
+.leaflet-pane .connection-line path {
+    animation: connectionDash 1s linear infinite;
+}
+
 /* Country boundary hover effect */
 .country-boundary-hover {
     stroke-width: 3 !important;
@@ -1120,12 +1203,12 @@ footer p {
 .weather-popup-header {
     text-align: center;
     margin-bottom: 1rem;
-    border-bottom: 2px solid #6B4423;
+    border-bottom: 2px solid #005F73;
     padding-bottom: 1rem;
 }
 
 .weather-popup-header h3 {
-    color: #6B4423;
+    color: #005F73;
     font-size: 1.5rem;
     margin: 0 0 0.5rem 0;
     font-weight: 600;
@@ -1166,9 +1249,9 @@ footer p {
 }
 
 .weather-tab.active {
-    background: linear-gradient(135deg, #6B4423 0%, #8B5A3C 100%);
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
     color: white;
-    border-color: #6B4423;
+    border-color: #005F73;
 }
 
 .weather-chart-container {
@@ -1184,7 +1267,7 @@ footer p {
 }
 
 .weather-popup-error h3 {
-    color: #6B4423;
+    color: #005F73;
     margin-bottom: 1rem;
 }
 
@@ -1231,7 +1314,7 @@ footer p {
     margin-bottom: 2px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: #6B4423;
+    color: #005F73;
     pointer-events: none !important;
 }
 
@@ -1363,7 +1446,7 @@ svg path.producer-marker {
     position: fixed;
     bottom: 2rem;
     right: 2rem;
-    background: linear-gradient(135deg, #6B4423 0%, #8B5A3C 100%);
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
     color: white;
     border: none;
     padding: 1rem 1.5rem;
@@ -1405,7 +1488,7 @@ svg path.producer-marker {
 
 /* Chat Header */
 .chat-header {
-    background: linear-gradient(135deg, #6B4423 0%, #8B5A3C 100%);
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
     color: white;
     padding: 1rem 1.5rem;
     display: flex;
@@ -1497,6 +1580,92 @@ svg path.producer-marker {
     font-style: italic;
 }
 
+/* Product info card (from Ask Chatbot redirect) */
+.product-info-card {
+    max-width: 90%;
+}
+
+.product-info-card .message-text {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+}
+
+.product-info-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.product-info-header strong {
+    font-size: 1.1rem;
+    color: #005F73;
+}
+
+.view-product-link {
+    font-size: 0.8rem;
+    color: #0A9396;
+    text-decoration: none;
+}
+
+.view-product-link:hover {
+    text-decoration: underline;
+}
+
+.product-details-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.75rem 0;
+}
+
+.product-details-list li {
+    padding: 0.25rem 0;
+    font-size: 0.9rem;
+}
+
+.product-details-list li strong {
+    color: #495057;
+}
+
+.product-info-prompt {
+    margin: 0.5rem 0 0;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* Loading indicator - animated dots (no bubble) */
+.loading-indicator {
+    padding: 0.5rem 0;
+    color: #005F73;
+}
+
+.loading-indicator span {
+    display: inline-block;
+    font-size: 2rem;
+    font-weight: bold;
+    line-height: 1;
+    animation: loadingDot 1.4s infinite;
+}
+
+.loading-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.loading-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes loadingDot {
+    0%, 80%, 100% {
+        opacity: 0.2;
+    }
+    40% {
+        opacity: 1;
+    }
+}
+
 /* Chat Products - Compact Table Layout */
 .chat-products-table-container {
     margin-top: 0.5rem;
@@ -1515,7 +1684,7 @@ svg path.producer-marker {
 }
 
 .chat-products-table thead {
-    background: #6B4423;
+    background: #005F73;
     color: white;
 }
 
@@ -1524,7 +1693,7 @@ svg path.producer-marker {
     text-align: left;
     font-weight: 600;
     font-size: 0.8rem;
-    border-bottom: 2px solid #8B5A3C;
+    border-bottom: 2px solid #0A9396;
 }
 
 .chat-products-table tbody tr {
@@ -1552,13 +1721,13 @@ svg path.producer-marker {
 
 .product-name-link {
     text-decoration: none;
-    color: #6B4423;
+    color: #005F73;
     font-weight: 600;
     transition: color 0.3s;
 }
 
 .product-name-link:hover {
-    color: #8B5A3C;
+    color: #0A9396;
     text-decoration: underline;
 }
 
@@ -1567,19 +1736,30 @@ svg path.producer-marker {
     font-size: 0.75rem;
 }
 
+/* Reason row (spans all columns for better readability) */
+.chat-product-reason-row {
+    background-color: #f9f6f3;
+    border-top: none !important;
+}
+
+.product-reason-cell {
+    padding: 0.5rem 0.75rem !important;
+    border-top: none !important;
+    border-bottom: 1px solid #e0d5c7 !important;
+}
+
 .product-reason-text {
-    color: #555;
-    font-size: 0.7rem;
+    color: #005F73;
+    font-size: 0.85rem;
     font-style: italic;
     display: block;
-    margin-top: 0.25rem;
-    line-height: 1.3;
+    line-height: 1.4;
 }
 
 /* Price cell */
 .price-cell {
     font-weight: 600;
-    color: #6B4423;
+    color: #005F73;
     white-space: nowrap;
     text-align: right;
 }
@@ -1613,8 +1793,8 @@ svg path.producer-marker {
 
 .btn-similar-compact {
     background: white;
-    color: #6B4423;
-    border: 1px solid #6B4423;
+    color: #005F73;
+    border: 1px solid #005F73;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     cursor: pointer;
@@ -1623,7 +1803,7 @@ svg path.producer-marker {
 }
 
 .btn-similar-compact:hover {
-    background: #6B4423;
+    background: #005F73;
     color: white;
 }
 
@@ -1640,22 +1820,22 @@ svg path.producer-marker {
 }
 
 .btn-view {
-    background: #6B4423;
+    background: #005F73;
     color: white;
 }
 
 .btn-view:hover {
-    background: #8B5A3C;
+    background: #0A9396;
 }
 
 .btn-similar {
     background: white;
-    color: #6B4423;
-    border: 1px solid #6B4423;
+    color: #005F73;
+    border: 1px solid #005F73;
 }
 
 .btn-similar:hover {
-    background: #6B4423;
+    background: #005F73;
     color: white;
 }
 
@@ -1701,11 +1881,11 @@ svg path.producer-marker {
 
 #chat-input:focus {
     outline: none;
-    border-color: #6B4423;
+    border-color: #005F73;
 }
 
 .btn-send {
-    background: #6B4423;
+    background: #005F73;
     color: white;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -1717,7 +1897,7 @@ svg path.producer-marker {
 }
 
 .btn-send:hover:not(:disabled) {
-    background: #8B5A3C;
+    background: #0A9396;
 }
 
 .btn-send:disabled {
@@ -1727,7 +1907,7 @@ svg path.producer-marker {
 
 /* "Ask Chatbot" Button in Product Table */
 .btn-chat {
-    background: #6B4423;
+    background: #005F73;
     color: white;
     border: none;
     padding: 0.5rem 1rem;
@@ -1739,7 +1919,7 @@ svg path.producer-marker {
 }
 
 .btn-chat:hover {
-    background: #8B5A3C;
+    background: #0A9396;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
@@ -1750,13 +1930,13 @@ svg path.producer-marker {
     padding: 1rem;
     background: #f8f9fa;
     border-radius: 8px;
-    border-left: 3px solid #6B4423;
+    border-left: 3px solid #005F73;
 }
 
 .quick-actions-label {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #6B4423;
+    color: #005F73;
     margin-bottom: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -1770,8 +1950,8 @@ svg path.producer-marker {
 
 .quick-action-btn {
     background: white;
-    color: #6B4423;
-    border: 1px solid #6B4423;
+    color: #005F73;
+    border: 1px solid #005F73;
     padding: 0.5rem 1rem;
     border-radius: 20px;
     font-size: 0.85rem;
@@ -1784,7 +1964,7 @@ svg path.producer-marker {
 }
 
 .quick-action-btn:hover {
-    background: #6B4423;
+    background: #005F73;
     color: white;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(107, 68, 35, 0.3);
@@ -1801,7 +1981,7 @@ svg path.producer-marker {
 }
 
 .chat-main-header {
-    background: linear-gradient(135deg, #6B4423 0%, #8B5A3C 100%);
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
     color: white;
     padding: 2rem;
     text-align: center;
@@ -1873,11 +2053,11 @@ svg path.producer-marker {
 
 .chat-input-wrapper #chat-input:focus {
     outline: none;
-    border-color: #6B4423;
+    border-color: #005F73;
 }
 
 .btn-send-main {
-    background: #6B4423;
+    background: #005F73;
     color: white;
     border: none;
     padding: 1rem 2rem;
@@ -1892,7 +2072,7 @@ svg path.producer-marker {
 }
 
 .btn-send-main:hover:not(:disabled) {
-    background: #8B5A3C;
+    background: #0A9396;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(107, 68, 35, 0.3);
 }
@@ -1930,7 +2110,7 @@ svg path.producer-marker {
 }
 
 .chat-search-header {
-    background: linear-gradient(135deg, #6B4423 0%, #8B5A3C 100%);
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
     color: white;
     padding: 1rem 1.5rem;
     display: flex;
@@ -1988,11 +2168,11 @@ svg path.producer-marker {
 
 .chat-input-inline-container #chat-input:focus {
     outline: none;
-    border-color: #6B4423;
+    border-color: #005F73;
 }
 
 .btn-send-inline {
-    background: #6B4423;
+    background: #005F73;
     color: white;
     border: none;
     padding: 0.75rem 1.5rem;
@@ -2004,7 +2184,7 @@ svg path.producer-marker {
 }
 
 .btn-send-inline:hover:not(:disabled) {
-    background: #8B5A3C;
+    background: #0A9396;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(107, 68, 35, 0.3);
 }
@@ -2077,7 +2257,7 @@ svg path.producer-marker {
 }
 
 .breadcrumb-link {
-    color: #6B4423;
+    color: #005F73;
     text-decoration: none;
 }
 
@@ -2103,7 +2283,7 @@ svg path.producer-marker {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #6B4423 0%, #8B5A3C 100%);
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
     color: white;
     padding: 0.75rem 1.5rem;
     border-radius: 8px;
@@ -2121,17 +2301,17 @@ svg path.producer-marker {
 
 .btn-secondary {
     background: white;
-    color: #6B4423;
+    color: #005F73;
     padding: 0.75rem 1.5rem;
     border-radius: 8px;
-    border: 2px solid #6B4423;
+    border: 2px solid #005F73;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
 }
 
 .btn-secondary:hover {
-    background: #6B4423;
+    background: #005F73;
     color: white;
 }
 
@@ -2166,7 +2346,7 @@ svg path.producer-marker {
 .flavor-wheel-link,
 .map-link {
     font-size: 0.875rem;
-    color: #6B4423;
+    color: #005F73;
     text-decoration: none;
     font-weight: normal;
 }
@@ -2294,7 +2474,7 @@ svg path.producer-marker {
 }
 
 .related-product-name {
-    color: #6B4423;
+    color: #005F73;
     font-weight: 600;
     font-size: 0.95rem;
     text-decoration: none;
@@ -2327,14 +2507,14 @@ svg path.producer-marker {
 
 /* Product name link in table */
 .product-name-link {
-    color: #6B4423;
+    color: #005F73;
     text-decoration: none;
     font-weight: 500;
     transition: color 0.2s;
 }
 
 .product-name-link:hover {
-    color: #8B5A3C;
+    color: #0A9396;
     text-decoration: underline;
 }
 
@@ -2348,7 +2528,7 @@ svg path.producer-marker {
 
 .btn-action {
     padding: 0.375rem 0.75rem;
-    background: #6B4423;
+    background: #005F73;
     color: white;
     border-radius: 6px;
     text-decoration: none;
@@ -2359,14 +2539,14 @@ svg path.producer-marker {
 }
 
 .btn-action:hover {
-    background: #8B5A3C;
+    background: #0A9396;
     transform: translateY(-1px);
 }
 
 /* Small action buttons for compact tables (flavor wheel) */
 .btn-action-sm {
     padding: 0.25rem 0.5rem;
-    background: #6B4423;
+    background: #005F73;
     color: white;
     border-radius: 4px;
     text-decoration: none;
@@ -2376,7 +2556,7 @@ svg path.producer-marker {
 }
 
 .btn-action-sm:hover {
-    background: #8B5A3C;
+    background: #0A9396;
     transform: scale(1.1);
 }
 
@@ -2402,5 +2582,498 @@ svg path.producer-marker {
     .btn-secondary {
         width: 100%;
         text-align: center;
+    }
+}
+
+/* ==================== Full-Page Chat ==================== */
+
+.chat-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    min-height: 500px;
+    max-height: calc(100vh - 280px);
+}
+
+.chat-container-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e0e0e0;
+    background: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.chat-container-header span {
+    font-weight: 600;
+    color: #005F73;
+    font-size: 1rem;
+}
+
+.btn-clear-fullpage {
+    background: #f0f0f0;
+    color: #666;
+    border: 1px solid #ddd;
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s;
+}
+
+.btn-clear-fullpage:hover {
+    background: #e0e0e0;
+    color: #333;
+}
+
+.chat-messages-fullpage {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    background: white;
+    min-height: 300px;
+}
+
+.chat-messages-fullpage .chat-message.bot-message:first-child .message-text ul {
+    margin: 0.75rem 0 0 1.25rem;
+    padding: 0;
+}
+
+.chat-messages-fullpage .chat-message.bot-message:first-child .message-text li {
+    margin-bottom: 0.5rem;
+    color: #666;
+}
+
+.chat-input-fullpage-container {
+    padding: 1rem 1.5rem;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+    border-radius: 0 0 12px 12px;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.chat-input-fullpage-container #chat-input {
+    flex: 1;
+    padding: 0.875rem 1rem;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 1rem;
+    resize: none;
+    transition: border-color 0.3s;
+}
+
+.chat-input-fullpage-container #chat-input:focus {
+    outline: none;
+    border-color: #005F73;
+}
+
+.btn-send-fullpage {
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
+    color: white;
+    border: none;
+    padding: 0.875rem 2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.btn-send-fullpage:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 95, 115, 0.3);
+}
+
+.btn-send-fullpage:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ==================== Brands Page - New Products Section (Compact & Collapsible) ==================== */
+
+.new-products-section-compact {
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e0e0e0;
+}
+
+.section-header-compact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.section-header-compact:hover {
+    background: #f8f9fa;
+}
+
+.section-header-compact .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-header-compact .collapse-icon {
+    color: #666;
+    font-size: 0.75rem;
+    transition: transform 0.2s;
+}
+
+.section-header-compact .collapse-icon.collapsed {
+    transform: rotate(-90deg);
+}
+
+.section-header-compact h3 {
+    margin: 0;
+    color: #005F73;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.badge-small {
+    background: #0A9396;
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.new-products-scroll {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    padding: 0 1rem 1rem 1rem;
+}
+
+.new-products-scroll.collapsed {
+    display: none;
+}
+
+.new-product-card {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 0.75rem;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s;
+}
+
+.new-product-card:hover {
+    border-color: #0A9396;
+    box-shadow: 0 2px 6px rgba(10, 147, 150, 0.15);
+}
+
+.new-product-card .product-name {
+    font-weight: 600;
+    color: #005F73;
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.new-product-card .product-name:hover {
+    text-decoration: underline;
+}
+
+.new-product-card .product-brand {
+    color: #666;
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+}
+
+.new-product-card .product-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    font-size: 0.7rem;
+}
+
+.new-product-card .product-meta span {
+    background: white;
+    padding: 0.15rem 0.35rem;
+    border-radius: 3px;
+    border: 1px solid #ddd;
+}
+
+.new-product-card .product-price {
+    color: #005F73;
+    font-weight: 600;
+}
+
+.new-product-card .product-origin {
+    color: #666;
+}
+
+.new-product-card .product-date {
+    color: #999;
+    font-size: 0.65rem;
+    margin-top: 0.35rem;
+}
+
+/* ==================== Brands Page - Search & Suggest ==================== */
+
+.brands-toolbar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.search-container {
+    flex: 1;
+    min-width: 250px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 2.5rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+    background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23999' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E") no-repeat 0.75rem center;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #005F73;
+}
+
+.btn-suggest-brand {
+    background: linear-gradient(135deg, #94D2BD 0%, #0A9396 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
+.btn-suggest-brand:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(10, 147, 150, 0.3);
+}
+
+.btn-ai-chat {
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-ai-chat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 95, 115, 0.3);
+    color: white;
+}
+
+/* ==================== Modal Styles ==================== */
+
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #005F73;
+    font-size: 1.25rem;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0.25rem;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #005F73;
+}
+
+.recaptcha-container {
+    margin: 1.25rem 0;
+}
+
+.btn-submit-suggestion {
+    width: 100%;
+    background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
+    color: white;
+    border: none;
+    padding: 0.875rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-submit-suggestion:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 95, 115, 0.3);
+}
+
+.btn-submit-suggestion:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.form-message {
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+.form-message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.form-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* ==================== Responsive Full-Page Chat ==================== */
+
+@media (max-width: 768px) {
+    .chat-page-container {
+        height: calc(100vh - 80px);
+        padding: 0.5rem;
+    }
+
+    .chat-fullpage-header {
+        padding: 0.75rem 1rem;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .chat-fullpage-header h2 {
+        font-size: 1.25rem;
+    }
+
+    .chat-messages-fullpage {
+        padding: 1rem;
+    }
+
+    .chat-input-fullpage-container {
+        padding: 0.75rem 1rem;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .chat-input-fullpage-container #chat-input {
+        width: 100%;
+    }
+
+    .btn-send-fullpage {
+        width: 100%;
+    }
+
+    .brands-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search-container {
+        min-width: auto;
+    }
+
+    .brands-toolbar-buttons {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn-suggest-brand,
+    .btn-ai-chat {
+        flex: 1;
+        text-align: center;
+        justify-content: center;
     }
 }

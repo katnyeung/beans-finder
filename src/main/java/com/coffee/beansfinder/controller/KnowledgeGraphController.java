@@ -72,12 +72,42 @@ public class KnowledgeGraphController {
     }
 
     /**
-     * Initialize SCA categories in graph
+     * Initialize SCA categories in graph (Tier 1 only)
      */
     @PostMapping("/init-categories")
     public String initializeCategories() {
         graphService.initializeSCACategories();
         return "SCA categories initialized";
+    }
+
+    /**
+     * Initialize full 4-tier SCA Flavor Wheel hierarchy in Neo4j.
+     * Creates: SCACategory (9) → Subcategory (35) → Attribute (~110)
+     * TastingNote nodes are created automatically during product sync.
+     */
+    @PostMapping("/init-flavor-hierarchy")
+    public ResponseEntity<Map<String, Object>> initializeFlavorHierarchy() {
+        log.info("Initializing 4-tier SCA Flavor Wheel hierarchy...");
+
+        try {
+            graphService.initializeSCACategories(); // Ensure categories exist
+            graphService.initializeFlavorHierarchy(); // Create subcategories and attributes
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "4-tier SCA Flavor Wheel hierarchy initialized successfully");
+            response.put("tiers", Map.of(
+                "tier1_categories", 9,
+                "tier2_subcategories", 35,
+                "tier3_attributes", "~110 (from sca-lexicon.yaml)",
+                "tier4_tasting_notes", "Created during product sync"
+            ));
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to initialize flavor hierarchy: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
     /**
@@ -352,6 +382,54 @@ public class KnowledgeGraphController {
             errorResponse.put("error", e.getMessage());
             errorResponse.put("message", "Re-analysis failed: " + e.getMessage());
             return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
+     * Re-link unmatched TastingNotes to Attributes using OpenAI LLM.
+     * This fixes TastingNotes that weren't linked during initial sync due to keyword matching failures.
+     *
+     * Cost: ~$0.0002 per batch of 50 notes (~$0.003 for 666 notes)
+     * Time: ~1-2 minutes for 666 notes
+     */
+    @PostMapping("/relink-tasting-notes")
+    public ResponseEntity<Map<String, Object>> relinkTastingNotes() {
+        try {
+            log.info("Starting LLM-powered re-linking of unmatched TastingNotes...");
+
+            Map<String, Object> result = graphService.relinkUnmatchedTastingNotesWithLLM();
+
+            log.info("Re-linking complete: {}", result.get("message"));
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            log.error("Failed to re-link TastingNotes: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            errorResponse.put("message", "Re-linking failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
+     * Get statistics about TastingNote linking
+     */
+    @GetMapping("/tasting-note-stats")
+    public ResponseEntity<Map<String, Object>> getTastingNoteStats() {
+        try {
+            long totalNotes = graphService.getProductCount(); // Reuse for now
+            List<String> availableAttributes = graphService.getAvailableAttributeIds();
+
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("availableAttributeCount", availableAttributes.size());
+            stats.put("sampleAttributes", availableAttributes.subList(0, Math.min(20, availableAttributes.size())));
+
+            return ResponseEntity.ok(stats);
+
+        } catch (Exception e) {
+            log.error("Failed to get TastingNote stats: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 }

@@ -119,10 +119,34 @@ function createProductRow(product) {
         tastingNotesText = 'N/A';
     }
 
-    // Format price
-    const priceText = product.price
-        ? `${product.currency || 'GBP'} ${product.price}`
-        : 'N/A';
+    // Format price with variants as mini table
+    let priceHtml = '<span class="na">N/A</span>';
+    if (product.priceVariantsJson) {
+        try {
+            const variants = typeof product.priceVariantsJson === 'string'
+                ? JSON.parse(product.priceVariantsJson)
+                : product.priceVariantsJson;
+            if (Array.isArray(variants) && variants.length > 0) {
+                const currency = product.currency || 'GBP';
+                const rows = variants
+                    .filter(v => v.size) // Only show variants with size
+                    .map(v => {
+                        const priceDisplay = v.price != null ? `${currency} ${v.price}` : '-';
+                        return `<tr><td>${escapeHtml(v.size)}</td><td>${priceDisplay}</td></tr>`;
+                    })
+                    .join('');
+                if (rows) {
+                    priceHtml = `<table class="price-table"><tbody>${rows}</tbody></table>`;
+                }
+            } else if (product.price) {
+                priceHtml = `${product.currency || 'GBP'} ${product.price}`;
+            }
+        } catch (e) {
+            priceHtml = product.price ? `${product.currency || 'GBP'} ${product.price}` : '<span class="na">N/A</span>';
+        }
+    } else if (product.price) {
+        priceHtml = `${product.currency || 'GBP'} ${product.price}`;
+    }
 
     // Format stock status
     const stockStatus = product.inStock ? '✓' : '✗';
@@ -140,7 +164,7 @@ function createProductRow(product) {
         <td class="tasting-notes-cell" title="${escapeHtml(tastingNotesText)}">
             ${escapeHtml(tastingNotesText)}
         </td>
-        <td>${priceText}</td>
+        <td class="price-cell">${priceHtml}</td>
         <td class="${stockClass}">${stockStatus}</td>
     `;
 

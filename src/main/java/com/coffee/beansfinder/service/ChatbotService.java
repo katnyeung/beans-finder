@@ -1,8 +1,10 @@
 package com.coffee.beansfinder.service;
 
 import com.coffee.beansfinder.dto.*;
+import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.graph.node.ProductNode;
 import com.coffee.beansfinder.graph.repository.ProductNodeRepository;
+import com.coffee.beansfinder.repository.CoffeeProductRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,9 @@ public class ChatbotService {
 
     @Autowired
     private ProductNodeRepository productNodeRepository;
+
+    @Autowired
+    private CoffeeProductRepository coffeeProductRepository;
 
     @Autowired
     private GrokService grokService;
@@ -121,10 +126,12 @@ public class ChatbotService {
             // 6. Execute graph query based on Grok's decision
             List<ProductNode> candidateProducts = executeGraphQuery(decision, referenceProduct);
 
-            // 7. Filter out already shown products
-            candidateProducts = candidateProducts.stream()
-                    .filter(p -> !shownProductIds.contains(p.getProductId()))
-                    .collect(Collectors.toList());
+            // 7. Filter out already shown products (skip for SEARCH_BY_NAME - user explicitly asked)
+            if (decision.getQueryType() != GrokDecision.GraphQueryType.SEARCH_BY_NAME) {
+                candidateProducts = candidateProducts.stream()
+                        .filter(p -> !shownProductIds.contains(p.getProductId()))
+                        .collect(Collectors.toList());
+            }
 
             // 8. Call Grok to rank and explain results
             List<ProductRecommendation> recommendations = callGrokForRanking(
@@ -256,8 +263,8 @@ public class ChatbotService {
             }
             refProduct.append(String.format("Price: £%.2f\n", referenceProduct.getPrice()));
 
-            if (referenceProduct.getFlavors() != null && !referenceProduct.getFlavors().isEmpty()) {
-                String flavors = referenceProduct.getFlavors().stream()
+            if (referenceProduct.getTastingNotes() != null && !referenceProduct.getTastingNotes().isEmpty()) {
+                String flavors = referenceProduct.getTastingNotes().stream()
                         .map(f -> f.getName() + " (" + f.getScaCategory() + ")")
                         .collect(Collectors.joining(", "));
                 refProduct.append(String.format("Flavors: %s\n", flavors));
@@ -329,19 +336,31 @@ public class ChatbotService {
                 break;
 
             case SIMILAR_FLAVORS:
-                if (refId != null) {
-                    results = productNodeRepository.findSimilarByFlavorOverlap(refId, maxContextProducts);
-                } else if (filters != null && filters.getProductName() != null) {
-                    // Try to find the product by name and use it as reference
+                Long effectiveRefId = refId;
+
+                // If no refId, try to infer from product name
+                if (effectiveRefId == null && filters != null && filters.getProductName() != null) {
                     log.info("SIMILAR_FLAVORS without refId, searching by product name: {}", filters.getProductName());
                     List<ProductNode> foundProducts = productNodeRepository.findByProductNameContaining(filters.getProductName());
                     if (!foundProducts.isEmpty()) {
-                        Long inferredRefId = foundProducts.get(0).getProductId();
-                        log.info("Using inferred reference product ID: {}", inferredRefId);
-                        results = productNodeRepository.findSimilarByFlavorOverlap(inferredRefId, maxContextProducts);
-                    } else {
-                        log.warn("Could not find product matching '{}'", filters.getProductName());
-                        results = Collections.emptyList();
+                        effectiveRefId = foundProducts.get(0).getProductId();
+                        log.info("Using inferred reference product ID: {}", effectiveRefId);
+                    }
+                }
+
+                if (effectiveRefId != null) {
+                    // Tiered fallback: TastingNote -> Attribute -> Subcategory
+                    results = productNodeRepository.findSimilarByFlavorOverlap(effectiveRefId, maxContextProducts);
+                    log.info("Level 1 (TastingNote): found {} products", results.size());
+
+                    if (results.isEmpty()) {
+                        results = productNodeRepository.findSimilarByAttributeOverlap(effectiveRefId, maxContextProducts);
+                        log.info("Level 2 (Attribute): found {} products", results.size());
+                    }
+
+                    if (results.isEmpty()) {
+                        results = productNodeRepository.findSimilarBySubcategoryOverlap(effectiveRefId, maxContextProducts);
+                        log.info("Level 3 (Subcategory): found {} products", results.size());
                     }
                 } else {
                     log.warn("SIMILAR_FLAVORS requires either refId or productName in filters");
@@ -383,7 +402,15 @@ public class ChatbotService {
 
             case MORE_CATEGORY:
                 if (refId != null && filters != null && filters.getScaCategory() != null) {
-                    results = productNodeRepository.findByMoreCategory(refId, filters.getScaCategory(), maxContextProducts);
+                    // Try flavor-preserving query first (preserves base flavors like fruity when asking for "more bitter")
+                    results = productNodeRepository.findByMoreCategoryWithFlavorOverlap(refId, filters.getScaCategory(), maxContextProducts);
+                    log.info("MORE_CATEGORY with flavor overlap: found {} products", results.size());
+
+                    // Fallback to original query if no results (edge case: no products share base flavors + have target category)
+                    if (results.isEmpty()) {
+                        log.info("No flavor overlap results, falling back to standard MORE_CATEGORY query");
+                        results = productNodeRepository.findByMoreCategory(refId, filters.getScaCategory(), maxContextProducts);
+                    }
                 } else if (filters != null && filters.getScaCategory() != null) {
                     // FALLBACK: No reference product, search all products with this SCA category
                     log.info("MORE_CATEGORY without refId, searching all products with scaCategory: {}", filters.getScaCategory());
@@ -456,8 +483,8 @@ public class ChatbotService {
             }
         }
 
-        // Exclude reference product
-        if (refId != null) {
+        // Exclude reference product (except for SEARCH_BY_NAME where user explicitly asks about it)
+        if (refId != null && decision.getQueryType() != GrokDecision.GraphQueryType.SEARCH_BY_NAME) {
             results = results.stream()
                     .filter(p -> !p.getProductId().equals(refId))
                     .collect(Collectors.toList());
@@ -570,10 +597,29 @@ public class ChatbotService {
                 }
 
                 List<String> flavors = new ArrayList<>();
-                if (product.getFlavors() != null) {
-                    flavors = product.getFlavors().stream()
+                if (product.getTastingNotes() != null) {
+                    flavors = product.getTastingNotes().stream()
                             .map(f -> f.getName())
                             .collect(Collectors.toList());
+                }
+
+                // Fetch price variants from PostgreSQL
+                List<ProductRecommendation.PriceVariant> priceVariants = null;
+                try {
+                    Optional<CoffeeProduct> sqlProduct = coffeeProductRepository.findById(product.getProductId());
+                    if (sqlProduct.isPresent() && sqlProduct.get().getPriceVariantsJson() != null) {
+                        List<Map<String, Object>> variantsData = objectMapper.readValue(
+                                sqlProduct.get().getPriceVariantsJson(),
+                                new TypeReference<List<Map<String, Object>>>() {});
+                        priceVariants = variantsData.stream()
+                                .map(v -> ProductRecommendation.PriceVariant.builder()
+                                        .size((String) v.get("size"))
+                                        .price(new BigDecimal(v.get("price").toString()))
+                                        .build())
+                                .collect(Collectors.toList());
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse price variants for product {}: {}", productId, e.getMessage());
                 }
 
                 recommendations.add(ProductRecommendation.builder()
@@ -583,6 +629,7 @@ public class ChatbotService {
                         .origin(origin)
                         .roastLevel(product.getRoastLevel() != null ? product.getRoastLevel().getLevel() : "Unknown")
                         .price(product.getPrice())
+                        .priceVariants(priceVariants)
                         .currency(product.getCurrency() != null ? product.getCurrency() : "GBP")
                         .flavors(flavors)
                         .url(product.getSellerUrl())
@@ -629,8 +676,8 @@ public class ChatbotService {
      */
     private String formatProductDetails(ProductNode product) {
         String flavors = "No flavors listed";
-        if (product.getFlavors() != null && !product.getFlavors().isEmpty()) {
-            flavors = product.getFlavors().stream()
+        if (product.getTastingNotes() != null && !product.getTastingNotes().isEmpty()) {
+            flavors = product.getTastingNotes().stream()
                     .map(f -> f.getName() + " (" + f.getScaCategory() + ")")
                     .collect(Collectors.joining(", "));
         }
