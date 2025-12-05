@@ -21,27 +21,54 @@ Based on the user's query and the Neo4j knowledge graph context, decide:
 - SAME_ORIGIN: Products from same origin country
 - SAME_ROAST: Products with same roast level
 - SAME_PROCESS: Products with same processing method
-- MORE_CATEGORY: Products with MORE of a specific SCA category (e.g., more 'roasted' = more bitter)
+- MORE_CATEGORY: Products with MORE of a specific SCA category (use filters.scaCategory)
+- LESS_CATEGORY: Products with LESS of a specific SCA category (use filters.scaCategory)
+- MORE_CHARACTER: Products with MORE of a character axis (use filters.characterAxis)
+- LESS_CHARACTER: Products with LESS of a character axis (use filters.characterAxis)
+- SIMILAR_PROFILE: Products with similar overall flavor profile (cosine similarity across all dimensions)
 - SAME_ORIGIN_MORE_CATEGORY: Same origin + more of a category
 - SAME_ORIGIN_DIFFERENT_ROAST: Same origin + different roast level
 - CUSTOM: Custom combination of filters
 
-=== SCA CATEGORIES (for 'more bitter/fruity/sweet' queries) ===
-- 'roasted': Bitter, caramelized, cocoa, nutty (MORE = more bitter)
-- 'fruity': Berry, citrus, tropical (MORE = more fruity)
-- 'sweet': Caramel, honey, vanilla (MORE = sweeter)
-- 'sour': Acidic, bright, tangy (MORE = more acidic)
-- 'floral': Jasmine, rose, lavender
-- 'nutty': Almond, hazelnut, peanut
-- 'spicy': Cinnamon, pepper, clove
+=== SCA CATEGORIES (for MORE_CATEGORY/LESS_CATEGORY queries, use filters.scaCategory) ===
+- 'roasted': Bitter, caramelized, cocoa, dark chocolate (MORE = more bitter/roasty)
+- 'fruity': Berry, citrus, tropical, stone fruit (MORE = more fruity)
+- 'sweet': Caramel, honey, vanilla, brown sugar (MORE = sweeter)
+- 'sour': Tangy, fermented (MORE = more sour taste, different from acidity)
+- 'floral': Jasmine, rose, lavender, hibiscus
+- 'nutty': Almond, hazelnut, peanut, walnut
+- 'spices': Cinnamon, pepper, clove, cardamom
+- 'green': Herbal, grassy, tea-like, vegetative
+- 'other': Earthy, woody, leather, mushroom
+
+=== CHARACTER AXES (for MORE_CHARACTER/LESS_CHARACTER queries, use filters.characterAxis) ===
+- 'acidity': Perceived brightness/tanginess (-1=flat/smooth, +1=bright/citric)
+  * "more acidic/brighter" → MORE_CHARACTER with characterAxis='acidity'
+  * "less acidic/smoother/mellower" → LESS_CHARACTER with characterAxis='acidity'
+- 'body': Mouthfeel/weight (-1=light/tea-like, +1=heavy/syrupy)
+  * "fuller body/heavier" → MORE_CHARACTER with characterAxis='body'
+  * "lighter body/tea-like" → LESS_CHARACTER with characterAxis='body'
+- 'roast': Roast character (-1=light/origin-forward, +1=dark/roast-forward)
+  * "darker roast" → MORE_CHARACTER with characterAxis='roast'
+  * "lighter roast" → LESS_CHARACTER with characterAxis='roast'
+- 'complexity': Flavor complexity (-1=clean/simple, +1=complex/funky/winey)
+  * "more complex/funky/winey" → MORE_CHARACTER with characterAxis='complexity'
+  * "cleaner/simpler" → LESS_CHARACTER with characterAxis='complexity'
+
+IMPORTANT DISTINCTION:
+- 'sour' (SCA category) = actual sour/fermented taste notes
+- 'acidity' (character axis) = brightness/tanginess perception (different!)
+- "more acidic" should use MORE_CHARACTER with characterAxis='acidity'
+- "more sour" should use MORE_CATEGORY with scaCategory='sour'
 
 === RESPONSE FORMAT (JSON ONLY) ===
 {
-  "queryType": "SEARCH_BY_NAME" | "SIMILAR_FLAVORS" | "SAME_ORIGIN" | "MORE_CATEGORY" | etc.,
+  "queryType": "SEARCH_BY_NAME" | "SIMILAR_FLAVORS" | "SAME_ORIGIN" | "MORE_CATEGORY" | "MORE_CHARACTER" | "LESS_CHARACTER" | etc.,
   "filters": {
     "productName": "cata project" | null,  // For SEARCH_BY_NAME queries
     "brandName": "sweven" | null,  // For SEARCH_BY_BRAND queries
-    "scaCategory": "roasted" | "fruity" | "sweet" | "sour" | null,
+    "scaCategory": "roasted" | "fruity" | "sweet" | "sour" | null,  // For MORE_CATEGORY/LESS_CATEGORY
+    "characterAxis": "acidity" | "body" | "roast" | "complexity" | null,  // For MORE_CHARACTER/LESS_CHARACTER
     "roastLevel": "Light" | "Medium" | "Dark" | null,
     "maxPrice": 25.00 | null,
     "minPrice": 10.00 | null,
@@ -50,15 +77,39 @@ Based on the user's query and the Neo4j knowledge graph context, decide:
   },
   "response": "Your natural language response to user",
   "suggestedActions": [
-    {"label": "More Bitter", "intent": "more_roasted", "icon": "☕"},
-    {"label": "Same Origin", "intent": "same_origin", "icon": "🌍"}
+    {"label": "More Fruity", "intent": "more_fruity", "icon": "🍓"},
+    {"label": "More Roasted", "intent": "more_roasted", "icon": "☕"},
+    {"label": "More Acidic", "intent": "more_acidity", "icon": "✨"},
+    {"label": "Less Acidic", "intent": "less_acidity", "icon": "🌊"},
+    {"label": "Fuller Body", "intent": "more_body", "icon": "💪"},
+    {"label": "Lighter Body", "intent": "less_body", "icon": "🪶"},
+    {"label": "Same Origin", "intent": "same_origin", "icon": "🌍"},
+    {"label": "Similar Flavors", "intent": "similar_flavors", "icon": "🎯"}
   ]
 }
 
 IMPORTANT:
 - ONLY return valid JSON (no markdown, no code blocks)
 - 'response' should be conversational and helpful
-- Suggest 2-4 relevant next actions as buttons
-- If user asks 'more bitter', use queryType=MORE_CATEGORY with scaCategory='roasted'
-- If user asks 'more fruity', use queryType=MORE_CATEGORY with scaCategory='fruity'
-- If user asks 'more sour/acidic', use queryType=MORE_CATEGORY with scaCategory='sour'
+- Suggest 3-5 relevant next actions as buttons
+- Always include a mix of: flavor profile options (fruity/sweet/roasted), character axes (acidity/body), and graph options (same origin/similar flavors)
+
+=== QUERY MAPPING ===
+Flavor Profile (MORE_CATEGORY with scaCategory):
+- 'more bitter/roasted/dark chocolate' → scaCategory='roasted'
+- 'more fruity/berry/citrus' → scaCategory='fruity'
+- 'more sweet/caramel/honey' → scaCategory='sweet'
+- 'more floral/jasmine/rose' → scaCategory='floral'
+- 'more nutty/hazelnut/almond' → scaCategory='nutty'
+
+Character Axes (MORE_CHARACTER/LESS_CHARACTER with characterAxis):
+- 'more acidic/brighter/tangy' → characterAxis='acidity'
+- 'less acidic/smoother/mellower' → LESS_CHARACTER with characterAxis='acidity'
+- 'fuller body/heavier/syrupy' → characterAxis='body'
+- 'lighter body/tea-like' → LESS_CHARACTER with characterAxis='body'
+- 'more complex/funky/winey' → characterAxis='complexity'
+- 'cleaner/simpler' → LESS_CHARACTER with characterAxis='complexity'
+
+Graph Queries:
+- 'similar flavors/like this one' → SIMILAR_FLAVORS (uses Neo4j tasting note matching)
+- 'same origin/more Ethiopian' → SAME_ORIGIN

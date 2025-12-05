@@ -261,4 +261,224 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
            "MATCH (p)-[rel]-(related) " +
            "RETURN p, collect(rel), collect(related)")
     List<ProductNode> findBySameOriginDifferentRoast(@Param("refId") Long refId, @Param("roastLevel") String roastLevel, @Param("limit") int limit);
+
+    // ==================== PROFILE-BASED VECTOR QUERIES ====================
+
+    /**
+     * Find products with MORE of a specific SCA category using flavor profile vector comparison.
+     * Uses flavorProfile array: [fruity, floral, sweet, nutty, spices, roasted, green, sour, other]
+     * Index mapping: 0=fruity, 1=floral, 2=sweet, 3=nutty, 4=spices, 5=roasted, 6=green, 7=sour, 8=other
+     *
+     * Balanced scoring: 70% profile similarity + 30% intensity increase
+     * This ensures products are similar overall but with MORE of the requested category.
+     *
+     * NOTE: Loads full 4-tier flavor hierarchy for TastingNote.getScaCategory() to work.
+     *
+     * @param refId Reference product ID
+     * @param categoryIndex Index in flavor profile array (0-8)
+     * @param limit Maximum results
+     */
+    @Query("MATCH (ref:Product {productId: $refId}) " +
+           "WHERE ref.flavorProfile IS NOT NULL " +
+           "MATCH (p:Product) " +
+           "WHERE p.productId <> $refId " +
+           "AND p.flavorProfile IS NOT NULL " +
+           "AND size(p.flavorProfile) = 9 " +
+           "AND size(ref.flavorProfile) = 9 " +
+           "AND p.flavorProfile[$categoryIndex] > ref.flavorProfile[$categoryIndex] " +
+           // Calculate cosine similarity for overall profile match
+           "WITH p, ref, " +
+           "  reduce(dot = 0.0, i IN range(0, 8) | dot + p.flavorProfile[i] * ref.flavorProfile[i]) as dotProduct, " +
+           "  sqrt(reduce(s = 0.0, i IN range(0, 8) | s + p.flavorProfile[i] * p.flavorProfile[i])) as normP, " +
+           "  sqrt(reduce(s = 0.0, i IN range(0, 8) | s + ref.flavorProfile[i] * ref.flavorProfile[i])) as normRef, " +
+           "  (p.flavorProfile[$categoryIndex] - ref.flavorProfile[$categoryIndex]) as intensityDiff " +
+           "WITH p, " +
+           "  CASE WHEN normP * normRef = 0 THEN 0 ELSE dotProduct / (normP * normRef) END as similarity, " +
+           "  intensityDiff " +
+           // Balanced score: 70% similarity + 30% intensity increase (normalized)
+           "WITH p, similarity, intensityDiff, " +
+           "  (0.7 * similarity) + (0.3 * (intensityDiff / 10.0)) as balancedScore " +
+           "ORDER BY balancedScore DESC " +
+           "LIMIT $limit " +
+           // Load direct relationships only (TastingNote rawText is sufficient for display)
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findByMoreCategoryProfile(
+            @Param("refId") Long refId,
+            @Param("categoryIndex") int categoryIndex,
+            @Param("limit") int limit);
+
+    /**
+     * Find products with LESS of a specific character axis AND shared tasting notes.
+     * HYBRID APPROACH: Requires flavor overlap first, then filters by lower axis value.
+     *
+     * This ensures recommendations maintain flavor similarity while reducing the specified axis.
+     * Example: "less acidic" finds coffees with similar fruity notes but lower acidity.
+     *
+     * @param refId Reference product ID
+     * @param axisIndex Index in character axes array (0-3): acidity, body, roast, complexity
+     * @param limit Maximum results
+     */
+    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(tn:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
+           "WHERE p.productId <> $refId " +
+           "AND ref.characterAxes IS NOT NULL " +
+           "AND p.characterAxes IS NOT NULL " +
+           "AND size(ref.characterAxes) = 4 " +
+           "AND size(p.characterAxes) = 4 " +
+           "AND p.characterAxes[$axisIndex] < ref.characterAxes[$axisIndex] " +
+           "WITH p, ref, COUNT(DISTINCT tn) as flavorOverlap, " +
+           "  (ref.characterAxes[$axisIndex] - p.characterAxes[$axisIndex]) as axisDiff " +
+           // Score: prioritize flavor overlap, then axis difference
+           "WITH p, flavorOverlap, axisDiff, " +
+           "  (flavorOverlap * 10.0) + (axisDiff * 5.0) as score " +
+           "ORDER BY score DESC " +
+           "LIMIT $limit " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findByLessCharacterAxisWithFlavorOverlap(
+            @Param("refId") Long refId,
+            @Param("axisIndex") int axisIndex,
+            @Param("limit") int limit);
+
+    /**
+     * Find products with LESS of a specific character axis using vector comparison only.
+     * FALLBACK: Used when no flavor overlap matches are found.
+     *
+     * Balanced scoring: 70% profile similarity + 30% axis decrease
+     *
+     * @param refId Reference product ID
+     * @param axisIndex Index in character axes array (0-3)
+     * @param limit Maximum results
+     */
+    @Query("MATCH (ref:Product {productId: $refId}) " +
+           "WHERE ref.characterAxes IS NOT NULL AND ref.flavorProfile IS NOT NULL " +
+           "MATCH (p:Product) " +
+           "WHERE p.productId <> $refId " +
+           "AND p.characterAxes IS NOT NULL " +
+           "AND p.flavorProfile IS NOT NULL " +
+           "AND size(p.characterAxes) = 4 " +
+           "AND size(ref.characterAxes) = 4 " +
+           "AND size(p.flavorProfile) = 9 " +
+           "AND size(ref.flavorProfile) = 9 " +
+           "AND p.characterAxes[$axisIndex] < ref.characterAxes[$axisIndex] " +
+           // Calculate cosine similarity for overall flavor profile match
+           "WITH p, ref, " +
+           "  reduce(dot = 0.0, i IN range(0, 8) | dot + p.flavorProfile[i] * ref.flavorProfile[i]) as dotProduct, " +
+           "  sqrt(reduce(s = 0.0, i IN range(0, 8) | s + p.flavorProfile[i] * p.flavorProfile[i])) as normP, " +
+           "  sqrt(reduce(s = 0.0, i IN range(0, 8) | s + ref.flavorProfile[i] * ref.flavorProfile[i])) as normRef, " +
+           "  (ref.characterAxes[$axisIndex] - p.characterAxes[$axisIndex]) as axisDiff " +
+           "WITH p, " +
+           "  CASE WHEN normP * normRef = 0 THEN 0 ELSE dotProduct / (normP * normRef) END as similarity, " +
+           "  axisDiff " +
+           // Balanced score: 70% similarity + 30% axis decrease (normalized to 0-1 range)
+           "WITH p, similarity, axisDiff, " +
+           "  (0.7 * similarity) + (0.3 * (axisDiff / 2.0)) as balancedScore " +
+           "ORDER BY balancedScore DESC " +
+           "LIMIT $limit " +
+           // Load direct relationships only (TastingNote rawText is sufficient for display)
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findByLessCharacterAxis(
+            @Param("refId") Long refId,
+            @Param("axisIndex") int axisIndex,
+            @Param("limit") int limit);
+
+    /**
+     * Find products with MORE of a specific character axis AND shared tasting notes.
+     * HYBRID APPROACH: Requires flavor overlap first, then filters by higher axis value.
+     *
+     * @param refId Reference product ID
+     * @param axisIndex Index in character axes array (0-3): acidity, body, roast, complexity
+     * @param limit Maximum results
+     */
+    @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(tn:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
+           "WHERE p.productId <> $refId " +
+           "AND ref.characterAxes IS NOT NULL " +
+           "AND p.characterAxes IS NOT NULL " +
+           "AND size(ref.characterAxes) = 4 " +
+           "AND size(p.characterAxes) = 4 " +
+           "AND p.characterAxes[$axisIndex] > ref.characterAxes[$axisIndex] " +
+           "WITH p, ref, COUNT(DISTINCT tn) as flavorOverlap, " +
+           "  (p.characterAxes[$axisIndex] - ref.characterAxes[$axisIndex]) as axisDiff " +
+           // Score: prioritize flavor overlap, then axis difference
+           "WITH p, flavorOverlap, axisDiff, " +
+           "  (flavorOverlap * 10.0) + (axisDiff * 5.0) as score " +
+           "ORDER BY score DESC " +
+           "LIMIT $limit " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findByMoreCharacterAxisWithFlavorOverlap(
+            @Param("refId") Long refId,
+            @Param("axisIndex") int axisIndex,
+            @Param("limit") int limit);
+
+    /**
+     * Find products with MORE of a specific character axis using vector comparison only.
+     * FALLBACK: Used when no flavor overlap matches are found.
+     *
+     * Balanced scoring: 70% profile similarity + 30% axis increase
+     *
+     * @param refId Reference product ID
+     * @param axisIndex Index in character axes array (0-3)
+     * @param limit Maximum results
+     */
+    @Query("MATCH (ref:Product {productId: $refId}) " +
+           "WHERE ref.characterAxes IS NOT NULL AND ref.flavorProfile IS NOT NULL " +
+           "MATCH (p:Product) " +
+           "WHERE p.productId <> $refId " +
+           "AND p.characterAxes IS NOT NULL " +
+           "AND p.flavorProfile IS NOT NULL " +
+           "AND size(p.characterAxes) = 4 " +
+           "AND size(ref.characterAxes) = 4 " +
+           "AND size(p.flavorProfile) = 9 " +
+           "AND size(ref.flavorProfile) = 9 " +
+           "AND p.characterAxes[$axisIndex] > ref.characterAxes[$axisIndex] " +
+           // Calculate cosine similarity for overall flavor profile match
+           "WITH p, ref, " +
+           "  reduce(dot = 0.0, i IN range(0, 8) | dot + p.flavorProfile[i] * ref.flavorProfile[i]) as dotProduct, " +
+           "  sqrt(reduce(s = 0.0, i IN range(0, 8) | s + p.flavorProfile[i] * p.flavorProfile[i])) as normP, " +
+           "  sqrt(reduce(s = 0.0, i IN range(0, 8) | s + ref.flavorProfile[i] * ref.flavorProfile[i])) as normRef, " +
+           "  (p.characterAxes[$axisIndex] - ref.characterAxes[$axisIndex]) as axisDiff " +
+           "WITH p, " +
+           "  CASE WHEN normP * normRef = 0 THEN 0 ELSE dotProduct / (normP * normRef) END as similarity, " +
+           "  axisDiff " +
+           // Balanced score: 70% similarity + 30% axis increase (normalized to 0-1 range)
+           "WITH p, similarity, axisDiff, " +
+           "  (0.7 * similarity) + (0.3 * (axisDiff / 2.0)) as balancedScore " +
+           "ORDER BY balancedScore DESC " +
+           "LIMIT $limit " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findByMoreCharacterAxis(
+            @Param("refId") Long refId,
+            @Param("axisIndex") int axisIndex,
+            @Param("limit") int limit);
+
+    /**
+     * Find products with similar overall profile using cosine similarity across all 13 dimensions.
+     * Combines flavorProfile (9 dims) + characterAxes (4 dims).
+     *
+     * NOTE: Loads full 4-tier flavor hierarchy for TastingNote.getScaCategory() to work.
+     */
+    @Query("MATCH (ref:Product {productId: $refId}) " +
+           "WHERE ref.flavorProfile IS NOT NULL AND ref.characterAxes IS NOT NULL " +
+           "AND size(ref.flavorProfile) = 9 AND size(ref.characterAxes) = 4 " +
+           "MATCH (p:Product) " +
+           "WHERE p.productId <> $refId " +
+           "AND p.flavorProfile IS NOT NULL AND p.characterAxes IS NOT NULL " +
+           "AND size(p.flavorProfile) = 9 AND size(p.characterAxes) = 4 " +
+           "WITH p, ref, " +
+           "  reduce(dot = 0.0, i IN range(0, 8) | dot + p.flavorProfile[i] * ref.flavorProfile[i]) + " +
+           "  reduce(dot = 0.0, i IN range(0, 3) | dot + p.characterAxes[i] * ref.characterAxes[i]) as dotProduct, " +
+           "  sqrt(reduce(a = 0.0, i IN range(0, 8) | a + p.flavorProfile[i] * p.flavorProfile[i]) + " +
+           "       reduce(a = 0.0, i IN range(0, 3) | a + p.characterAxes[i] * p.characterAxes[i])) as normP, " +
+           "  sqrt(reduce(b = 0.0, i IN range(0, 8) | b + ref.flavorProfile[i] * ref.flavorProfile[i]) + " +
+           "       reduce(b = 0.0, i IN range(0, 3) | b + ref.characterAxes[i] * ref.characterAxes[i])) as normRef " +
+           "WITH p, CASE WHEN normP * normRef = 0 THEN 0 ELSE dotProduct / (normP * normRef) END as similarity " +
+           "ORDER BY similarity DESC " +
+           "LIMIT $limit " +
+           // Load direct relationships only (TastingNote rawText is sufficient for display)
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findBySimilarProfile(@Param("refId") Long refId, @Param("limit") int limit);
 }

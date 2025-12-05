@@ -82,6 +82,9 @@ public class KnowledgeGraphService {
     /**
      * Create or update product in knowledge graph
      * Uses Neo4j transaction manager and REQUIRES_NEW to run in separate transaction from PostgreSQL
+     *
+     * IMPORTANT: Only syncs products with valid tasting notes (valid coffee products).
+     * Products without tasting notes are not considered coffee products and will be skipped.
      */
     @Transactional(
         transactionManager = "neo4jTransactionManager",
@@ -89,6 +92,20 @@ public class KnowledgeGraphService {
     )
     public ProductNode syncProductToGraph(CoffeeProduct product) {
         try {
+            // Skip products without valid tasting notes (not a coffee product)
+            if (!hasValidTastingNotes(product)) {
+                log.info("Skipping product without tasting notes: {} (ID: {})",
+                        product.getProductName(), product.getId());
+                // If product already exists in Neo4j, delete it
+                productNodeRepository.findByProductId(product.getId())
+                        .ifPresent(existingNode -> {
+                            log.info("Deleting invalid product from Neo4j: {} (ID: {})",
+                                    product.getProductName(), product.getId());
+                            productNodeRepository.delete(existingNode);
+                        });
+                return null;
+            }
+
             log.info("Syncing product to knowledge graph: {} (ID: {})",
                     product.getProductName(), product.getId());
 
@@ -217,6 +234,31 @@ public class KnowledgeGraphService {
             }
 
             productNode.setTastingNotes(tastingNoteNodes);
+
+            // Sync flavor profile and character axes vectors (13-dimensional system)
+            if (product.getFlavorProfileJson() != null && !product.getFlavorProfileJson().isEmpty()) {
+                try {
+                    List<Double> flavorProfile = objectMapper.readValue(
+                            product.getFlavorProfileJson(),
+                            new TypeReference<List<Double>>() {}
+                    );
+                    productNode.setFlavorProfile(flavorProfile);
+                } catch (Exception e) {
+                    log.warn("Failed to parse flavor profile for product {}: {}", product.getId(), e.getMessage());
+                }
+            }
+
+            if (product.getCharacterAxesJson() != null && !product.getCharacterAxesJson().isEmpty()) {
+                try {
+                    List<Double> characterAxes = objectMapper.readValue(
+                            product.getCharacterAxesJson(),
+                            new TypeReference<List<Double>>() {}
+                    );
+                    productNode.setCharacterAxes(characterAxes);
+                } catch (Exception e) {
+                    log.warn("Failed to parse character axes for product {}: {}", product.getId(), e.getMessage());
+                }
+            }
 
             // Extract and link to roast level
             String roastLevel = extractRoastLevel(product);
@@ -584,17 +626,23 @@ public class KnowledgeGraphService {
         SCAFlavorWheelService.CategorySubcategory mapping = scaFlavorWheelService.findCategorySubcategory(rawText);
 
         AttributeNode attribute = null;
+        String scaCategoryName = "other"; // Default category
         if (mapping != null && mapping.subcategory != null) {
             // Try to find attribute that matches the raw text or subcategory keyword
             String attributeId = findBestAttributeId(rawText, mapping.subcategory);
             attribute = attributeNodeRepository.findById(attributeId).orElse(null);
+            // Store the category name directly for efficient queries (denormalized)
+            if (mapping.category != null) {
+                scaCategoryName = mapping.category;
+            }
         }
 
-        // Create and save the tasting note
+        // Create and save the tasting note with denormalized scaCategoryName
         TastingNoteNode tastingNote = TastingNoteNode.builder()
                 .id(noteId)
                 .rawText(rawText)
                 .attribute(attribute)
+                .scaCategoryName(scaCategoryName)
                 .build();
 
         return tastingNoteNodeRepository.save(tastingNote);
@@ -1357,5 +1405,36 @@ public class KnowledgeGraphService {
                 .map(AttributeNode::getId)
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Check if a product has valid tasting notes (is a valid coffee product).
+     * Products without tasting notes are not considered coffee products.
+     */
+    private boolean hasValidTastingNotes(CoffeeProduct product) {
+        String tastingNotesJson = product.getTastingNotesJson();
+
+        // Check if tasting notes JSON is null, empty, or empty array
+        if (tastingNotesJson == null || tastingNotesJson.isEmpty()) {
+            return false;
+        }
+
+        // Check for empty array
+        String trimmed = tastingNotesJson.trim();
+        if (trimmed.equals("[]") || trimmed.equals("null")) {
+            return false;
+        }
+
+        // Parse and check for actual content
+        try {
+            List<String> notes = objectMapper.readValue(tastingNotesJson,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            // Check if there are any non-empty notes
+            return notes != null && notes.stream()
+                    .anyMatch(note -> note != null && !note.trim().isEmpty());
+        } catch (Exception e) {
+            log.warn("Failed to parse tasting notes for product {}: {}", product.getId(), e.getMessage());
+            return false;
+        }
     }
 }

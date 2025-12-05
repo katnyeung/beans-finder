@@ -52,7 +52,7 @@ public class ProductController {
             @RequestParam(defaultValue = "7") int days) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
         log.info("Fetching products created after: {}", cutoff);
-        List<CoffeeProduct> products = productRepository.findByCreatedDateAfter(cutoff);
+        List<CoffeeProduct> products = productRepository.findByCreatedDateAfterOrderByCreatedDateDesc(cutoff);
 
         return products.stream()
                 .filter(p -> p.getBrand() != null)
@@ -84,7 +84,7 @@ public class ProductController {
             @RequestParam(defaultValue = "7") int days) {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(days);
         log.info("Fetching products updated after: {}", cutoff);
-        return productRepository.findByLastUpdateDateAfter(cutoff);
+        return productRepository.findByLastUpdateDateAfterOrderByLastUpdateDateDesc(cutoff);
     }
 
     /**
@@ -113,7 +113,9 @@ public class ProductController {
                             product.getPriceVariantsJson(),
                             product.getCurrency(),
                             product.getInStock(),
-                            product.getRawDescription()
+                            product.getRawDescription(),
+                            product.getFlavorProfileJson(),
+                            product.getCharacterAxesJson()
                     );
                     return ResponseEntity.ok(dto);
                 })
@@ -121,11 +123,11 @@ public class ProductController {
     }
 
     /**
-     * Get products by brand
+     * Get products by brand (only valid coffee products with tasting notes)
      */
     @GetMapping("/brand/{brandId}")
     public List<CoffeeProduct> getProductsByBrand(@PathVariable Long brandId) {
-        return productRepository.findByBrandId(brandId);
+        return productRepository.findValidProductsByBrandId(brandId);
     }
 
     /**
@@ -137,15 +139,15 @@ public class ProductController {
     }
 
     /**
-     * Search products by name
+     * Search products by name or brand
      */
     @Operation(
-        summary = "Search products by name",
-        description = "Search products by name (case-insensitive partial match)"
+        summary = "Search products by name or brand",
+        description = "Search products by product name OR brand name (case-insensitive partial match)"
     )
     @GetMapping("/search")
-    public List<ProductSearchResultDTO> searchProductsByName(
-            @Parameter(description = "Search query") @RequestParam String query,
+    public List<ProductSearchResultDTO> searchProducts(
+            @Parameter(description = "Search query (matches product name or brand name)") @RequestParam String query,
             @Parameter(description = "Maximum results to return") @RequestParam(defaultValue = "20") int limit) {
 
         if (query == null || query.trim().length() < 2) {
@@ -154,7 +156,7 @@ public class ProductController {
 
         log.info("Searching products for: '{}' (limit: {})", query, limit);
 
-        List<CoffeeProduct> products = productRepository.findByProductNameContainingIgnoreCase(query.trim());
+        List<CoffeeProduct> products = productRepository.searchByProductOrBrandName(query.trim());
 
         return products.stream()
                 .filter(p -> p.getBrand() != null)
@@ -382,7 +384,9 @@ public class ProductController {
             String priceVariantsJson,
             String currency,
             Boolean inStock,
-            String rawDescription
+            String rawDescription,
+            String flavorProfileJson,
+            String characterAxesJson
     ) {}
 
     public record ProductSearchResultDTO(

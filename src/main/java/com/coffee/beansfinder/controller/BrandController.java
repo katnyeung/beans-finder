@@ -53,9 +53,9 @@ public class BrandController {
     @GetMapping("/approved")
     public List<CoffeeBrand> getApprovedBrands() {
         List<CoffeeBrand> brands = brandRepository.findByApprovedTrue();
-        // Populate product count for each brand
+        // Populate product count for each brand (only valid products with tasting notes)
         brands.forEach(brand -> {
-            long count = productRepository.countByBrandId(brand.getId());
+            long count = productRepository.countValidProductsByBrandId(brand.getId());
             brand.setProductCount(count);
         });
         return brands;
@@ -874,6 +874,139 @@ public class BrandController {
             int totalBrands,
             int successCount,
             int skipCount,
+            int errorCount,
+            String message
+    ) {}
+
+    // ==================== EXTRACT BRANDS FROM WEBSITES ====================
+
+    /**
+     * Extract brand details from a list of website URLs.
+     * Uses Perplexity AI to extract brand name, description, sitemap, and location details.
+     * Returns the extracted data for review - does NOT insert into database.
+     * Use /api/brands/bulk-submit to insert after review.
+     */
+    @Operation(
+        summary = "Extract brand details from website URLs",
+        description = "Takes a list of coffee roaster website URLs and uses AI to extract brand details. Returns data for review - does NOT insert into database. Use bulk-submit endpoint after review."
+    )
+    @PostMapping("/extract-from-urls")
+    public ResponseEntity<ExtractFromUrlsResponse> extractBrandsFromUrls(@RequestBody ExtractFromUrlsRequest request) {
+
+        log.info("Extract from URLs requested: {} websites", request.websiteUrls != null ? request.websiteUrls.size() : 0);
+
+        if (request.websiteUrls == null || request.websiteUrls.isEmpty()) {
+            return ResponseEntity.badRequest().body(new ExtractFromUrlsResponse(
+                    List.of(), 0, 0, 0, "No website URLs provided"
+            ));
+        }
+
+        List<BrandDetailDto> extractedBrands = new ArrayList<>();
+        int successCount = 0;
+        int errorCount = 0;
+
+        for (String websiteUrl : request.websiteUrls) {
+            String cleanUrl = websiteUrl.trim();
+            if (cleanUrl.isEmpty()) continue;
+
+            // Normalize URL (add https if missing)
+            if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+                cleanUrl = "https://" + cleanUrl;
+            }
+
+            try {
+                log.info("Extracting from website: {}", cleanUrl);
+
+                // Use Perplexity to extract brand details from website
+                PerplexityApiService.BrandDetails details = perplexityService.discoverBrandDetailsFromWebsite(cleanUrl);
+
+                if (details == null || details.name == null || details.name.isBlank()) {
+                    log.warn("Failed to extract brand details from: {}", cleanUrl);
+                    errorCount++;
+                    continue;
+                }
+
+                // Auto-resolve product sitemap if main sitemap was returned
+                String resolvedSitemapUrl = details.sitemapUrl;
+                if (resolvedSitemapUrl != null && !resolvedSitemapUrl.isEmpty()) {
+                    try {
+                        List<String> productSitemaps = scraperService.extractProductSitemapUrls(resolvedSitemapUrl);
+                        if (!productSitemaps.isEmpty()) {
+                            resolvedSitemapUrl = productSitemaps.get(0);
+                            log.info("Auto-resolved to product sitemap: {}", resolvedSitemapUrl);
+                        }
+                    } catch (Exception e) {
+                        log.debug("Could not resolve sitemap index: {}", e.getMessage());
+                    }
+                }
+
+                // Geocode location
+                Double latitude = null;
+                Double longitude = null;
+
+                String locationToGeocode = details.address != null && !details.address.isBlank()
+                        ? details.address
+                        : details.city;
+
+                if (locationToGeocode != null && details.country != null) {
+                    try {
+                        LocationCoordinates coords = geolocationService.geocode(locationToGeocode, details.country, null);
+                        if (coords != null) {
+                            latitude = coords.getLatitude();
+                            longitude = coords.getLongitude();
+                            log.info("Geocoded {} to ({}, {})", locationToGeocode, latitude, longitude);
+                        }
+                    } catch (Exception e) {
+                        log.debug("Geocoding failed for {}: {}", locationToGeocode, e.getMessage());
+                    }
+                }
+
+                // Add to results (NOT saving to database)
+                extractedBrands.add(new BrandDetailDto(
+                        details.name,
+                        cleanUrl,
+                        resolvedSitemapUrl,
+                        details.country,
+                        details.city,
+                        details.address,
+                        details.postcode,
+                        details.description,
+                        latitude,
+                        longitude
+                ));
+
+                log.info("Successfully extracted brand: {} from {}", details.name, cleanUrl);
+                successCount++;
+
+                // Rate limiting between API calls
+                Thread.sleep(1500);
+
+            } catch (Exception e) {
+                log.error("Failed to extract from {}: {}", cleanUrl, e.getMessage());
+                errorCount++;
+            }
+        }
+
+        log.info("Extract from URLs completed: {} success, {} errors", successCount, errorCount);
+
+        return ResponseEntity.ok(new ExtractFromUrlsResponse(
+                extractedBrands,
+                request.websiteUrls.size(),
+                successCount,
+                errorCount,
+                String.format("Extracted %d brands from %d URLs (%d errors). Use /api/brands/bulk-submit to save after review.",
+                        successCount, request.websiteUrls.size(), errorCount)
+        ));
+    }
+
+    public record ExtractFromUrlsRequest(
+            List<String> websiteUrls
+    ) {}
+
+    public record ExtractFromUrlsResponse(
+            List<BrandDetailDto> brands,
+            int totalUrls,
+            int successCount,
             int errorCount,
             String message
     ) {}

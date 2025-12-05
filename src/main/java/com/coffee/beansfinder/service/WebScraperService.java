@@ -674,6 +674,7 @@ public class WebScraperService {
             // Coffee-specific terms
             "espresso", "filter", "omni", "house", "village", "decaf", "organic",
             "single origin", "roast", "micro", "lot", "estate", "finca", "fazenda",
+            "blend", "festive", "christmas", "seasonal", "winter", "autumn", "spring", "summer",
 
             // Processing methods
             "natural", "washed", "honey", "anaerobic", "carbonic", "fermented",

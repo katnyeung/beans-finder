@@ -27,14 +27,24 @@ public class TastingNoteNode {
 
     private String rawText; // Original tasting note text (e.g., "Blackberry with Tea")
 
+    /**
+     * Denormalized SCA category name for efficient queries (avoids 4-level traversal).
+     * Values: fruity, floral, sweet, nutty, roasted, spicy, sour, vegetal, other
+     */
+    private String scaCategoryName;
+
     @Relationship(type = "MATCHES", direction = Relationship.Direction.OUTGOING)
     private AttributeNode attribute; // Closest SCA attribute (e.g., "blackberry")
 
     /**
-     * Get the SCA category name by traversing the hierarchy.
-     * TastingNote -> Attribute -> Subcategory -> SCACategory
+     * Get the SCA category name - uses denormalized property first, falls back to traversal.
      */
     public String getScaCategory() {
+        // Use denormalized property if available (much faster, no traversal needed)
+        if (scaCategoryName != null && !scaCategoryName.isEmpty()) {
+            return scaCategoryName;
+        }
+        // Fallback to traversal if hierarchy is loaded
         if (attribute == null) return "other";
         if (attribute.getSubcategory() == null) return "other";
         if (attribute.getSubcategory().getCategory() == null) return "other";

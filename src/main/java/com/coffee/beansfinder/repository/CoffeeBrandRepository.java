@@ -54,4 +54,17 @@ public interface CoffeeBrandRepository extends JpaRepository<CoffeeBrand, Long> 
      * Check if brand exists by website URL
      */
     boolean existsByWebsite(String website);
+
+    /**
+     * Find approved brands not crawled today, ordered by last crawl date (oldest first).
+     * Brands with null lastCrawlDate come first (never crawled).
+     * Excludes brands with skipAutoCrawl = true.
+     */
+    @Query(value = "SELECT * FROM coffee_brands b WHERE b.approved = true " +
+           "AND b.sitemap_url IS NOT NULL " +
+           "AND (b.skip_auto_crawl IS NULL OR b.skip_auto_crawl = false) " +
+           "AND (b.last_crawl_date IS NULL OR b.last_crawl_date::date < CURRENT_DATE) " +
+           "ORDER BY b.last_crawl_date ASC NULLS FIRST",
+           nativeQuery = true)
+    List<CoffeeBrand> findBrandsNotCrawledToday();
 }

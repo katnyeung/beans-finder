@@ -357,19 +357,58 @@ public class CrawlerService {
 
     /**
      * Helper method to extract product data with OpenAI
+     * Retries up to 2 times if tasting notes are empty (page may not have loaded fully)
      */
     private ExtractedProductData extractWithOpenAI(String productText, String brandName, String productUrl) {
-        try {
-            ExtractedProductData data = openAIService.extractFromText(productText, brandName, productUrl);
-            if (data == null || data.getProductName() == null) {
-                log.error("OpenAI failed to extract data for: {}", productUrl);
+        final int MAX_RETRIES = 2;
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                ExtractedProductData data = openAIService.extractFromText(productText, brandName, productUrl);
+
+                if (data == null || data.getProductName() == null) {
+                    log.error("OpenAI failed to extract data for: {}", productUrl);
+                    return null;
+                }
+
+                // Check if tasting notes are empty
+                boolean hasTastingNotes = data.getTastingNotes() != null && !data.getTastingNotes().isEmpty();
+
+                if (hasTastingNotes) {
+                    // Success - have tasting notes
+                    return data;
+                } else if (attempt < MAX_RETRIES) {
+                    // No tasting notes - retry with fresh page load
+                    log.warn("⚠️ No tasting notes found for {} (attempt {}/{}), retrying with fresh page load...",
+                            productUrl, attempt, MAX_RETRIES);
+
+                    // Wait a bit before retry
+                    Thread.sleep(1000);
+
+                    // Re-fetch the page with Playwright (fresh load)
+                    String freshText = playwrightService.extractProductText(productUrl);
+                    if (freshText != null && !freshText.isEmpty()) {
+                        productText = freshText;
+                        log.info("Re-fetched page text ({} chars) for retry", freshText.length());
+                    }
+                } else {
+                    // Final attempt still has no tasting notes - return anyway (may be valid product without notes)
+                    log.warn("⚠️ No tasting notes found after {} attempts for: {} - saving anyway",
+                            MAX_RETRIES, productUrl);
+                    return data;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Retry interrupted for {}", productUrl);
                 return null;
+            } catch (Exception e) {
+                log.error("OpenAI extraction error for {} (attempt {}): {}", productUrl, attempt, e.getMessage());
+                if (attempt >= MAX_RETRIES) {
+                    return null;
+                }
             }
-            return data;
-        } catch (Exception e) {
-            log.error("OpenAI extraction error for {}: {}", productUrl, e.getMessage());
-            return null;
         }
+        return null;
     }
 
     /**
@@ -588,6 +627,23 @@ public class CrawlerService {
             product.setTastingNotesJson(objectMapper.writeValueAsString(extractedData.getTastingNotes()));
             product.setScaFlavorsJson(objectMapper.writeValueAsString(scaMapping));
 
+            // Store flavor profile and character axes (13-dimensional vector system)
+            if (extractedData.getFlavorProfile() != null && extractedData.getFlavorProfile().size() == 9) {
+                product.setFlavorProfileJson(objectMapper.writeValueAsString(extractedData.getFlavorProfile()));
+            } else {
+                // Fallback: generate from SCA mapping using count-based intensity
+                List<Double> generatedProfile = generateFlavorProfileFromSCA(scaMapping);
+                product.setFlavorProfileJson(objectMapper.writeValueAsString(generatedProfile));
+            }
+
+            if (extractedData.getCharacterAxes() != null && extractedData.getCharacterAxes().size() == 4) {
+                product.setCharacterAxesJson(objectMapper.writeValueAsString(extractedData.getCharacterAxes()));
+            } else {
+                // Fallback: generate neutral character axes
+                List<Double> neutralAxes = List.of(0.0, 0.0, 0.0, 0.0);
+                product.setCharacterAxesJson(objectMapper.writeValueAsString(neutralAxes));
+            }
+
             // Save to database
             product = productRepository.save(product);
             log.info("Saved product to database: {} (ID: {})", product.getProductName(), product.getId());
@@ -711,5 +767,45 @@ public class CrawlerService {
         }
 
         return cleaned;
+    }
+
+    /**
+     * Generate a 9-dimensional flavor profile from SCA mapping.
+     * Uses count-based intensity: 0 notes = 0.0, 1 note = 0.4, 2 notes = 0.6, 3+ notes = 0.8
+     * Order: [fruity, floral, sweet, nutty, spices, roasted, green, sour, other]
+     *
+     * @param mapping SCA flavor mapping with categorized tasting notes
+     * @return List of 9 intensity values [0.0-1.0]
+     */
+    public List<Double> generateFlavorProfileFromSCA(SCAFlavorMapping mapping) {
+        if (mapping == null) {
+            return List.of(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        }
+        return List.of(
+                calculateIntensity(mapping.getFruity()),
+                calculateIntensity(mapping.getFloral()),
+                calculateIntensity(mapping.getSweet()),
+                calculateIntensity(mapping.getNutty()),
+                calculateIntensity(mapping.getSpices()),
+                calculateIntensity(mapping.getRoasted()),
+                calculateIntensity(mapping.getGreen()),
+                calculateIntensity(mapping.getSour()),
+                calculateIntensity(mapping.getOther())
+        );
+    }
+
+    /**
+     * Calculate intensity based on note count.
+     * 0 notes = 0.0 (not present)
+     * 1 note = 0.4 (noticeable)
+     * 2 notes = 0.6 (prominent)
+     * 3+ notes = 0.8 (defining)
+     */
+    private double calculateIntensity(List<String> notes) {
+        if (notes == null || notes.isEmpty()) return 0.0;
+        int count = notes.size();
+        if (count == 1) return 0.4;
+        if (count == 2) return 0.6;
+        return 0.8;
     }
 }
