@@ -66,6 +66,33 @@ public class ChatbotService {
     private String rankingPromptTemplate;
 
     /**
+     * Category index mapping for flavor profile vector queries.
+     * Indices: 0=fruity, 1=floral, 2=sweet, 3=nutty, 4=spices, 5=roasted, 6=green, 7=sour, 8=other
+     */
+    private static final Map<String, Integer> FLAVOR_CATEGORY_INDEX_MAP = Map.of(
+            "fruity", 0,
+            "floral", 1,
+            "sweet", 2,
+            "nutty", 3,
+            "spices", 4,
+            "roasted", 5,
+            "green", 6,
+            "sour", 7,
+            "other", 8
+    );
+
+    /**
+     * Character axis index mapping for character axes vector queries.
+     * Indices: 0=acidity, 1=body, 2=roast, 3=complexity
+     */
+    private static final Map<String, Integer> CHARACTER_AXIS_INDEX_MAP = Map.of(
+            "acidity", 0,
+            "body", 1,
+            "roast", 2,
+            "complexity", 3
+    );
+
+    /**
      * Load prompt templates on startup
      */
     @PostConstruct
@@ -402,11 +429,25 @@ public class ChatbotService {
 
             case MORE_CATEGORY:
                 if (refId != null && filters != null && filters.getScaCategory() != null) {
-                    // Try flavor-preserving query first (preserves base flavors like fruity when asking for "more bitter")
-                    results = productNodeRepository.findByMoreCategoryWithFlavorOverlap(refId, filters.getScaCategory(), maxContextProducts);
-                    log.info("MORE_CATEGORY with flavor overlap: found {} products", results.size());
+                    String category = filters.getScaCategory().toLowerCase();
+                    Integer categoryIndex = FLAVOR_CATEGORY_INDEX_MAP.get(category);
 
-                    // Fallback to original query if no results (edge case: no products share base flavors + have target category)
+                    // Try profile-based vector query first (more accurate intensity comparison)
+                    if (categoryIndex != null) {
+                        results = productNodeRepository.findByMoreCategoryProfile(refId, categoryIndex, maxContextProducts);
+                        log.info("MORE_CATEGORY with profile vector (index {}): found {} products", categoryIndex, results.size());
+                    } else {
+                        results = Collections.emptyList();
+                    }
+
+                    // Fallback to flavor hierarchy query if no profile results
+                    if (results.isEmpty()) {
+                        log.info("No profile results, falling back to flavor hierarchy query");
+                        results = productNodeRepository.findByMoreCategoryWithFlavorOverlap(refId, filters.getScaCategory(), maxContextProducts);
+                        log.info("MORE_CATEGORY with flavor overlap: found {} products", results.size());
+                    }
+
+                    // Final fallback to standard query if still no results
                     if (results.isEmpty()) {
                         log.info("No flavor overlap results, falling back to standard MORE_CATEGORY query");
                         results = productNodeRepository.findByMoreCategory(refId, filters.getScaCategory(), maxContextProducts);
@@ -454,6 +495,92 @@ public class ChatbotService {
                             .filter(roastProducts::contains)
                             .limit(maxContextProducts)
                             .collect(Collectors.toList());
+                } else {
+                    results = Collections.emptyList();
+                }
+                break;
+
+            // ==================== CHARACTER AXES QUERIES ====================
+
+            case MORE_CHARACTER:
+                if (refId != null && filters != null && filters.getCharacterAxis() != null) {
+                    String axis = filters.getCharacterAxis().toLowerCase();
+                    Integer axisIndex = CHARACTER_AXIS_INDEX_MAP.get(axis);
+
+                    if (axisIndex != null) {
+                        // HYBRID APPROACH: Try flavor overlap + axis filter FIRST (preserves original tasting notes)
+                        results = productNodeRepository.findByMoreCharacterAxisWithFlavorOverlap(refId, axisIndex, maxContextProducts);
+                        log.info("MORE_CHARACTER with flavor overlap (axis={}, index={}): found {} products", axis, axisIndex, results.size());
+
+                        // FALLBACK to vector-only if no flavor overlap matches
+                        if (results.isEmpty()) {
+                            log.info("No flavor overlap matches, falling back to vector-only query");
+                            results = productNodeRepository.findByMoreCharacterAxis(refId, axisIndex, maxContextProducts);
+                            log.info("MORE_CHARACTER with vector-only: found {} products", results.size());
+                        }
+                    } else {
+                        results = Collections.emptyList();
+                    }
+
+                    // Final fallback: Use related SCA category or roast level queries
+                    if (results.isEmpty()) {
+                        log.info("No vector results for MORE_CHARACTER, falling back to related queries");
+                        results = fallbackMoreCharacter(refId, axis);
+                    }
+                } else if (filters != null && filters.getCharacterAxis() != null) {
+                    // No reference product - use general fallback
+                    log.info("MORE_CHARACTER without refId, using general fallback for axis: {}", filters.getCharacterAxis());
+                    results = fallbackMoreCharacterNoRef(filters.getCharacterAxis().toLowerCase());
+                } else {
+                    results = Collections.emptyList();
+                }
+                break;
+
+            case LESS_CHARACTER:
+                if (refId != null && filters != null && filters.getCharacterAxis() != null) {
+                    String axis = filters.getCharacterAxis().toLowerCase();
+                    Integer axisIndex = CHARACTER_AXIS_INDEX_MAP.get(axis);
+
+                    if (axisIndex != null) {
+                        // HYBRID APPROACH: Try flavor overlap + axis filter FIRST (preserves original tasting notes)
+                        results = productNodeRepository.findByLessCharacterAxisWithFlavorOverlap(refId, axisIndex, maxContextProducts);
+                        log.info("LESS_CHARACTER with flavor overlap (axis={}, index={}): found {} products", axis, axisIndex, results.size());
+
+                        // FALLBACK to vector-only if no flavor overlap matches
+                        if (results.isEmpty()) {
+                            log.info("No flavor overlap matches, falling back to vector-only query");
+                            results = productNodeRepository.findByLessCharacterAxis(refId, axisIndex, maxContextProducts);
+                            log.info("LESS_CHARACTER with vector-only: found {} products", results.size());
+                        }
+                    } else {
+                        results = Collections.emptyList();
+                    }
+
+                    // Final fallback: Use related SCA category or roast level queries
+                    if (results.isEmpty()) {
+                        log.info("No vector results for LESS_CHARACTER, falling back to related queries");
+                        results = fallbackLessCharacter(refId, axis);
+                    }
+                } else if (filters != null && filters.getCharacterAxis() != null) {
+                    // No reference product - use general fallback
+                    log.info("LESS_CHARACTER without refId, using general fallback for axis: {}", filters.getCharacterAxis());
+                    results = fallbackLessCharacterNoRef(filters.getCharacterAxis().toLowerCase());
+                } else {
+                    results = Collections.emptyList();
+                }
+                break;
+
+            case SIMILAR_PROFILE:
+                if (refId != null) {
+                    // Try vector-based cosine similarity
+                    results = productNodeRepository.findBySimilarProfile(refId, maxContextProducts);
+                    log.info("SIMILAR_PROFILE with cosine similarity: found {} products", results.size());
+
+                    // Fallback: Use flavor overlap query
+                    if (results.isEmpty()) {
+                        log.info("No vector results for SIMILAR_PROFILE, falling back to flavor overlap");
+                        results = productNodeRepository.findSimilarByFlavorOverlap(refId, maxContextProducts);
+                    }
                 } else {
                     results = Collections.emptyList();
                 }
@@ -597,10 +724,14 @@ public class ChatbotService {
                 }
 
                 List<String> flavors = new ArrayList<>();
-                if (product.getTastingNotes() != null) {
+                if (product.getTastingNotes() != null && !product.getTastingNotes().isEmpty()) {
                     flavors = product.getTastingNotes().stream()
                             .map(f -> f.getName())
                             .collect(Collectors.toList());
+                    log.info("Product {} has {} tasting notes: {}", productId, flavors.size(), flavors);
+                } else {
+                    log.info("Product {} has NO tasting notes loaded from Neo4j (tastingNotes={})",
+                            productId, product.getTastingNotes());
                 }
 
                 // Fetch price variants from PostgreSQL
@@ -728,5 +859,159 @@ public class ChatbotService {
                     return map;
                 })
                 .collect(Collectors.toList());
+    }
+
+    // ==================== CHARACTER AXES FALLBACK METHODS ====================
+
+    /**
+     * Fallback for MORE_CHARACTER when vector query returns no results.
+     * Maps character axes to related SCA categories or attributes.
+     */
+    private List<ProductNode> fallbackMoreCharacter(Long refId, String axis) {
+        switch (axis) {
+            case "acidity":
+                // More acidity → Ethiopian/Kenyan origins or "sour" SCA category (bright, tangy)
+                log.info("Fallback: MORE acidity → searching sour/bright flavors");
+                List<ProductNode> sourProducts = productNodeRepository.findBySCACategory("sour");
+                if (sourProducts.isEmpty()) {
+                    // Try Ethiopian/Kenyan origins known for bright acidity
+                    sourProducts = productNodeRepository.findByOriginCountry("Ethiopia");
+                    sourProducts.addAll(productNodeRepository.findByOriginCountry("Kenya"));
+                }
+                return sourProducts.stream().limit(maxContextProducts).collect(Collectors.toList());
+
+            case "body":
+                // More body → Natural process or Indonesian/Brazilian origins
+                log.info("Fallback: MORE body → searching natural process or full-bodied origins");
+                List<ProductNode> bodyProducts = productNodeRepository.findByProcessType("Natural");
+                if (bodyProducts.isEmpty()) {
+                    bodyProducts = productNodeRepository.findByOriginCountry("Brazil");
+                    bodyProducts.addAll(productNodeRepository.findByOriginCountry("Indonesia"));
+                }
+                return bodyProducts.stream().limit(maxContextProducts).collect(Collectors.toList());
+
+            case "roast":
+                // More roast → Dark roast level or "roasted" SCA category
+                log.info("Fallback: MORE roast → searching dark roast or roasted flavors");
+                List<ProductNode> roastProducts = productNodeRepository.findByRoastLevel("Dark");
+                if (roastProducts.isEmpty()) {
+                    roastProducts = productNodeRepository.findBySCACategory("roasted");
+                }
+                return roastProducts.stream().limit(maxContextProducts).collect(Collectors.toList());
+
+            case "complexity":
+                // More complexity → Natural/Anaerobic process or "other" SCA category (funky, winey)
+                log.info("Fallback: MORE complexity → searching natural/anaerobic or funky flavors");
+                List<ProductNode> complexProducts = productNodeRepository.findByProcessType("Natural");
+                if (complexProducts.isEmpty()) {
+                    complexProducts = productNodeRepository.findBySCACategory("other");
+                }
+                return complexProducts.stream().limit(maxContextProducts).collect(Collectors.toList());
+
+            default:
+                return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Fallback for LESS_CHARACTER when vector query returns no results.
+     */
+    private List<ProductNode> fallbackLessCharacter(Long refId, String axis) {
+        switch (axis) {
+            case "acidity":
+                // Less acidity → Brazilian/Indonesian origins or washed process
+                log.info("Fallback: LESS acidity → searching smooth/mellow origins");
+                List<ProductNode> smoothProducts = productNodeRepository.findByOriginCountry("Brazil");
+                smoothProducts.addAll(productNodeRepository.findByOriginCountry("Indonesia"));
+                if (smoothProducts.isEmpty()) {
+                    smoothProducts = productNodeRepository.findByProcessType("Washed");
+                }
+                return smoothProducts.stream().limit(maxContextProducts).collect(Collectors.toList());
+
+            case "body":
+                // Less body → Light roast or washed process
+                log.info("Fallback: LESS body → searching light roast or washed");
+                List<ProductNode> lightProducts = productNodeRepository.findByRoastLevel("Light");
+                if (lightProducts.isEmpty()) {
+                    lightProducts = productNodeRepository.findByProcessType("Washed");
+                }
+                return lightProducts.stream().limit(maxContextProducts).collect(Collectors.toList());
+
+            case "roast":
+                // Less roast → Light roast level
+                log.info("Fallback: LESS roast → searching light roast");
+                return productNodeRepository.findByRoastLevel("Light").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            case "complexity":
+                // Less complexity → Washed process (cleaner cup)
+                log.info("Fallback: LESS complexity → searching washed/clean cup");
+                return productNodeRepository.findByProcessType("Washed").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            default:
+                return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Fallback for MORE_CHARACTER without reference product.
+     */
+    private List<ProductNode> fallbackMoreCharacterNoRef(String axis) {
+        switch (axis) {
+            case "acidity":
+                log.info("No-ref fallback: MORE acidity → Ethiopian/Kenyan coffees");
+                List<ProductNode> results = productNodeRepository.findByOriginCountry("Ethiopia");
+                results.addAll(productNodeRepository.findByOriginCountry("Kenya"));
+                return results.stream().limit(maxContextProducts).collect(Collectors.toList());
+
+            case "body":
+                log.info("No-ref fallback: MORE body → Natural process");
+                return productNodeRepository.findByProcessType("Natural").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            case "roast":
+                log.info("No-ref fallback: MORE roast → Dark roast");
+                return productNodeRepository.findByRoastLevel("Dark").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            case "complexity":
+                log.info("No-ref fallback: MORE complexity → Natural process");
+                return productNodeRepository.findByProcessType("Natural").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            default:
+                return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Fallback for LESS_CHARACTER without reference product.
+     */
+    private List<ProductNode> fallbackLessCharacterNoRef(String axis) {
+        switch (axis) {
+            case "acidity":
+                log.info("No-ref fallback: LESS acidity → Brazilian coffees");
+                return productNodeRepository.findByOriginCountry("Brazil").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            case "body":
+                log.info("No-ref fallback: LESS body → Light roast");
+                return productNodeRepository.findByRoastLevel("Light").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            case "roast":
+                log.info("No-ref fallback: LESS roast → Light roast");
+                return productNodeRepository.findByRoastLevel("Light").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            case "complexity":
+                log.info("No-ref fallback: LESS complexity → Washed process");
+                return productNodeRepository.findByProcessType("Washed").stream()
+                        .limit(maxContextProducts).collect(Collectors.toList());
+
+            default:
+                return Collections.emptyList();
+        }
     }
 }

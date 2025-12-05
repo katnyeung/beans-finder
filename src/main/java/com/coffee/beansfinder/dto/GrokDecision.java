@@ -82,6 +82,12 @@ public class GrokDecision {
          * Process type to filter by
          */
         private String process;
+
+        /**
+         * Character axis for MORE_CHARACTER/LESS_CHARACTER queries.
+         * Values: "acidity", "body", "roast", "complexity"
+         */
+        private String characterAxis;
     }
 
     @Data
@@ -119,6 +125,10 @@ public class GrokDecision {
         LESS_CATEGORY,             // Products with LESS of a specific SCA category
         SAME_ORIGIN_MORE_CATEGORY, // Same origin + more of a category
         SAME_ORIGIN_DIFFERENT_ROAST, // Same origin + different roast level
+        // Character axes queries (4-dimensional: acidity, body, roast, complexity)
+        MORE_CHARACTER,            // Products with MORE of a character axis (e.g., more acidity, more body)
+        LESS_CHARACTER,            // Products with LESS of a character axis (e.g., less acidic, lighter body)
+        SIMILAR_PROFILE,           // Products with similar overall profile (cosine similarity)
         CUSTOM                     // Custom combination of filters
     }
 }

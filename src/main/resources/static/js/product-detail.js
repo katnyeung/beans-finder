@@ -15,6 +15,247 @@ const SCA_COLORS = {
     other: '#B0B0B0'
 };
 
+// Flavor Profile Labels (9 SCA categories)
+const FLAVOR_LABELS = ['Fruity', 'Floral', 'Sweet', 'Nutty', 'Spices', 'Roasted', 'Green', 'Sour', 'Other'];
+
+// Character Axes Labels (4 dimensions)
+const CHARACTER_LABELS = ['Acidity', 'Body', 'Roast', 'Complexity'];
+
+// Chart instances (for cleanup)
+let flavorProfileChartInstance = null;
+let characterAxesChartInstance = null;
+
+/**
+ * Render the 9-axis Flavor Profile radar chart
+ */
+function renderFlavorProfileChart(flavorProfile) {
+    const canvas = document.getElementById('flavorProfileChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Destroy existing chart if any
+    if (flavorProfileChartInstance) {
+        flavorProfileChartInstance.destroy();
+    }
+
+    flavorProfileChartInstance = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: FLAVOR_LABELS,
+            datasets: [{
+                label: 'Flavor Intensity',
+                data: flavorProfile,
+                backgroundColor: 'rgba(0, 95, 115, 0.2)',
+                borderColor: '#005F73',
+                borderWidth: 2,
+                pointBackgroundColor: Object.values(SCA_COLORS),
+                pointBorderColor: '#fff',
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                r: {
+                    min: 0,
+                    max: 1,
+                    ticks: {
+                        stepSize: 0.2,
+                        backdropColor: 'transparent',
+                        font: { size: 10 }
+                    },
+                    pointLabels: {
+                        font: { size: 11, weight: 'bold' },
+                        color: Object.values(SCA_COLORS)
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            let intensity = 'None';
+                            if (value >= 0.8) intensity = 'Dominant';
+                            else if (value >= 0.6) intensity = 'Prominent';
+                            else if (value >= 0.4) intensity = 'Noticeable';
+                            else if (value >= 0.2) intensity = 'Subtle';
+                            else if (value > 0) intensity = 'Hint';
+                            return `${context.label}: ${(value * 100).toFixed(0)}% (${intensity})`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Render the 4-axis Character Axes radar chart
+ */
+function renderCharacterAxesChart(characterAxes) {
+    const canvas = document.getElementById('characterAxesChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Destroy existing chart if any
+    if (characterAxesChartInstance) {
+        characterAxesChartInstance.destroy();
+    }
+
+    // Normalize -1 to +1 range to 0 to 1 for radar chart display
+    // Center (0 in chart) = -1 original, Edge (1 in chart) = +1 original
+    const normalizedData = characterAxes.map(v => (v + 1) / 2);
+
+    // Color points red if original value is negative, teal if positive/zero
+    const pointColors = characterAxes.map(v => v < 0 ? '#DC3545' : '#0A9396');
+
+    characterAxesChartInstance = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: CHARACTER_LABELS,
+            datasets: [{
+                label: 'Character',
+                data: normalizedData,
+                backgroundColor: 'rgba(10, 147, 150, 0.2)',
+                borderColor: '#0A9396',
+                borderWidth: 2,
+                pointBackgroundColor: pointColors,
+                pointBorderColor: '#fff',
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                r: {
+                    min: 0,
+                    max: 1,
+                    ticks: {
+                        stepSize: 0.25,
+                        backdropColor: 'transparent',
+                        font: { size: 10 },
+                        callback: function(value) {
+                            // Show -1 to +1 labels (center=-1, edge=+1)
+                            return (value * 2 - 1).toFixed(1);
+                        }
+                    },
+                    pointLabels: {
+                        font: { size: 11, weight: 'bold' },
+                        color: '#0A9396'
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            // Convert normalized value back to original scale
+                            const originalValue = (context.raw * 2 - 1);
+                            const axis = context.label;
+                            let description = '';
+
+                            if (axis === 'Acidity') {
+                                description = originalValue > 0.3 ? 'Bright' : originalValue < -0.3 ? 'Smooth' : 'Balanced';
+                            } else if (axis === 'Body') {
+                                description = originalValue > 0.3 ? 'Full' : originalValue < -0.3 ? 'Light' : 'Medium';
+                            } else if (axis === 'Roast') {
+                                description = originalValue > 0.3 ? 'Dark' : originalValue < -0.3 ? 'Light' : 'Medium';
+                            } else if (axis === 'Complexity') {
+                                description = originalValue > 0.3 ? 'Complex' : originalValue < -0.3 ? 'Clean' : 'Moderate';
+                            }
+
+                            return `${axis}: ${originalValue.toFixed(2)} (${description})`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Load and render flavor profile charts
+ */
+function loadFlavorProfileCharts(product) {
+    const card = document.getElementById('flavor-profile-card');
+    if (!card) return;
+
+    // Parse flavor profile JSON
+    let flavorProfile = null;
+    if (product.flavorProfileJson) {
+        try {
+            flavorProfile = typeof product.flavorProfileJson === 'string'
+                ? JSON.parse(product.flavorProfileJson)
+                : product.flavorProfileJson;
+        } catch (e) {
+            console.error('Error parsing flavor profile:', e);
+        }
+    }
+
+    // Parse character axes JSON
+    let characterAxes = null;
+    if (product.characterAxesJson) {
+        try {
+            characterAxes = typeof product.characterAxesJson === 'string'
+                ? JSON.parse(product.characterAxesJson)
+                : product.characterAxesJson;
+        } catch (e) {
+            console.error('Error parsing character axes:', e);
+        }
+    }
+
+    // Check if we have valid data
+    const hasFlavorProfile = flavorProfile &&
+        Array.isArray(flavorProfile) &&
+        flavorProfile.length === 9 &&
+        flavorProfile.some(v => v > 0);
+
+    const hasCharacterAxes = characterAxes &&
+        Array.isArray(characterAxes) &&
+        characterAxes.length === 4 &&
+        characterAxes.some(v => v !== 0);
+
+    // Hide card if no data
+    if (!hasFlavorProfile && !hasCharacterAxes) {
+        card.style.display = 'none';
+        return;
+    }
+
+    // Show card
+    card.style.display = 'block';
+
+    // Render flavor profile chart or hide its wrapper
+    const flavorWrapper = document.getElementById('flavorProfileChart')?.parentElement;
+    if (hasFlavorProfile) {
+        renderFlavorProfileChart(flavorProfile);
+    } else if (flavorWrapper) {
+        flavorWrapper.style.display = 'none';
+    }
+
+    // Render character axes chart or hide its wrapper
+    const characterWrapper = document.getElementById('characterAxesChart')?.parentElement;
+    if (hasCharacterAxes) {
+        renderCharacterAxesChart(characterAxes);
+    } else if (characterWrapper) {
+        characterWrapper.style.display = 'none';
+    }
+}
+
 // Get product ID from URL
 function getProductId() {
     const params = new URLSearchParams(window.location.search);
@@ -190,6 +431,9 @@ function displayProduct(product) {
 
     // Initialize map
     initializeMap(product);
+
+    // Initialize flavor profile radar charts
+    loadFlavorProfileCharts(product);
 
     // Chatbot button - navigate to chat page with prefilled product details
     document.getElementById('ask-chatbot-btn').onclick = () => {

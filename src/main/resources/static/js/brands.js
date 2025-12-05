@@ -70,20 +70,22 @@ function createNewProductCard(product) {
     const card = document.createElement('div');
     card.className = 'new-product-card';
 
-    // Format price
+    // Format price with proper currency symbol and decimals
     let priceText = '';
+    const currencySymbol = (product.currency === 'GBP' || !product.currency) ? '£' : product.currency + ' ';
+
     if (product.priceVariantsJson) {
         try {
             const variants = typeof product.priceVariantsJson === 'string'
                 ? JSON.parse(product.priceVariantsJson)
                 : product.priceVariantsJson;
             if (Array.isArray(variants) && variants.length > 0 && variants[0].price != null) {
-                priceText = `${product.currency || 'GBP'} ${variants[0].price}`;
+                priceText = `${currencySymbol}${parseFloat(variants[0].price).toFixed(2)}`;
             }
         } catch (e) {}
     }
     if (!priceText && product.price) {
-        priceText = `${product.currency || 'GBP'} ${product.price}`;
+        priceText = `${currencySymbol}${parseFloat(product.price).toFixed(2)}`;
     }
 
     // Format date
@@ -323,8 +325,10 @@ async function searchProducts(query) {
 function createProductSearchRow(product) {
     const row = document.createElement('tr');
 
-    // Format price
+    // Format price with proper currency symbol and decimals
     let priceText = 'N/A';
+    const currencySymbol = (product.currency === 'GBP' || !product.currency) ? '£' : product.currency + ' ';
+
     if (product.priceVariantsJson) {
         try {
             const variants = typeof product.priceVariantsJson === 'string'
@@ -333,13 +337,13 @@ function createProductSearchRow(product) {
             if (Array.isArray(variants) && variants.length > 0) {
                 const firstVariant = variants[0];
                 if (firstVariant.price != null) {
-                    priceText = `${product.currency || 'GBP'} ${firstVariant.price}`;
+                    priceText = `${currencySymbol}${parseFloat(firstVariant.price).toFixed(2)}`;
                 }
             }
         } catch (e) {}
     }
     if (priceText === 'N/A' && product.price) {
-        priceText = `${product.currency || 'GBP'} ${product.price}`;
+        priceText = `${currencySymbol}${parseFloat(product.price).toFixed(2)}`;
     }
 
     row.innerHTML = `

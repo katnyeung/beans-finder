@@ -593,9 +593,18 @@ public class MapCacheService {
 
     /**
      * Build flavor wheel data (uses TastingNoteNode 4-tier hierarchy)
+     *
+     * Structure per category:
+     * - topFlavors: Top 10 flavors with ≥10 products (shown initially)
+     * - moreFlavors: Remaining flavors with <10 products (hidden under "More...")
+     * - moreCount: Number of hidden flavors
      */
     private Map<String, Object> buildFlavorWheelData() {
-        log.info("Building flavor wheel data...");
+        log.info("Building flavor wheel data with top/more split...");
+
+        // Threshold for "rare" flavors that go to "More..."
+        final int RARE_THRESHOLD = 10;
+        final int MAX_TOP_FLAVORS = 10;
 
         // Single efficient query - returns raw map data from TastingNoteNode hierarchy
         List<Map<String, Object>> allFlavorData = tastingNoteNodeRepository.findAllTastingNotesWithProductCountsAsMap();
@@ -637,28 +646,48 @@ public class MapCacheService {
             categoryCounts.merge(category, productCount.intValue(), Integer::sum);
         }
 
-        // Build final categories list
+        // Build final categories list with top/more split
         List<Map<String, Object>> categories = new ArrayList<>();
         int totalProducts = 0;
         int totalFlavors = 0;
+        int totalMoreFlavors = 0;
 
         for (Map.Entry<String, List<Map<String, Object>>> entry : categoryMap.entrySet()) {
             String categoryName = entry.getKey();
-            List<Map<String, Object>> flavors = entry.getValue();
+            List<Map<String, Object>> allFlavors = entry.getValue();
 
-            // Limit "other" category to top 10 flavors to reduce visual clutter
-            if ("other".equals(categoryName) && flavors.size() > 10) {
-                flavors = flavors.subList(0, 10);
+            // Sort by product count descending
+            allFlavors.sort((a, b) -> Integer.compare(
+                    (int) b.get("productCount"),
+                    (int) a.get("productCount")));
+
+            // Split into topFlavors (≥10 products, max 10) and moreFlavors (<10 products)
+            List<Map<String, Object>> topFlavors = new ArrayList<>();
+            List<Map<String, Object>> moreFlavors = new ArrayList<>();
+
+            for (Map<String, Object> flavor : allFlavors) {
+                int count = (int) flavor.get("productCount");
+
+                if (count >= RARE_THRESHOLD && topFlavors.size() < MAX_TOP_FLAVORS) {
+                    topFlavors.add(flavor);
+                } else {
+                    moreFlavors.add(flavor);
+                }
             }
 
+            // Build category data
             Map<String, Object> categoryData = new HashMap<>();
             categoryData.put("name", categoryName);
+            categoryData.put("displayName", capitalize(categoryName));
             categoryData.put("productCount", categoryCounts.get(categoryName));
-            categoryData.put("flavors", flavors);
+            categoryData.put("topFlavors", topFlavors);
+            categoryData.put("moreFlavors", moreFlavors);
+            categoryData.put("moreCount", moreFlavors.size());
 
             categories.add(categoryData);
             totalProducts += categoryCounts.get(categoryName);
-            totalFlavors += flavors.size();
+            totalFlavors += topFlavors.size();
+            totalMoreFlavors += moreFlavors.size();
         }
 
         // Sort categories by product count (descending)
@@ -669,9 +698,19 @@ public class MapCacheService {
         response.put("totalProducts", totalProducts);
         response.put("totalCategories", categories.size());
         response.put("totalFlavors", totalFlavors);
+        response.put("totalMoreFlavors", totalMoreFlavors);
 
-        log.info("Built flavor wheel data: {} categories, {} flavors, {} products", categories.size(), totalFlavors, totalProducts);
+        log.info("Built flavor wheel data: {} categories, {} top flavors, {} more flavors, {} products",
+                categories.size(), totalFlavors, totalMoreFlavors, totalProducts);
 
         return response;
+    }
+
+    /**
+     * Capitalize first letter of a string
+     */
+    private String capitalize(String str) {
+        if (str == null || str.isEmpty()) return str;
+        return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
     }
 }

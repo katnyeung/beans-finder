@@ -38,14 +38,15 @@ public class SCAFlavorWheelService {
     public void initialize() {
         try {
             loadLexiconFromYaml();
-            log.info("Successfully loaded WCR Sensory Lexicon from YAML: {} categories, {} keywords",
-                    hierarchicalFlavors.size(), keywordToCategory.size());
         } catch (Exception e) {
             log.error("Failed to load lexicon from YAML, using hardcoded fallback: {}", e.getMessage());
             initializeHardcodedLexicon();
         }
 
         buildKeywordIndex();
+
+        log.info("Initialized WCR Sensory Lexicon: {} categories, {} keywords",
+                hierarchicalFlavors.size(), keywordToCategory.size());
     }
 
     /**

@@ -388,6 +388,30 @@ footer {
 
 footer p {
     opacity: 0.8;
+    margin: 0.25rem 0;
+}
+
+footer .disclaimer {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    max-width: 800px;
+    margin: 0.75rem auto 0;
+    line-height: 1.4;
+}
+
+footer .contact {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    margin-top: 0.75rem;
+}
+
+footer .contact a {
+    color: #94D2BD;
+    text-decoration: none;
+}
+
+footer .contact a:hover {
+    text-decoration: underline;
 }
 
 /* Responsive Design */
@@ -937,12 +961,44 @@ footer p {
 /* Cell Label */
 .cell-label {
     color: white;
-    font-weight: 600;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 2px 4px rgba(0, 0, 0, 0.5);
     padding: 4px;
     word-wrap: break-word;
-    line-height: 1.2;
+    line-height: 1.3;
     max-width: 100%;
+    font-size: 11px; /* Base font size - larger for readability */
+}
+
+/* "More..." Cell Style */
+.more-cell {
+    border: 2px dashed rgba(255, 255, 255, 0.7) !important;
+    background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+.more-cell .cell-label {
+    font-size: 11px !important;
+    font-style: italic;
+}
+
+.more-cell:hover {
+    border-color: #FFD700;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+.more-cell.expanded {
+    border-color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.5) !important;
+}
+
+/* More flavor cells (expanded rare flavors) */
+.more-flavor {
+    opacity: 0.85;
+    border-style: dashed;
+}
+
+.more-flavor:hover {
+    opacity: 1;
 }
 
 /* Center Cell Special Style */
@@ -3075,5 +3131,55 @@ svg path.producer-marker {
         flex: 1;
         text-align: center;
         justify-content: center;
+    }
+}
+
+/* ==================== FLAVOR PROFILE RADAR CHARTS ==================== */
+
+.radar-charts-container {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    padding: 1rem 0;
+}
+
+.radar-chart-wrapper {
+    flex: 1;
+    min-width: 250px;
+    max-width: 320px;
+    text-align: center;
+}
+
+.radar-chart-wrapper canvas {
+    max-height: 280px;
+    width: 100% !important;
+    height: auto !important;
+}
+
+.chart-label {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: #666;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive: Stack on mobile */
+@media (max-width: 768px) {
+    .radar-charts-container {
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .radar-chart-wrapper {
+        max-width: 100%;
+        width: 100%;
+    }
+
+    .radar-chart-wrapper canvas {
+        max-height: 250px;
     }
 }

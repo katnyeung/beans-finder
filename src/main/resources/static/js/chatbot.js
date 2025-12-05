@@ -165,10 +165,18 @@ function displayProductInfoCard(product) {
         quickActions.push({ label: `${product.roastLevel} Roasts`, icon: '🔥', intent: 'SAME_ROAST' });
     }
 
+    // Flavor profile quick actions (vector-based)
     if (product.tastingNotes && product.tastingNotes.length > 0) {
-        quickActions.push({ label: 'More Fruity', icon: '🍓', intent: 'MORE_FRUITY' });
-        quickActions.push({ label: 'More Bitter', icon: '☕', intent: 'MORE_BITTER' });
+        quickActions.push({ label: 'More Fruity', icon: '🍓', intent: 'more_fruity' });
+        quickActions.push({ label: 'More Sweet', icon: '🍯', intent: 'more_sweet' });
+        quickActions.push({ label: 'More Roasted', icon: '☕', intent: 'more_roasted' });
     }
+
+    // Character axes quick actions (vector-based)
+    quickActions.push({ label: 'More Acidic', icon: '✨', intent: 'more_acidity' });
+    quickActions.push({ label: 'Less Acidic', icon: '🌊', intent: 'less_acidity' });
+    quickActions.push({ label: 'Fuller Body', icon: '💪', intent: 'more_body' });
+    quickActions.push({ label: 'Lighter Body', icon: '🪶', intent: 'less_body' });
 
     // Create quick actions container (reuse existing styles)
     const actionsContainer = document.createElement('div');
@@ -557,10 +565,23 @@ function createQuickActionButton(action) {
  */
 function convertIntentToQuery(intent) {
     const intentMap = {
-        'more_roasted': 'Show me something more bitter',
+        // SCA flavor profile queries (MORE_CATEGORY)
+        'more_roasted': 'Show me something more roasted/bitter',
         'more_fruity': 'Show me something more fruity',
         'more_sweet': 'Show me something sweeter',
-        'more_sour': 'Show me something more acidic',
+        'more_floral': 'Show me something more floral',
+        'more_nutty': 'Show me something more nutty',
+        'more_spicy': 'Show me something more spicy',
+
+        // Character axes queries (MORE_CHARACTER / LESS_CHARACTER)
+        'more_acidity': 'Show me something with more acidity',
+        'less_acidity': 'Show me something with less acidity',
+        'more_body': 'Show me something with fuller body',
+        'less_body': 'Show me something with lighter body',
+        'more_complexity': 'Show me something more complex',
+        'less_complexity': 'Show me something simpler/cleaner',
+
+        // Graph-based queries
         'same_origin': 'Show me products from the same origin',
         'same_roast': 'Show me products with the same roast level',
         'same_process': 'Show me products with the same processing method',

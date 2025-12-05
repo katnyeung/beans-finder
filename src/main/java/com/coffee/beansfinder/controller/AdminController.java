@@ -1,11 +1,14 @@
 package com.coffee.beansfinder.controller;
 
+import com.coffee.beansfinder.dto.SCAFlavorMapping;
 import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.repository.CoffeeProductRepository;
 import com.coffee.beansfinder.service.CostTrackingService;
 import com.coffee.beansfinder.service.CrawlerService;
+import com.coffee.beansfinder.service.KnowledgeGraphService;
 import com.coffee.beansfinder.service.RateLimiterService;
 import com.coffee.beansfinder.service.SemanticCacheService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,8 @@ public class AdminController {
     private final RedisTemplate<String, String> redisTemplate;
     private final CoffeeProductRepository productRepository;
     private final CrawlerService crawlerService;
+    private final KnowledgeGraphService knowledgeGraphService;
+    private final ObjectMapper objectMapper;
 
     /**
      * Get today's cost statistics
@@ -360,5 +365,188 @@ public class AdminController {
                 "error", e.getMessage()
             ));
         }
+    }
+
+    // ===== Flavor Profile Backfill =====
+
+    /**
+     * Backfill flavor profiles for existing products.
+     * Generates 9-dimensional flavor profile from existing SCA flavor mapping.
+     * Uses count-based intensity: 0 notes = 0.0, 1 note = 0.4, 2 notes = 0.6, 3+ notes = 0.8
+     * Also sets neutral character axes [0.0, 0.0, 0.0, 0.0] for products without profiles.
+     *
+     * @param rebuildGraph If true, rebuilds Neo4j knowledge graph after backfill
+     */
+    @PostMapping("/backfill-flavor-profiles")
+    @Operation(summary = "Backfill flavor profiles for existing products",
+            description = "Generates flavor profiles from SCA mapping for products missing profiles. Set rebuildGraph=true to sync to Neo4j.")
+    public ResponseEntity<Map<String, Object>> backfillFlavorProfiles(
+            @RequestParam(defaultValue = "false") boolean rebuildGraph) {
+
+        log.info("Starting flavor profile backfill (rebuildGraph={})", rebuildGraph);
+
+        List<CoffeeProduct> products = productRepository.findAll();
+
+        int updated = 0;
+        int skipped = 0;
+        int failed = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (CoffeeProduct product : products) {
+            try {
+                boolean needsUpdate = false;
+
+                // Check if flavor profile is missing or empty
+                if (product.getFlavorProfileJson() == null || product.getFlavorProfileJson().isEmpty()
+                        || product.getFlavorProfileJson().equals("[]")) {
+
+                    // Generate from SCA mapping
+                    if (product.getScaFlavorsJson() != null && !product.getScaFlavorsJson().isEmpty()) {
+                        SCAFlavorMapping mapping = objectMapper.readValue(
+                                product.getScaFlavorsJson(),
+                                SCAFlavorMapping.class
+                        );
+                        List<Double> profile = crawlerService.generateFlavorProfileFromSCA(mapping);
+                        product.setFlavorProfileJson(objectMapper.writeValueAsString(profile));
+                        needsUpdate = true;
+                    } else {
+                        // No SCA mapping, set all zeros
+                        product.setFlavorProfileJson("[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]");
+                        needsUpdate = true;
+                    }
+                }
+
+                // Check if character axes is missing or empty
+                if (product.getCharacterAxesJson() == null || product.getCharacterAxesJson().isEmpty()
+                        || product.getCharacterAxesJson().equals("[]")) {
+                    // Infer character axes from product attributes
+                    List<Double> axes = inferCharacterAxes(product);
+                    product.setCharacterAxesJson(objectMapper.writeValueAsString(axes));
+                    needsUpdate = true;
+                }
+
+                if (needsUpdate) {
+                    productRepository.save(product);
+                    updated++;
+                } else {
+                    skipped++;
+                }
+
+            } catch (Exception e) {
+                failed++;
+                errors.add("Product " + product.getId() + ": " + e.getMessage());
+                log.error("Failed to backfill profile for product {}: {}", product.getId(), e.getMessage());
+            }
+        }
+
+        log.info("Flavor profile backfill complete: {} updated, {} skipped, {} failed", updated, skipped, failed);
+
+        // Optionally rebuild Neo4j
+        if (rebuildGraph && updated > 0) {
+            log.info("Rebuilding Neo4j knowledge graph...");
+            try {
+                knowledgeGraphService.cleanupAndRebuild();
+                log.info("Neo4j rebuild complete");
+            } catch (Exception e) {
+                log.error("Failed to rebuild Neo4j: {}", e.getMessage());
+                errors.add("Neo4j rebuild failed: " + e.getMessage());
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Flavor profile backfill complete");
+        response.put("total", products.size());
+        response.put("updated", updated);
+        response.put("skipped", skipped);
+        response.put("failed", failed);
+        response.put("graphRebuilt", rebuildGraph && updated > 0);
+        if (!errors.isEmpty()) {
+            response.put("errors", errors);
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Infer character axes from product attributes (origin, process, roast level).
+     * Uses the same inference rules as defined in OpenAI prompt.
+     * @return 4-dimensional character axes: [acidity, body, roast, complexity]
+     */
+    private List<Double> inferCharacterAxes(CoffeeProduct product) {
+        double acidity = 0.0;
+        double body = 0.0;
+        double roast = 0.0;
+        double complexity = 0.0;
+
+        // Origin-based inference
+        String origin = product.getOrigin();
+        if (origin != null) {
+            origin = origin.toLowerCase();
+            // Bright acidity origins
+            if (origin.contains("ethiopia") || origin.contains("kenya")) {
+                acidity += 0.4;
+                complexity += 0.2;
+            }
+            // Full body origins
+            if (origin.contains("brazil") || origin.contains("sumatra") || origin.contains("indonesia")) {
+                body += 0.3;
+                acidity -= 0.2;
+            }
+            // Clean profile origins
+            if (origin.contains("colombia") || origin.contains("guatemala")) {
+                acidity += 0.1;
+            }
+        }
+
+        // Process-based inference
+        String process = product.getProcess();
+        if (process != null) {
+            process = process.toLowerCase();
+            if (process.contains("natural") || process.contains("dry")) {
+                body += 0.3;
+                complexity += 0.3;
+            }
+            if (process.contains("washed") || process.contains("wet")) {
+                acidity += 0.2;
+                complexity -= 0.1;
+            }
+            if (process.contains("honey") || process.contains("pulped natural")) {
+                body += 0.2;
+                complexity += 0.1;
+            }
+            if (process.contains("anaerobic") || process.contains("fermented")) {
+                complexity += 0.4;
+            }
+        }
+
+        // Roast level-based inference
+        String roastLevel = product.getRoastLevel();
+        if (roastLevel != null) {
+            roastLevel = roastLevel.toLowerCase();
+            if (roastLevel.contains("light")) {
+                roast = -0.5;
+                acidity += 0.2;
+            } else if (roastLevel.contains("medium-light") || roastLevel.contains("medium light")) {
+                roast = -0.25;
+                acidity += 0.1;
+            } else if (roastLevel.contains("medium-dark") || roastLevel.contains("medium dark")) {
+                roast = 0.25;
+                body += 0.1;
+            } else if (roastLevel.contains("dark")) {
+                roast = 0.5;
+                body += 0.2;
+                acidity -= 0.2;
+            } else if (roastLevel.contains("medium")) {
+                roast = 0.0;
+            }
+        }
+
+        // Clamp values to [-1.0, 1.0]
+        acidity = Math.max(-1.0, Math.min(1.0, acidity));
+        body = Math.max(-1.0, Math.min(1.0, body));
+        roast = Math.max(-1.0, Math.min(1.0, roast));
+        complexity = Math.max(-1.0, Math.min(1.0, complexity));
+
+        return List.of(acidity, body, roast, complexity);
     }
 }

@@ -3,8 +3,10 @@ package com.coffee.beansfinder.repository;
 import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.entity.CoffeeProduct;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -96,6 +98,26 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     long countByBrandId(Long brandId);
 
     /**
+     * Count products by brand ID - only valid coffee products with tasting notes
+     */
+    @Query(value = "SELECT COUNT(*) FROM coffee_products p WHERE p.brand_id = :brandId " +
+           "AND p.tasting_notes_json IS NOT NULL " +
+           "AND p.tasting_notes_json::text <> '' " +
+           "AND p.tasting_notes_json::text <> '[]' " +
+           "AND p.tasting_notes_json::text <> 'null'", nativeQuery = true)
+    long countValidProductsByBrandId(@Param("brandId") Long brandId);
+
+    /**
+     * Find products by brand ID - only valid coffee products with tasting notes
+     */
+    @Query(value = "SELECT * FROM coffee_products p WHERE p.brand_id = :brandId " +
+           "AND p.tasting_notes_json IS NOT NULL " +
+           "AND p.tasting_notes_json::text <> '' " +
+           "AND p.tasting_notes_json::text <> '[]' " +
+           "AND p.tasting_notes_json::text <> 'null'", nativeQuery = true)
+    List<CoffeeProduct> findValidProductsByBrandId(@Param("brandId") Long brandId);
+
+    /**
      * Batch count products by multiple brand IDs (to avoid N+1 queries)
      * Returns a list of projections with brandId and count
      */
@@ -104,6 +126,19 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
            "WHERE p.brand.id IN :brandIds " +
            "GROUP BY p.brand.id")
     List<BrandProductCount> countByBrandIds(@Param("brandIds") List<Long> brandIds);
+
+    /**
+     * Batch count valid products (with tasting notes) by multiple brand IDs
+     */
+    @Query(value = "SELECT p.brand_id as brandId, COUNT(*) as count " +
+           "FROM coffee_products p " +
+           "WHERE p.brand_id IN :brandIds " +
+           "AND p.tasting_notes_json IS NOT NULL " +
+           "AND p.tasting_notes_json::text <> '' " +
+           "AND p.tasting_notes_json::text <> '[]' " +
+           "AND p.tasting_notes_json::text <> 'null' " +
+           "GROUP BY p.brand_id", nativeQuery = true)
+    List<BrandProductCount> countValidProductsByBrandIds(@Param("brandIds") List<Long> brandIds);
 
     /**
      * Batch count products by origins (to avoid N+1 queries)
@@ -135,13 +170,15 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
 
     /**
      * Find products created after a specific date (new products)
+     * Ordered by createdDate descending (newest first)
      */
-    List<CoffeeProduct> findByCreatedDateAfter(LocalDateTime cutoffDate);
+    List<CoffeeProduct> findByCreatedDateAfterOrderByCreatedDateDesc(LocalDateTime cutoffDate);
 
     /**
      * Find products updated after a specific date
+     * Ordered by lastUpdateDate descending (most recently updated first)
      */
-    List<CoffeeProduct> findByLastUpdateDateAfter(LocalDateTime cutoffDate);
+    List<CoffeeProduct> findByLastUpdateDateAfterOrderByLastUpdateDateDesc(LocalDateTime cutoffDate);
 
     /**
      * Find product by brand and seller URL (for efficient lookup during crawl)
@@ -173,4 +210,23 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
      * Search products by name (case-insensitive, partial match)
      */
     List<CoffeeProduct> findByProductNameContainingIgnoreCase(String productName);
+
+    /**
+     * Search products by product name OR brand name (case-insensitive, partial match)
+     */
+    @Query("SELECT p FROM CoffeeProduct p WHERE " +
+           "LOWER(p.productName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(p.brand.name) LIKE LOWER(CONCAT('%', :query, '%'))")
+    List<CoffeeProduct> searchByProductOrBrandName(@Param("query") String query);
+
+    // ===== Force re-crawl methods =====
+
+    /**
+     * Clear content hashes for a brand to force OpenAI re-extraction
+     * Returns number of products updated
+     */
+    @Modifying
+    @Transactional
+    @Query("UPDATE CoffeeProduct p SET p.contentHash = NULL WHERE p.brand.id = :brandId")
+    int clearContentHashByBrandId(@Param("brandId") Long brandId);
 }
