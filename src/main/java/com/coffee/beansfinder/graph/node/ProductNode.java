@@ -12,6 +12,7 @@ import org.springframework.data.neo4j.core.schema.Relationship;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Node("Product")
@@ -41,9 +42,13 @@ public class ProductNode {
     @Builder.Default
     private Set<ProcessNode> processes = new HashSet<>();
 
-    @Relationship(type = "HAS_FLAVOR", direction = Relationship.Direction.OUTGOING)
+    /**
+     * 4-tier SCA Flavor Wheel hierarchy relationship (Tier 4 - raw tasting notes)
+     * Product -> TastingNote -> Attribute -> Subcategory -> SCACategory
+     */
+    @Relationship(type = "HAS_TASTING_NOTE", direction = Relationship.Direction.OUTGOING)
     @Builder.Default
-    private Set<FlavorNode> flavors = new HashSet<>();
+    private Set<TastingNoteNode> tastingNotes = new HashSet<>();
 
     @Relationship(type = "ROASTED_AT", direction = Relationship.Direction.OUTGOING)
     private RoastLevelNode roastLevel;
@@ -55,4 +60,16 @@ public class ProductNode {
     @Relationship(type = "HAS_VARIETY", direction = Relationship.Direction.OUTGOING)
     @Builder.Default
     private Set<VarietyNode> varieties = new HashSet<>();
+
+    /**
+     * 9-dimensional flavor profile [0.0-1.0] for SCA category intensities.
+     * Indices: 0=fruity, 1=floral, 2=sweet, 3=nutty, 4=spices, 5=roasted, 6=green, 7=sour, 8=other
+     */
+    private List<Double> flavorProfile;
+
+    /**
+     * 4-dimensional character axes [-1.0 to +1.0] for coffee character spectrum.
+     * Indices: 0=acidity (flat↔bright), 1=body (light↔full), 2=roast (light↔dark), 3=complexity (clean↔funky)
+     */
+    private List<Double> characterAxes;
 }

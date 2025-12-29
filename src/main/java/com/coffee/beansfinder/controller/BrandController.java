@@ -1,10 +1,8 @@
 package com.coffee.beansfinder.controller;
 
-import com.coffee.beansfinder.entity.BrandApproval;
 import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.entity.LocationCoordinates;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
-import com.coffee.beansfinder.service.BrandApprovalService;
 import com.coffee.beansfinder.service.KnowledgeGraphService;
 import com.coffee.beansfinder.service.NominatimGeolocationService;
 import com.coffee.beansfinder.service.PerplexityApiService;
@@ -18,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,11 +27,10 @@ import java.util.List;
 @RequestMapping("/api/brands")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Brands", description = "Coffee brand management and approval workflow")
+@Tag(name = "Brands", description = "Coffee brand management")
 public class BrandController {
 
     private final CoffeeBrandRepository brandRepository;
-    private final BrandApprovalService approvalService;
     private final PerplexityApiService perplexityService;
     private final WebScraperService scraperService;
     private final com.coffee.beansfinder.repository.CoffeeProductRepository productRepository;
@@ -55,9 +53,9 @@ public class BrandController {
     @GetMapping("/approved")
     public List<CoffeeBrand> getApprovedBrands() {
         List<CoffeeBrand> brands = brandRepository.findByApprovedTrue();
-        // Populate product count for each brand
+        // Populate product count for each brand (only valid products with tasting notes)
         brands.forEach(brand -> {
-            long count = productRepository.countByBrandId(brand.getId());
+            long count = productRepository.countValidProductsByBrandId(brand.getId());
             brand.setProductCount(count);
         });
         return brands;
@@ -78,44 +76,86 @@ public class BrandController {
     }
 
     /**
-     * Submit new brand for approval
+     * Create a new brand
      */
-    @PostMapping("/submit")
-    public ResponseEntity<BrandApproval> submitBrand(@RequestBody BrandSubmissionRequest request) {
+    @Operation(
+        summary = "Create new brand",
+        description = "Create a new coffee brand (pending approval by default)"
+    )
+    @PostMapping
+    public ResponseEntity<CoffeeBrand> createBrand(@RequestBody BrandSubmissionRequest request) {
         try {
-            BrandApproval approval = approvalService.submitBrandForApproval(
-                    request.name,
-                    request.website,
-                    request.sitemapUrl,
-                    request.country,
-                    request.description,
-                    request.submittedBy,
-                    request.submissionNotes
-            );
-            return ResponseEntity.ok(approval);
-        } catch (IllegalArgumentException e) {
+            // Check if brand already exists
+            if (brandRepository.existsByName(request.name)) {
+                log.warn("Brand already exists: {}", request.name);
+                return ResponseEntity.badRequest().build();
+            }
+
+            // Create brand entity (pending approval by default)
+            CoffeeBrand brand = CoffeeBrand.builder()
+                    .name(request.name)
+                    .website(request.website)
+                    .sitemapUrl(request.sitemapUrl)
+                    .country(request.country)
+                    .city(request.city)
+                    .address(request.address)
+                    .postcode(request.postcode)
+                    .description(request.description)
+                    .latitude(request.latitude)
+                    .longitude(request.longitude)
+                    .coordinatesValidated(request.latitude != null && request.longitude != null)
+                    .status("pending_approval")
+                    .approved(false)
+                    .build();
+
+            brand = brandRepository.save(brand);
+            log.info("Created brand pending approval: {} (ID: {})", request.name, brand.getId());
+
+            return ResponseEntity.ok(brand);
+        } catch (Exception e) {
+            log.error("Failed to create brand: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
         }
     }
 
     /**
-     * Get pending brand approvals
+     * Get pending brands
      */
-    @GetMapping("/approvals/pending")
-    public List<BrandApproval> getPendingApprovals() {
-        return approvalService.getPendingApprovals();
+    @Operation(
+        summary = "Get pending brands",
+        description = "Returns brands pending approval"
+    )
+    @GetMapping("/pending")
+    public List<CoffeeBrand> getPendingBrands() {
+        return brandRepository.findByApprovedFalse();
     }
 
     /**
      * Approve a brand
      */
-    @PostMapping("/approvals/{id}/approve")
-    public ResponseEntity<Void> approveBrand(
+    @Operation(
+        summary = "Approve brand",
+        description = "Approve a pending brand"
+    )
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<CoffeeBrand> approveBrand(
             @PathVariable Long id,
-            @RequestBody ApprovalDecisionRequest request) {
+            @RequestBody(required = false) ApprovalDecisionRequest request) {
         try {
-            approvalService.approveBrand(id, request.reviewedBy, request.reviewNotes);
-            return ResponseEntity.ok().build();
+            CoffeeBrand brand = brandRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Brand not found: " + id));
+
+            brand.setApproved(true);
+            brand.setStatus("active");
+            brand.setApprovedDate(LocalDateTime.now());
+            if (request != null && request.reviewedBy != null) {
+                brand.setApprovedBy(request.reviewedBy);
+            }
+
+            brand = brandRepository.save(brand);
+            log.info("Approved brand: {} (ID: {})", brand.getName(), brand.getId());
+
+            return ResponseEntity.ok(brand);
         } catch (Exception e) {
             log.error("Failed to approve brand: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
@@ -125,13 +165,23 @@ public class BrandController {
     /**
      * Reject a brand
      */
-    @PostMapping("/approvals/{id}/reject")
-    public ResponseEntity<Void> rejectBrand(
+    @Operation(
+        summary = "Reject brand",
+        description = "Reject a pending brand (sets status to rejected)"
+    )
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<CoffeeBrand> rejectBrand(
             @PathVariable Long id,
-            @RequestBody ApprovalDecisionRequest request) {
+            @RequestBody(required = false) ApprovalDecisionRequest request) {
         try {
-            approvalService.rejectBrand(id, request.reviewedBy, request.reviewNotes);
-            return ResponseEntity.ok().build();
+            CoffeeBrand brand = brandRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Brand not found: " + id));
+
+            brand.setStatus("rejected");
+            brand = brandRepository.save(brand);
+            log.info("Rejected brand: {} (ID: {})", brand.getName(), brand.getId());
+
+            return ResponseEntity.ok(brand);
         } catch (Exception e) {
             log.error("Failed to reject brand: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
@@ -302,12 +352,12 @@ public class BrandController {
      */
     @Operation(
         summary = "Bulk submit brands",
-        description = "Submit multiple brands at once for approval. Accepts the JSON output from /generate-list endpoint."
+        description = "Submit multiple brands at once. Accepts the JSON output from /generate-list endpoint."
     )
     @PostMapping("/bulk-submit")
     public ResponseEntity<BulkSubmitResponse> bulkSubmitBrands(@RequestBody BulkSubmitRequest request) {
 
-        log.info("Bulk submit requested for {} brands by {}", request.brands.size(), request.submittedBy);
+        log.info("Bulk submit requested for {} brands", request.brands.size());
 
         List<BulkSubmitResult> results = new ArrayList<>();
         int successCount = 0;
@@ -329,33 +379,36 @@ public class BrandController {
                     continue;
                 }
 
-                // Submit brand for approval (with location data if available)
-                BrandApproval approval = approvalService.submitBrandForApproval(
-                        brandDetail.name(),
-                        brandDetail.website(),
-                        brandDetail.sitemapUrl(),
-                        brandDetail.country(),
-                        brandDetail.city(),
-                        brandDetail.address(),
-                        brandDetail.postcode(),
-                        brandDetail.description(),
-                        request.submittedBy != null ? request.submittedBy : "bulk-submit",
-                        "Bulk submitted via API",
-                        brandDetail.latitude(),
-                        brandDetail.longitude()
-                );
+                // Create brand (pending approval by default)
+                CoffeeBrand brand = CoffeeBrand.builder()
+                        .name(brandDetail.name())
+                        .website(brandDetail.website())
+                        .sitemapUrl(brandDetail.sitemapUrl())
+                        .country(brandDetail.country())
+                        .city(brandDetail.city())
+                        .address(brandDetail.address())
+                        .postcode(brandDetail.postcode())
+                        .description(brandDetail.description())
+                        .latitude(brandDetail.latitude())
+                        .longitude(brandDetail.longitude())
+                        .coordinatesValidated(brandDetail.latitude() != null && brandDetail.longitude() != null)
+                        .status("pending_approval")
+                        .approved(false)
+                        .build();
+
+                brand = brandRepository.save(brand);
 
                 results.add(new BulkSubmitResult(
                         brandDetail.name(),
                         "success",
-                        approval.getId(),
-                        "Submitted for approval"
+                        brand.getId(),
+                        "Created (pending approval)"
                 ));
                 successCount++;
-                log.info("Successfully submitted brand: {} (Approval ID: {})", brandDetail.name(), approval.getId());
+                log.info("Successfully created brand: {} (ID: {})", brandDetail.name(), brand.getId());
 
             } catch (Exception e) {
-                log.error("Failed to submit brand {}: {}", brandDetail.name(), e.getMessage());
+                log.error("Failed to create brand {}: {}", brandDetail.name(), e.getMessage());
                 results.add(new BulkSubmitResult(
                         brandDetail.name(),
                         "error",
@@ -375,7 +428,7 @@ public class BrandController {
                 successCount,
                 skippedCount,
                 errorCount,
-                String.format("Processed %d brands: %d submitted, %d skipped, %d errors",
+                String.format("Processed %d brands: %d created, %d skipped, %d errors",
                               request.brands.size(), successCount, skippedCount, errorCount)
         ));
     }
@@ -409,21 +462,25 @@ public class BrandController {
                         .body(new ErrorResponse("Brand not found or could not retrieve details: " + request.brandName));
             }
 
-            // Create brand submission using discovered details
-            BrandApproval approval = approvalService.submitBrandForApproval(
-                    details.name,
-                    details.website,
-                    details.sitemapUrl,
-                    details.country,
-                    details.description,
-                    request.submittedBy != null ? request.submittedBy : "auto-setup",
-                    "Auto-discovered using Perplexity AI"
-            );
+            // Create brand using discovered details (pending approval by default)
+            CoffeeBrand brand = CoffeeBrand.builder()
+                    .name(details.name)
+                    .website(details.website)
+                    .sitemapUrl(details.sitemapUrl)
+                    .country(details.country)
+                    .city(details.city)
+                    .address(details.address)
+                    .postcode(details.postcode)
+                    .description(details.description)
+                    .status("pending_approval")
+                    .approved(false)
+                    .build();
 
-            log.info("Successfully auto-setup brand: {} (Approval ID: {})", details.name, approval.getId());
+            brand = brandRepository.save(brand);
+            log.info("Successfully auto-setup brand: {} (ID: {})", details.name, brand.getId());
 
             return ResponseEntity.ok(new AutoSetupResponse(
-                    approval.getId(),
+                    brand.getId(),
                     details.name,
                     details.website,
                     details.sitemapUrl,
@@ -445,14 +502,16 @@ public class BrandController {
             String website,
             String sitemapUrl,
             String country,
+            String city,
+            String address,
+            String postcode,
             String description,
-            String submittedBy,
-            String submissionNotes
+            Double latitude,
+            Double longitude
     ) {}
 
     public record ApprovalDecisionRequest(
-            String reviewedBy,
-            String reviewNotes
+            String reviewedBy
     ) {}
 
     public record BrandDetailDto(
@@ -477,8 +536,7 @@ public class BrandController {
     ) {}
 
     public record BulkSubmitRequest(
-            List<BrandDetailDto> brands,
-            String submittedBy
+            List<BrandDetailDto> brands
     ) {}
 
     public record BulkSubmitResult(
@@ -498,12 +556,11 @@ public class BrandController {
     ) {}
 
     public record AutoSetupRequest(
-            String brandName,
-            String submittedBy
+            String brandName
     ) {}
 
     public record AutoSetupResponse(
-            Long approvalId,
+            Long brandId,
             String name,
             String website,
             String sitemapUrl,
@@ -513,6 +570,115 @@ public class BrandController {
     ) {}
 
     public record ErrorResponse(String message) {}
+
+    /**
+     * DTO for public brand suggestion
+     */
+    public record SuggestBrandRequest(
+            String name,
+            String websiteUrl,
+            String recaptchaToken
+    ) {}
+
+    /**
+     * Suggest a brand (public endpoint with reCAPTCHA)
+     */
+    @Operation(
+        summary = "Suggest a brand",
+        description = "Public endpoint for users to suggest a new coffee brand. Requires reCAPTCHA verification."
+    )
+    @PostMapping("/suggest")
+    public ResponseEntity<String> suggestBrand(@RequestBody SuggestBrandRequest request) {
+        log.info("Brand suggestion received: {} ({})", request.name, request.websiteUrl);
+
+        try {
+            // Validate input
+            if (request.name == null || request.name.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Brand name is required");
+            }
+            if (request.websiteUrl == null || request.websiteUrl.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body("Website URL is required");
+            }
+
+            // Validate reCAPTCHA
+            if (request.recaptchaToken == null || request.recaptchaToken.isEmpty()) {
+                return ResponseEntity.badRequest().body("CAPTCHA verification is required");
+            }
+
+            // Verify reCAPTCHA with Google
+            boolean captchaValid = verifyRecaptcha(request.recaptchaToken);
+            if (!captchaValid) {
+                log.warn("reCAPTCHA verification failed for brand suggestion: {}", request.name);
+                return ResponseEntity.badRequest().body("CAPTCHA verification failed. Please try again.");
+            }
+
+            // Check if brand already exists
+            if (brandRepository.existsByName(request.name.trim())) {
+                log.warn("Brand already exists: {}", request.name);
+                return ResponseEntity.badRequest().body("This brand already exists in our database");
+            }
+
+            // Check if website URL already exists
+            if (brandRepository.existsByWebsite(request.websiteUrl.trim())) {
+                log.warn("Website already exists: {}", request.websiteUrl);
+                return ResponseEntity.badRequest().body("A brand with this website already exists");
+            }
+
+            // Create brand (pending approval)
+            CoffeeBrand brand = CoffeeBrand.builder()
+                    .name(request.name.trim())
+                    .website(request.websiteUrl.trim())
+                    .status("pending_approval")
+                    .approved(false)
+                    .build();
+
+            brand = brandRepository.save(brand);
+            log.info("Brand suggestion saved: {} (ID: {})", brand.getName(), brand.getId());
+
+            return ResponseEntity.ok("Thank you! Your suggestion has been submitted for review.");
+
+        } catch (Exception e) {
+            log.error("Error processing brand suggestion: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body("An error occurred. Please try again later.");
+        }
+    }
+
+    /**
+     * Verify reCAPTCHA token with Google
+     */
+    private boolean verifyRecaptcha(String token) {
+        try {
+            String secretKey = System.getenv("RECAPTCHA_SECRET_KEY");
+            if (secretKey == null || secretKey.isEmpty()) {
+                // If no secret key configured, allow (development mode)
+                log.warn("RECAPTCHA_SECRET_KEY not configured - skipping verification");
+                return true;
+            }
+
+            String verifyUrl = "https://www.google.com/recaptcha/api/siteverify";
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+
+            String formData = "secret=" + java.net.URLEncoder.encode(secretKey, "UTF-8")
+                    + "&response=" + java.net.URLEncoder.encode(token, "UTF-8");
+
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(verifyUrl))
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(formData))
+                    .build();
+
+            java.net.http.HttpResponse<String> response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString());
+
+            // Parse response (simple JSON parsing)
+            String body = response.body();
+            return body.contains("\"success\": true") || body.contains("\"success\":true");
+
+        } catch (Exception e) {
+            log.error("reCAPTCHA verification error: {}", e.getMessage());
+            return false;
+        }
+    }
 
     /**
      * Batch extract addresses for existing brands using Perplexity AI
@@ -708,6 +874,139 @@ public class BrandController {
             int totalBrands,
             int successCount,
             int skipCount,
+            int errorCount,
+            String message
+    ) {}
+
+    // ==================== EXTRACT BRANDS FROM WEBSITES ====================
+
+    /**
+     * Extract brand details from a list of website URLs.
+     * Uses Perplexity AI to extract brand name, description, sitemap, and location details.
+     * Returns the extracted data for review - does NOT insert into database.
+     * Use /api/brands/bulk-submit to insert after review.
+     */
+    @Operation(
+        summary = "Extract brand details from website URLs",
+        description = "Takes a list of coffee roaster website URLs and uses AI to extract brand details. Returns data for review - does NOT insert into database. Use bulk-submit endpoint after review."
+    )
+    @PostMapping("/extract-from-urls")
+    public ResponseEntity<ExtractFromUrlsResponse> extractBrandsFromUrls(@RequestBody ExtractFromUrlsRequest request) {
+
+        log.info("Extract from URLs requested: {} websites", request.websiteUrls != null ? request.websiteUrls.size() : 0);
+
+        if (request.websiteUrls == null || request.websiteUrls.isEmpty()) {
+            return ResponseEntity.badRequest().body(new ExtractFromUrlsResponse(
+                    List.of(), 0, 0, 0, "No website URLs provided"
+            ));
+        }
+
+        List<BrandDetailDto> extractedBrands = new ArrayList<>();
+        int successCount = 0;
+        int errorCount = 0;
+
+        for (String websiteUrl : request.websiteUrls) {
+            String cleanUrl = websiteUrl.trim();
+            if (cleanUrl.isEmpty()) continue;
+
+            // Normalize URL (add https if missing)
+            if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+                cleanUrl = "https://" + cleanUrl;
+            }
+
+            try {
+                log.info("Extracting from website: {}", cleanUrl);
+
+                // Use Perplexity to extract brand details from website
+                PerplexityApiService.BrandDetails details = perplexityService.discoverBrandDetailsFromWebsite(cleanUrl);
+
+                if (details == null || details.name == null || details.name.isBlank()) {
+                    log.warn("Failed to extract brand details from: {}", cleanUrl);
+                    errorCount++;
+                    continue;
+                }
+
+                // Auto-resolve product sitemap if main sitemap was returned
+                String resolvedSitemapUrl = details.sitemapUrl;
+                if (resolvedSitemapUrl != null && !resolvedSitemapUrl.isEmpty()) {
+                    try {
+                        List<String> productSitemaps = scraperService.extractProductSitemapUrls(resolvedSitemapUrl);
+                        if (!productSitemaps.isEmpty()) {
+                            resolvedSitemapUrl = productSitemaps.get(0);
+                            log.info("Auto-resolved to product sitemap: {}", resolvedSitemapUrl);
+                        }
+                    } catch (Exception e) {
+                        log.debug("Could not resolve sitemap index: {}", e.getMessage());
+                    }
+                }
+
+                // Geocode location
+                Double latitude = null;
+                Double longitude = null;
+
+                String locationToGeocode = details.address != null && !details.address.isBlank()
+                        ? details.address
+                        : details.city;
+
+                if (locationToGeocode != null && details.country != null) {
+                    try {
+                        LocationCoordinates coords = geolocationService.geocode(locationToGeocode, details.country, null);
+                        if (coords != null) {
+                            latitude = coords.getLatitude();
+                            longitude = coords.getLongitude();
+                            log.info("Geocoded {} to ({}, {})", locationToGeocode, latitude, longitude);
+                        }
+                    } catch (Exception e) {
+                        log.debug("Geocoding failed for {}: {}", locationToGeocode, e.getMessage());
+                    }
+                }
+
+                // Add to results (NOT saving to database)
+                extractedBrands.add(new BrandDetailDto(
+                        details.name,
+                        cleanUrl,
+                        resolvedSitemapUrl,
+                        details.country,
+                        details.city,
+                        details.address,
+                        details.postcode,
+                        details.description,
+                        latitude,
+                        longitude
+                ));
+
+                log.info("Successfully extracted brand: {} from {}", details.name, cleanUrl);
+                successCount++;
+
+                // Rate limiting between API calls
+                Thread.sleep(1500);
+
+            } catch (Exception e) {
+                log.error("Failed to extract from {}: {}", cleanUrl, e.getMessage());
+                errorCount++;
+            }
+        }
+
+        log.info("Extract from URLs completed: {} success, {} errors", successCount, errorCount);
+
+        return ResponseEntity.ok(new ExtractFromUrlsResponse(
+                extractedBrands,
+                request.websiteUrls.size(),
+                successCount,
+                errorCount,
+                String.format("Extracted %d brands from %d URLs (%d errors). Use /api/brands/bulk-submit to save after review.",
+                        successCount, request.websiteUrls.size(), errorCount)
+        ));
+    }
+
+    public record ExtractFromUrlsRequest(
+            List<String> websiteUrls
+    ) {}
+
+    public record ExtractFromUrlsResponse(
+            List<BrandDetailDto> brands,
+            int totalUrls,
+            int successCount,
             int errorCount,
             String message
     ) {}

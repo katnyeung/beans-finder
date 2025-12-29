@@ -1,5 +1,6 @@
 package com.coffee.beansfinder.service;
 
+import com.coffee.beansfinder.dto.CrawlSummary;
 import com.coffee.beansfinder.dto.ExtractedProductData;
 import com.coffee.beansfinder.dto.SCAFlavorMapping;
 import com.coffee.beansfinder.entity.CoffeeBrand;
@@ -16,8 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -39,6 +42,7 @@ public class CrawlerService {
     private final OpenAIService openAIService;
     private final ObjectMapper objectMapper;
     private final MapCacheService mapCacheService;
+    private final ContentHashService contentHashService;
 
     @Value("${crawler.update.interval.days:14}")
     private int updateIntervalDays;
@@ -67,7 +71,7 @@ public class CrawlerService {
     /**
      * Crawl a specific brand
      */
-    @Transactional
+    // NOTE: No @Transactional - processAndSaveProduct handles its own transaction
     public void crawlBrand(CoffeeBrand brand) {
         log.info("Starting crawl for brand: {}", brand.getName());
 
@@ -113,7 +117,7 @@ public class CrawlerService {
     /**
      * Discover and crawl all products for a brand using Perplexity AI
      */
-    @Transactional
+    // NOTE: No @Transactional - processAndSaveProduct handles its own transaction
     public void discoverAndCrawlProducts(CoffeeBrand brand) {
         log.info("Starting Perplexity product discovery for brand: {}", brand.getName());
 
@@ -181,37 +185,39 @@ public class CrawlerService {
     }
 
     /**
-     * Crawl all products from a brand's sitemap using Perplexity batch extraction
+     * Crawl all products from a brand's sitemap using incremental hash-based change detection.
+     * Only calls OpenAI for new or changed products, saving API costs.
+     *
+     * @return CrawlSummary with stats on new/updated/unchanged/deleted products
      */
-    @Transactional
-    public void crawlBrandFromSitemap(CoffeeBrand brand) {
-        log.info("Starting sitemap crawl for brand: {} from {}", brand.getName(), brand.getSitemapUrl());
+    // NOTE: No @Transactional here - each product is saved in its own transaction
+    // This prevents "idle-in-transaction timeout" during slow OpenAI API calls
+    public CrawlSummary crawlBrandFromSitemap(CoffeeBrand brand) {
+        log.info("Starting incremental sitemap crawl for brand: {} from {}", brand.getName(), brand.getSitemapUrl());
+
+        CrawlSummary.CrawlSummaryBuilder summaryBuilder = CrawlSummary.builder()
+                .brandName(brand.getName());
 
         if (brand.getSitemapUrl() == null || brand.getSitemapUrl().isEmpty()) {
             log.error("Brand {} has no sitemap URL", brand.getName());
-            return;
+            return summaryBuilder.build();
         }
 
+        int newCount = 0;
+        int updatedCount = 0;
+        int unchangedCount = 0;
+        int deletedCount = 0;
+
         try {
-            // Step 1: Clean up existing products for this brand
+            // Step 1: Build map of existing products by sellerUrl for efficient lookup
             List<CoffeeProduct> existingProducts = productRepository.findByBrand(brand);
-            if (!existingProducts.isEmpty()) {
-                log.info("Cleaning up {} existing products for brand: {}", existingProducts.size(), brand.getName());
-
-                // Delete from Neo4j knowledge graph first
-                for (CoffeeProduct product : existingProducts) {
-                    try {
-                        graphService.deleteProductFromGraph(product.getId());
-                    } catch (Exception e) {
-                        log.warn("Failed to delete product {} from knowledge graph: {}",
-                                product.getId(), e.getMessage());
-                    }
+            Map<String, CoffeeProduct> existingByUrl = new HashMap<>();
+            for (CoffeeProduct p : existingProducts) {
+                if (p.getSellerUrl() != null) {
+                    existingByUrl.put(p.getSellerUrl(), p);
                 }
-
-                // Delete from PostgreSQL
-                productRepository.deleteAll(existingProducts);
-                log.info("Successfully cleaned up {} products", existingProducts.size());
             }
+            log.info("Found {} existing products for brand: {}", existingByUrl.size(), brand.getName());
 
             // Step 2: Fetch and filter sitemap to coffee products only (keyword-based, free)
             List<String> productUrls = scraperService.extractProductUrlsFromSitemap(brand.getSitemapUrl());
@@ -219,144 +225,239 @@ public class CrawlerService {
 
             if (productUrls.isEmpty()) {
                 log.warn("No coffee products found in sitemap for brand: {}", brand.getName());
-                return;
+                return summaryBuilder.totalProcessed(0).build();
             }
 
-            // Step 3: Use Playwright + OpenAI for extraction (skip Perplexity entirely)
-            // This is 20x cheaper ($0.0004 vs $0.008 per product) and handles JS sites better
-            log.info("Using Playwright + OpenAI for extraction (cost-effective approach)");
+            // Track which URLs we've seen in this crawl (for deletion detection)
+            Set<String> urlsInSitemap = new HashSet<>(productUrls);
 
-            List<ExtractedProductData> extractedProducts = new ArrayList<>();
+            // Step 3: Process each URL with hash-based change detection
             int totalUrls = productUrls.size();
-            int processedCount = 0;
-            int chunkSize = playwrightChunkSize; // Configurable chunk size (default: 10)
 
             for (int i = 0; i < totalUrls; i++) {
                 String productUrl = productUrls.get(i);
 
-                // Step 1: Playwright renders and extracts product text (not full HTML)
-                // This reduces token usage by 90% (10KB vs 100KB)
-                log.info("[{}/{}] Extracting product text with Playwright: {}", i + 1, totalUrls, productUrl);
+                // Step 3a: Playwright extracts clean product text
+                log.info("[{}/{}] Extracting text with Playwright: {}", i + 1, totalUrls, productUrl);
                 String productText = playwrightService.extractProductText(productUrl);
 
                 if (productText == null || productText.isEmpty()) {
                     log.error("Playwright failed to extract text for: {}", productUrl);
-                    throw new RuntimeException("Playwright extraction failed for: " + productUrl + ". Stopping crawl.");
+                    continue; // Skip this URL, don't fail entire crawl
                 }
 
-                // Step 2: Send clean product text to OpenAI for AI-powered extraction
-                // Cost: ~$0.0004 per product (20x cheaper than Perplexity!)
-                log.info("Extracting data from product text with OpenAI ({} chars)...", productText.length());
-                ExtractedProductData data = openAIService.extractFromText(
-                        productText,
-                        brand.getName(),
-                        productUrl
-                );
+                // Step 3b: Generate hash of extracted content
+                String newHash = contentHashService.generateHash(productText);
 
-                if (data == null || data.getProductName() == null) {
-                    log.error("OpenAI failed to extract data for: {}", productUrl);
-                    throw new RuntimeException("OpenAI extraction failed for: " + productUrl + ". Stopping crawl.");
-                }
+                // Step 3c: Check if product exists
+                CoffeeProduct existingProduct = existingByUrl.get(productUrl);
 
-                extractedProducts.add(data);
-                processedCount++;
-                log.info("✓ [{}/{}] OpenAI extracted: {} (origin: {}, process: {}, notes: {})",
-                        i + 1, totalUrls,
-                        data.getProductName(),
-                        data.getOrigin(),
-                        data.getProcess(),
-                        data.getTastingNotes() != null ? data.getTastingNotes().size() : 0);
+                if (existingProduct != null) {
+                    // Product exists - check if content changed
+                    String existingHash = existingProduct.getContentHash();
 
-                // Save in chunks to prevent connection timeout
-                if (processedCount % chunkSize == 0 || i == totalUrls - 1) {
-                    log.info("Saving chunk of {} products to database...", extractedProducts.size());
-                    saveExtractedProducts(brand, extractedProducts);
-                    extractedProducts.clear(); // Clear saved products
-                    log.info("Chunk saved successfully. Continuing extraction...");
+                    if (!contentHashService.hasContentChanged(newHash, existingHash)) {
+                        // Content unchanged - skip OpenAI, save cost!
+                        log.info("⏭️ [{}/{}] UNCHANGED (hash match): {}", i + 1, totalUrls, productUrl);
+                        unchangedCount++;
+                        continue;
+                    }
+
+                    // Content changed - need to re-extract with OpenAI
+                    log.info("🔄 [{}/{}] CHANGED (hash mismatch): {}", i + 1, totalUrls, productUrl);
+                    ExtractedProductData data = extractWithOpenAI(productText, brand.getName(), productUrl);
+
+                    if (data != null) {
+                        processAndSaveProduct(brand, data, productText, productUrl, existingProduct.getId());
+                        existingProduct.setContentHash(newHash);
+                        productRepository.save(existingProduct);
+                        updatedCount++;
+                        log.info("✓ [{}/{}] UPDATED: {} (origin: {})", i + 1, totalUrls,
+                                data.getProductName(), data.getOrigin());
+                    }
+                } else {
+                    // New product - extract with OpenAI
+                    log.info("🆕 [{}/{}] NEW product: {}", i + 1, totalUrls, productUrl);
+                    ExtractedProductData data = extractWithOpenAI(productText, brand.getName(), productUrl);
+
+                    if (data != null) {
+                        CoffeeProduct newProduct = processAndSaveProduct(brand, data, productText, productUrl, null);
+                        if (newProduct != null) {
+                            newProduct.setContentHash(newHash);
+                            productRepository.save(newProduct);
+                            newCount++;
+                            log.info("✓ [{}/{}] ADDED: {} (origin: {})", i + 1, totalUrls,
+                                    data.getProductName(), data.getOrigin());
+                        }
+                    }
                 }
             }
 
-            log.info("Playwright + OpenAI extraction completed. Processed {} URLs", totalUrls);
+            // Step 4: Delete products no longer in sitemap
+            for (CoffeeProduct existing : existingProducts) {
+                if (existing.getSellerUrl() != null && !urlsInSitemap.contains(existing.getSellerUrl())) {
+                    log.info("🗑️ DELETING product not in sitemap: {} (ID: {})",
+                            existing.getProductName(), existing.getId());
+                    try {
+                        // Delete from Neo4j first
+                        graphService.deleteProductFromGraph(existing.getId());
+                    } catch (Exception e) {
+                        log.warn("Failed to delete product {} from graph: {}", existing.getId(), e.getMessage());
+                    }
+                    // Delete from PostgreSQL
+                    productRepository.delete(existing);
+                    deletedCount++;
+                }
+            }
 
             // Update brand's last crawl date
             brand.setLastCrawlDate(LocalDateTime.now());
             brandRepository.save(brand);
 
-            log.info("Sitemap crawl completed for brand: {}. Processed {} products",
-                     brand.getName(), totalUrls);
+            // Build summary
+            double costSaved = CrawlSummary.calculateCostSaved(unchangedCount);
+            CrawlSummary summary = summaryBuilder
+                    .newProducts(newCount)
+                    .updatedProducts(updatedCount)
+                    .unchangedProducts(unchangedCount)
+                    .deletedProducts(deletedCount)
+                    .totalProcessed(totalUrls)
+                    .apiCostSaved(costSaved)
+                    .build();
 
-            // Rebuild map cache after successful crawl
+            log.info("========== CRAWL SUMMARY for {} ==========", brand.getName());
+            log.info("  🆕 New products:       {}", newCount);
+            log.info("  🔄 Updated products:   {}", updatedCount);
+            log.info("  ⏭️ Unchanged products: {}", unchangedCount);
+            log.info("  🗑️ Deleted products:   {}", deletedCount);
+            log.info("  💰 API cost saved:     ${}", String.format("%.4f", costSaved));
+            log.info("==========================================");
+
+            // Rebuild map cache asynchronously after successful crawl
+            // This prevents blocking and avoids transaction conflicts with PostgreSQL
             try {
-                log.info("Rebuilding map cache after crawl completion...");
-                mapCacheService.rebuildAllCaches();
-                log.info("Map cache rebuilt successfully");
+                log.info("Scheduling async map cache rebuild after crawl completion...");
+                mapCacheService.rebuildAllCachesAsync();
             } catch (Exception cacheError) {
-                log.error("Failed to rebuild map cache after crawl: {}", cacheError.getMessage());
-                // Don't fail the whole crawl if cache rebuild fails
+                log.error("Failed to schedule async cache rebuild: {}", cacheError.getMessage());
             }
+
+            return summary;
 
         } catch (Exception e) {
             log.error("Error crawling sitemap for brand {}: {}", brand.getName(), e.getMessage(), e);
+            return summaryBuilder
+                    .newProducts(newCount)
+                    .updatedProducts(updatedCount)
+                    .unchangedProducts(unchangedCount)
+                    .deletedProducts(deletedCount)
+                    .build();
         }
     }
 
     /**
-     * Crawl a specific product URL
+     * Helper method to extract product data with OpenAI
+     * Retries up to 2 times if tasting notes are empty (page may not have loaded fully)
      */
-    @Transactional
+    private ExtractedProductData extractWithOpenAI(String productText, String brandName, String productUrl) {
+        final int MAX_RETRIES = 2;
+
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                ExtractedProductData data = openAIService.extractFromText(productText, brandName, productUrl);
+
+                if (data == null || data.getProductName() == null) {
+                    log.error("OpenAI failed to extract data for: {}", productUrl);
+                    return null;
+                }
+
+                // Check if tasting notes are empty
+                boolean hasTastingNotes = data.getTastingNotes() != null && !data.getTastingNotes().isEmpty();
+
+                if (hasTastingNotes) {
+                    // Success - have tasting notes
+                    return data;
+                } else if (attempt < MAX_RETRIES) {
+                    // No tasting notes - retry with fresh page load
+                    log.warn("⚠️ No tasting notes found for {} (attempt {}/{}), retrying with fresh page load...",
+                            productUrl, attempt, MAX_RETRIES);
+
+                    // Wait a bit before retry
+                    Thread.sleep(1000);
+
+                    // Re-fetch the page with Playwright (fresh load)
+                    String freshText = playwrightService.extractProductText(productUrl);
+                    if (freshText != null && !freshText.isEmpty()) {
+                        productText = freshText;
+                        log.info("Re-fetched page text ({} chars) for retry", freshText.length());
+                    }
+                } else {
+                    // Final attempt still has no tasting notes - return anyway (may be valid product without notes)
+                    log.warn("⚠️ No tasting notes found after {} attempts for: {} - saving anyway",
+                            MAX_RETRIES, productUrl);
+                    return data;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Retry interrupted for {}", productUrl);
+                return null;
+            } catch (Exception e) {
+                log.error("OpenAI extraction error for {} (attempt {}): {}", productUrl, attempt, e.getMessage());
+                if (attempt >= MAX_RETRIES) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Crawl a specific product URL using Playwright + OpenAI
+     */
+    // NOTE: No @Transactional here - processAndSaveProduct handles its own transaction
+    // This prevents "idle-in-transaction timeout" during slow Playwright + OpenAI calls
     public CoffeeProduct crawlProduct(CoffeeBrand brand, String productUrl) {
+        return crawlProduct(brand, productUrl, null);
+    }
+
+    /**
+     * Crawl a specific product URL using Playwright + OpenAI
+     * @param brand The brand
+     * @param productUrl The product URL
+     * @param existingProductId Optional existing product ID to update (null to create new)
+     */
+    // NOTE: No @Transactional here - processAndSaveProduct handles its own transaction
+    public CoffeeProduct crawlProduct(CoffeeBrand brand, String productUrl, Long existingProductId) {
         log.info("Crawling product: {} from brand: {}", productUrl, brand.getName());
 
         try {
-            // Fetch product page
-            Optional<Document> doc = scraperService.fetchPage(productUrl);
+            // Use Playwright to extract clean product text (removes scripts, styles, nav, footer)
+            log.info("Extracting product text with Playwright + OpenAI: {}", productUrl);
+            String productText = playwrightService.extractProductText(productUrl);
 
-            if (doc.isEmpty()) {
-                log.error("Failed to fetch product page: {}", productUrl);
+            if (productText == null || productText.isEmpty()) {
+                log.error("Playwright failed to extract product text: {}", productUrl);
                 return null;
             }
 
-            String htmlContent = doc.get().html();
+            log.info("Product text extracted successfully ({} chars), sending to OpenAI", productText.length());
 
-            // Check if this is a JavaScript-rendered site
-            if (playwrightService.isJavaScriptRendered(htmlContent)) {
-                log.info("Detected JavaScript-rendered site, using Playwright: {}", productUrl);
-                ExtractedProductData playwrightData = playwrightService.extractProductData(productUrl);
-
-                if (playwrightData != null && playwrightData.getProductName() != null) {
-                    log.info("Successfully extracted with Playwright: {}", playwrightData.getProductName());
-                    return processAndSaveProduct(brand, playwrightData,
-                            playwrightData.getRawDescription() != null ? playwrightData.getRawDescription() : "",
-                            productUrl);
-                } else {
-                    log.warn("Playwright extraction failed, falling back to Perplexity");
-                }
-            }
-
-            // Extract content using traditional scraping
-            String rawContent = scraperService.extractTextContent(doc.get());
-            WebScraperService.ProductPageMetadata metadata = scraperService.extractMetadata(doc.get());
-
-            // Use Perplexity to extract structured data
-            ExtractedProductData extractedData = perplexityService.extractProductData(
-                    rawContent + "\n\nTitle: " + metadata.title + "\n\nDescription: " + metadata.description,
+            // Use OpenAI to extract structured data from clean product text
+            ExtractedProductData extractedData = openAIService.extractFromText(
+                    productText,
                     brand.getName(),
                     productUrl
             );
 
-            // Check if Perplexity returned mostly empty data (sign of JavaScript rendering)
-            if (isMostlyEmpty(extractedData)) {
-                log.warn("Perplexity returned mostly empty data, trying Playwright fallback");
-                ExtractedProductData playwrightData = playwrightService.extractProductData(productUrl);
-
-                if (playwrightData != null && playwrightData.getProductName() != null) {
-                    log.info("Playwright fallback successful: {}", playwrightData.getProductName());
-                    extractedData = playwrightData;
-                }
+            if (extractedData == null || extractedData.getProductName() == null) {
+                log.error("OpenAI extraction failed for: {}", productUrl);
+                return null;
             }
 
-            // Process and save
-            return processAndSaveProduct(brand, extractedData, rawContent, productUrl);
+            log.info("Successfully extracted product: {}", extractedData.getProductName());
+
+            // Process and save (with existing product ID if provided)
+            return processAndSaveProduct(brand, extractedData, productText, productUrl, existingProductId);
 
         } catch (Exception e) {
             log.error("Error crawling product {}: {}", productUrl, e.getMessage(), e);
@@ -432,34 +533,69 @@ public class CrawlerService {
 
     /**
      * Process extracted data and save to database
+     * Each product is saved in its own transaction to prevent timeout during slow API calls
      */
-    @Transactional
-    protected CoffeeProduct processAndSaveProduct(
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public CoffeeProduct processAndSaveProduct(
             CoffeeBrand brand,
             ExtractedProductData extractedData,
             String rawContent,
             String url) {
+        return processAndSaveProductInternal(brand, extractedData, rawContent, url, null);
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public CoffeeProduct processAndSaveProduct(
+            CoffeeBrand brand,
+            ExtractedProductData extractedData,
+            String rawContent,
+            String url,
+            Long existingProductId) {
+        return processAndSaveProductInternal(brand, extractedData, rawContent, url, existingProductId);
+    }
+
+    /**
+     * Internal method that does the actual work
+     */
+    private CoffeeProduct processAndSaveProductInternal(
+            CoffeeBrand brand,
+            ExtractedProductData extractedData,
+            String rawContent,
+            String url,
+            Long existingProductId) {
 
         try {
             // Map tasting notes to SCA categories
             SCAFlavorMapping scaMapping = scaService.mapTastingNotes(extractedData.getTastingNotes());
 
-            // Find existing product or create new
-            Optional<CoffeeProduct> existingProduct = productRepository.findByBrandAndProductName(
-                    brand,
-                    extractedData.getProductName()
-            );
-
+            // Find existing product by ID (if provided) or by URL
             CoffeeProduct product;
-            if (existingProduct.isPresent()) {
-                product = existingProduct.get();
-                log.info("Updating existing product: {}", product.getProductName());
+            if (existingProductId != null) {
+                // Use the provided product ID (most reliable)
+                Optional<CoffeeProduct> existingProduct = productRepository.findById(existingProductId);
+                if (existingProduct.isPresent()) {
+                    product = existingProduct.get();
+                    log.info("Updating existing product by ID ({}): {}", product.getId(), product.getProductName());
+                } else {
+                    log.warn("Product ID {} not found, creating new product", existingProductId);
+                    product = CoffeeProduct.builder()
+                            .brand(brand)
+                            .productName(extractedData.getProductName())
+                            .build();
+                }
             } else {
-                product = CoffeeProduct.builder()
-                        .brand(brand)
-                        .productName(extractedData.getProductName())
-                        .build();
-                log.info("Creating new product: {}", product.getProductName());
+                // Fallback to finding by URL (for sitemap crawling)
+                Optional<CoffeeProduct> existingProduct = productRepository.findBySellerUrl(url);
+                if (existingProduct.isPresent()) {
+                    product = existingProduct.get();
+                    log.info("Updating existing product by URL (ID: {}): {}", product.getId(), product.getProductName());
+                } else {
+                    product = CoffeeProduct.builder()
+                            .brand(brand)
+                            .productName(extractedData.getProductName())
+                            .build();
+                    log.info("Creating new product: {}", product.getProductName());
+                }
             }
 
             // Update product fields with cleaned/normalized origin
@@ -473,6 +609,11 @@ public class CrawlerService {
             product.setInStock(extractedData.getInStock() != null ? extractedData.getInStock() : true);
             product.setSellerUrl(url);
 
+            // Store price variants as JSON if available
+            if (extractedData.getPriceVariants() != null && !extractedData.getPriceVariants().isEmpty()) {
+                product.setPriceVariantsJson(objectMapper.writeValueAsString(extractedData.getPriceVariants()));
+            }
+
             // Use raw_description from Perplexity if available, otherwise use provided rawContent
             String description = extractedData.getRawDescription() != null && !extractedData.getRawDescription().isEmpty()
                     ? extractedData.getRawDescription()
@@ -485,6 +626,23 @@ public class CrawlerService {
             // Serialize tasting notes and SCA mapping to JSON
             product.setTastingNotesJson(objectMapper.writeValueAsString(extractedData.getTastingNotes()));
             product.setScaFlavorsJson(objectMapper.writeValueAsString(scaMapping));
+
+            // Store flavor profile and character axes (13-dimensional vector system)
+            if (extractedData.getFlavorProfile() != null && extractedData.getFlavorProfile().size() == 9) {
+                product.setFlavorProfileJson(objectMapper.writeValueAsString(extractedData.getFlavorProfile()));
+            } else {
+                // Fallback: generate from SCA mapping using count-based intensity
+                List<Double> generatedProfile = generateFlavorProfileFromSCA(scaMapping);
+                product.setFlavorProfileJson(objectMapper.writeValueAsString(generatedProfile));
+            }
+
+            if (extractedData.getCharacterAxes() != null && extractedData.getCharacterAxes().size() == 4) {
+                product.setCharacterAxesJson(objectMapper.writeValueAsString(extractedData.getCharacterAxes()));
+            } else {
+                // Fallback: generate neutral character axes
+                List<Double> neutralAxes = List.of(0.0, 0.0, 0.0, 0.0);
+                product.setCharacterAxesJson(objectMapper.writeValueAsString(neutralAxes));
+            }
 
             // Save to database
             product = productRepository.save(product);
@@ -609,5 +767,45 @@ public class CrawlerService {
         }
 
         return cleaned;
+    }
+
+    /**
+     * Generate a 9-dimensional flavor profile from SCA mapping.
+     * Uses count-based intensity: 0 notes = 0.0, 1 note = 0.4, 2 notes = 0.6, 3+ notes = 0.8
+     * Order: [fruity, floral, sweet, nutty, spices, roasted, green, sour, other]
+     *
+     * @param mapping SCA flavor mapping with categorized tasting notes
+     * @return List of 9 intensity values [0.0-1.0]
+     */
+    public List<Double> generateFlavorProfileFromSCA(SCAFlavorMapping mapping) {
+        if (mapping == null) {
+            return List.of(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        }
+        return List.of(
+                calculateIntensity(mapping.getFruity()),
+                calculateIntensity(mapping.getFloral()),
+                calculateIntensity(mapping.getSweet()),
+                calculateIntensity(mapping.getNutty()),
+                calculateIntensity(mapping.getSpices()),
+                calculateIntensity(mapping.getRoasted()),
+                calculateIntensity(mapping.getGreen()),
+                calculateIntensity(mapping.getSour()),
+                calculateIntensity(mapping.getOther())
+        );
+    }
+
+    /**
+     * Calculate intensity based on note count.
+     * 0 notes = 0.0 (not present)
+     * 1 note = 0.4 (noticeable)
+     * 2 notes = 0.6 (prominent)
+     * 3+ notes = 0.8 (defining)
+     */
+    private double calculateIntensity(List<String> notes) {
+        if (notes == null || notes.isEmpty()) return 0.0;
+        int count = notes.size();
+        if (count == 1) return 0.4;
+        if (count == 2) return 0.6;
+        return 0.8;
     }
 }

@@ -18,6 +18,7 @@ let flavorWheelData = null;
 let currentProducts = [];
 let hoveredFlavor = null;
 let correlations = {};
+let expandedCategories = new Set(); // Track which categories have "More..." expanded
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -32,30 +33,45 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Load flavor wheel hierarchy data
 async function loadFlavorWheelData() {
-    const response = await fetch(`${API_BASE}/data`);
+    // Try static cache file first (no Neo4j queries!)
+    let response = await fetch('/cache/flavor-wheel-data.json');
+
     if (!response.ok) {
-        throw new Error('Failed to fetch flavor wheel data');
+        // Fallback to API if cache doesn't exist
+        console.warn('Flavor wheel cache file not found, falling back to API');
+        response = await fetch(`${API_BASE}/data`);
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch flavor wheel data');
+        }
+    } else {
+        console.log('Loaded flavor wheel data from cache (no Neo4j queries)');
     }
 
     flavorWheelData = await response.json();
 
-    // Filter out any null or invalid categories/flavors
+    // Filter out any null or invalid categories/flavors (handle new structure with topFlavors/moreFlavors)
     if (flavorWheelData.categories) {
         flavorWheelData.categories = flavorWheelData.categories
             .filter(cat => cat && cat.name)
             .map(cat => ({
                 ...cat,
-                flavors: (cat.flavors || []).filter(f => f && f.name)
+                // Handle both old (flavors) and new (topFlavors/moreFlavors) structure
+                topFlavors: (cat.topFlavors || cat.flavors || []).filter(f => f && f.name),
+                moreFlavors: (cat.moreFlavors || []).filter(f => f && f.name),
+                moreCount: cat.moreCount || 0
             }))
-            .filter(cat => cat.flavors.length > 0);
+            .filter(cat => cat.topFlavors.length > 0 || cat.moreFlavors.length > 0);
     }
 
     console.log('Loaded flavor wheel data:', flavorWheelData);
 
-    // Update stats
+    // Update stats (include both top and more flavors in total)
+    const totalTopFlavors = flavorWheelData.totalFlavors || 0;
+    const totalMoreFlavors = flavorWheelData.totalMoreFlavors || 0;
     document.getElementById('total-products').textContent = flavorWheelData.totalProducts || 0;
     document.getElementById('total-categories').textContent = flavorWheelData.totalCategories || 0;
-    document.getElementById('total-flavors').textContent = flavorWheelData.totalFlavors || 0;
+    document.getElementById('total-flavors').textContent = totalTopFlavors + totalMoreFlavors;
 
     // Hide loading, show wheel
     document.getElementById('loading').style.display = 'none';
@@ -100,9 +116,10 @@ function renderFlavorGrid() {
 
     flavorWheelData.categories.forEach(category => {
         const categoryItems = [];
+        const isExpanded = expandedCategories.has(category.name);
 
-        // Add category label itself
-        const opacity = 0.3 + (category.productCount / maxCount) * 0.7;
+        // Add category label itself - higher minimum opacity for better readability
+        const opacity = 0.6 + (category.productCount / maxCount) * 0.4;
         const span = calculateCellSpan(category.productCount);
 
         categoryItems.push({
@@ -116,15 +133,16 @@ function renderFlavorGrid() {
             onClick: () => selectCategory(category.name)
         });
 
-        // Add flavors in this category (skip if flavor name matches category name to avoid duplicates)
-        category.flavors.forEach(flavor => {
-            // Skip if flavor name is the same as category name (e.g., "fruity" flavor in "fruity" category)
+        // Add TOP flavors (always shown)
+        const topFlavors = category.topFlavors || [];
+        topFlavors.forEach(flavor => {
+            // Skip if flavor name is the same as category name
             if (flavor.name.toLowerCase() === category.name.toLowerCase()) {
-                console.log(`Skipping duplicate: ${flavor.name} (matches category ${category.name})`);
                 return;
             }
 
-            const flavorOpacity = 0.3 + (flavor.productCount / maxCount) * 0.7;
+            // Higher minimum opacity for better readability
+            const flavorOpacity = 0.6 + (flavor.productCount / maxCount) * 0.4;
             const flavorSpan = calculateCellSpan(flavor.productCount);
 
             categoryItems.push({
@@ -140,9 +158,59 @@ function renderFlavorGrid() {
             });
         });
 
+        // Add MORE flavors (only if expanded)
+        const moreFlavors = category.moreFlavors || [];
+        if (isExpanded && moreFlavors.length > 0) {
+            moreFlavors.forEach(flavor => {
+                if (flavor.name.toLowerCase() === category.name.toLowerCase()) {
+                    return;
+                }
+
+                // Higher minimum opacity for better readability
+                const flavorOpacity = 0.6 + (flavor.productCount / maxCount) * 0.4;
+                const flavorSpan = calculateCellSpan(flavor.productCount);
+
+                categoryItems.push({
+                    type: 'flavor',
+                    name: flavor.name,
+                    category: category.name,
+                    label: `${capitalize(flavor.name)}\n(${flavor.productCount})`,
+                    color: CATEGORY_COLORS[category.name] || '#95A5A6',
+                    opacity: flavorOpacity,
+                    productCount: flavor.productCount,
+                    span: flavorSpan,
+                    isMoreFlavor: true, // Mark as "more" flavor for styling
+                    onClick: () => handleFlavorClick(flavor.name, category.name)
+                });
+            });
+        }
+
+        // Add "More..." cell if there are hidden flavors
+        const moreCount = category.moreCount || moreFlavors.length;
+        if (moreCount > 0) {
+            categoryItems.push({
+                type: 'more',
+                name: `more_${category.name}`,
+                category: category.name,
+                label: isExpanded ? `Less ▲` : `More... (${moreCount})`,
+                color: CATEGORY_COLORS[category.name] || '#95A5A6',
+                opacity: 0.5,
+                productCount: 0, // Place at end
+                span: 1,
+                isExpanded: isExpanded,
+                onClick: () => toggleMoreFlavors(category.name)
+            });
+        }
+
         // Sort items within category by product count (descending)
-        // Most popular will be placed closest to center
-        categoryItems.sort((a, b) => (b.productCount || 0) - (a.productCount || 0));
+        // Category first, then flavors by count, then "More..." at end
+        categoryItems.sort((a, b) => {
+            if (a.type === 'category') return -1;
+            if (b.type === 'category') return 1;
+            if (a.type === 'more') return 1;
+            if (b.type === 'more') return -1;
+            return (b.productCount || 0) - (a.productCount || 0);
+        });
 
         categoryGroups[category.name] = {
             items: categoryItems,
@@ -176,7 +244,7 @@ function renderFlavorGrid() {
     const centerItem = {
         type: 'center',
         label: 'SCA Wheel',
-        color: '#6B4423',
+        color: '#005F73',
         opacity: 1,
         span: 1,
         onClick: null
@@ -314,6 +382,16 @@ function createCell(cell, width, height) {
     const cellDiv = document.createElement('div');
     cellDiv.className = `flavor-cell ${cell.type}-cell`;
 
+    // Add extra class for "more" flavor cells (expanded state)
+    if (cell.isMoreFlavor) {
+        cellDiv.classList.add('more-flavor');
+    }
+
+    // Add expanded class for "more" button when expanded
+    if (cell.type === 'more' && cell.isExpanded) {
+        cellDiv.classList.add('expanded');
+    }
+
     // Apply color and opacity
     cellDiv.style.backgroundColor = cell.color;
     cellDiv.style.opacity = cell.opacity;
@@ -333,18 +411,23 @@ function createCell(cell, width, height) {
         label.appendChild(document.createTextNode(line));
     });
 
-    // Font size based on cell type and span
+    // Font size based on cell type and span - larger for readability
     if (cell.type === 'center') {
-        label.style.fontSize = '14px';
+        label.style.fontSize = '16px';
         label.style.fontWeight = 'bold';
     } else if (cell.type === 'category') {
-        // Scale font based on span
-        const fontSize = cell.span >= 4 ? '20px' : cell.span >= 3 ? '16px' : cell.span >= 2 ? '13px' : '11px';
+        // Scale font based on span - increased sizes
+        const fontSize = cell.span >= 4 ? '22px' : cell.span >= 3 ? '18px' : cell.span >= 2 ? '15px' : '13px';
         label.style.fontSize = fontSize;
         label.style.fontWeight = 'bold';
+    } else if (cell.type === 'more') {
+        // "More..." button styling
+        label.style.fontSize = '11px';
+        label.style.fontWeight = 'normal';
+        label.style.fontStyle = 'italic';
     } else {
-        // Flavor cells
-        const fontSize = cell.span >= 4 ? '16px' : cell.span >= 3 ? '14px' : cell.span >= 2 ? '11px' : '9px';
+        // Flavor cells - increased sizes for readability
+        const fontSize = cell.span >= 4 ? '18px' : cell.span >= 3 ? '15px' : cell.span >= 2 ? '12px' : '11px';
         label.style.fontSize = fontSize;
     }
 
@@ -368,9 +451,31 @@ function createCell(cell, width, height) {
         cellDiv.title = `${cell.label.replace('\n', ' ')}\nClick to see correlations & products`;
     } else if (cell.type === 'category') {
         cellDiv.title = `${cell.label.replace('\n', ' ')}\nClick to see all products`;
+    } else if (cell.type === 'more') {
+        cellDiv.title = cell.isExpanded ? 'Click to hide rare flavors' : 'Click to show more rare flavors';
     }
 
     return cellDiv;
+}
+
+// Toggle "More..." expansion for a category
+function toggleMoreFlavors(categoryName) {
+    if (expandedCategories.has(categoryName)) {
+        expandedCategories.delete(categoryName);
+    } else {
+        expandedCategories.add(categoryName);
+    }
+
+    // Re-render the grid with new expansion state
+    renderFlavorGrid();
+}
+
+// Expand a category to show all flavors (called when clicking a flavor)
+function expandCategory(categoryName) {
+    if (!expandedCategories.has(categoryName)) {
+        expandedCategories.add(categoryName);
+        renderFlavorGrid();
+    }
 }
 
 // Handle flavor click - show correlations AND products
@@ -380,6 +485,9 @@ async function handleFlavorClick(flavorName, categoryName) {
 
     // Load and show correlations
     await showFlavorCorrelations(flavorName);
+
+    // Expand the clicked flavor's category to show ALL flavors
+    expandCategory(categoryName);
 
     // Also show products in the panel
     await selectFlavor(flavorName, categoryName);
@@ -576,7 +684,7 @@ function renderProducts(products) {
     tbody.innerHTML = '';
 
     if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No products found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No products found</td></tr>';
         return;
     }
 
@@ -596,24 +704,26 @@ function renderProducts(products) {
         }
         const originText = origins.length > 0 ? origins.join(', ') : 'N/A';
 
-        // Extract flavors from relationships
+        // Extract flavors from tastingNotes (4-tier hierarchy)
         let flavors = [];
-        if (product.flavors && Array.isArray(product.flavors)) {
-            flavors = product.flavors.map(f => f.name).filter(n => n);
+        if (product.tastingNotes && Array.isArray(product.tastingNotes)) {
+            flavors = product.tastingNotes.map(tn => tn.rawText || tn.id).filter(n => n);
         }
 
-        // Create product name with link if URL exists
-        let productNameHtml;
-        if (product.sellerUrl) {
-            productNameHtml = `<a href="${escapeHtml(product.sellerUrl)}" target="_blank" rel="noopener noreferrer" class="product-link">${escapeHtml(product.productName || 'N/A')}</a>`;
-        } else {
-            productNameHtml = `<strong>${escapeHtml(product.productName || 'N/A')}</strong>`;
+        // Create product name with detail link
+        const productNameHtml = `<a href="/product-detail.html?id=${product.productId}" class="product-link">${escapeHtml(product.productName || 'N/A')}</a>`;
+
+        // Extract roast level
+        let roastLevel = 'N/A';
+        if (product.roastLevel && product.roastLevel.level) {
+            roastLevel = product.roastLevel.level;
         }
 
         row.innerHTML = `
             <td>${productNameHtml}</td>
             <td>${escapeHtml(brand)}</td>
             <td>${escapeHtml(originText)}</td>
+            <td>${escapeHtml(roastLevel)}</td>
             <td class="flavors-cell">${flavors.slice(0, 3).map(f => `<span class="flavor-tag">${escapeHtml(f)}</span>`).join(' ')}${flavors.length > 3 ? '...' : ''}</td>
             <td>${product.price ? `${product.currency || '£'}${product.price}` : 'N/A'}</td>
         `;

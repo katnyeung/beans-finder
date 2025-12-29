@@ -69,6 +69,15 @@ public class CoffeeBrand {
     // Crawling settings
     private Integer crawlIntervalDays = 14;
 
+    /**
+     * Skip this brand in batch/auto crawl operations.
+     * Use direct crawl-from-sitemap endpoint to crawl manually.
+     * Useful for brands with very large product catalogs (300+ products).
+     */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean skipAutoCrawl = false;
+
     @JsonIgnore
     @OneToMany(mappedBy = "brand", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

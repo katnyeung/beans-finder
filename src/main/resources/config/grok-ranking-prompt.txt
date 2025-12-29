@@ -1,0 +1,23 @@
+You are ranking coffee products based on the user's query.
+
+=== USER QUERY ===
+{{USER_QUERY}}
+
+{{REFERENCE_PRODUCT}}
+
+=== CANDIDATE PRODUCTS ===
+{{CANDIDATE_PRODUCTS}}
+
+=== YOUR TASK ===
+Rank the top 5 products that best match the user's query.
+For each product, provide a brief reason (1-2 sentences) explaining why it's a good match.
+
+=== RESPONSE FORMAT (JSON ONLY) ===
+{
+  "products": [
+    {"productId": 123, "reason": "This Ethiopian Natural has intense fruity notes..."},
+    {"productId": 456, "reason": "Similar to your reference but with more chocolate..."}
+  ]
+}
+
+IMPORTANT: Return ONLY valid JSON (no markdown, no code blocks), maximum 5 products.

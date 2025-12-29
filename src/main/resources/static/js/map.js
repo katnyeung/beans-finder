@@ -14,6 +14,7 @@ let brandColors = {}; // Maps brand ID to unique color
 let countryToOrigins = {}; // Maps country name to origin markers
 let countryNameToCode = {}; // Maps country names to ISO codes
 let countryFlavorLabels = []; // Store flavor label markers
+let connectionLines = []; // Store connection lines (brand → origin)
 
 // State tracking
 let currentlySelectedBrand = null;
@@ -23,6 +24,8 @@ let currentlyHoveredCountry = null;
 let showBrands = true;
 let showOrigins = true;
 let showProducers = true;
+let showClimate = false;
+let showFlavors = false;
 
 // Color palette for brands (vibrant, distinguishable colors)
 const colorPalette = [
@@ -60,29 +63,81 @@ function initMap() {
 }
 
 function setupEventListeners() {
-    document.getElementById('filter-brands').addEventListener('click', function() {
+    const brandsBtn = document.getElementById('filter-brands');
+    const originsBtn = document.getElementById('filter-origins');
+    const producersBtn = document.getElementById('filter-producers');
+    const climateBtn = document.getElementById('filter-climate');
+    const flavorsBtn = document.getElementById('filter-flavors');
+
+    brandsBtn.addEventListener('click', function() {
         showBrands = !showBrands;
         this.classList.toggle('active');
+        this.textContent = showBrands ? 'Hide Brands' : 'Show Brands';
         updateMapLayers();
     });
 
-    document.getElementById('filter-origins').addEventListener('click', function() {
+    originsBtn.addEventListener('click', function() {
         showOrigins = !showOrigins;
         this.classList.toggle('active');
+        this.textContent = showOrigins ? 'Hide Origins' : 'Show Origins';
         updateMapLayers();
     });
 
-    document.getElementById('filter-producers').addEventListener('click', function() {
+    producersBtn.addEventListener('click', function() {
         showProducers = !showProducers;
         this.classList.toggle('active');
+        this.textContent = showProducers ? 'Hide Producers' : 'Show Producers';
         updateMapLayers();
     });
 
-    // Remove the connections button handler as we no longer use connection lines
+    climateBtn.addEventListener('click', function() {
+        showClimate = !showClimate;
+        this.classList.toggle('active');
+        this.textContent = showClimate ? 'Hide Climate' : 'Show Climate';
+        updateFlavorLabelsVisibility();
+    });
+
+    flavorsBtn.addEventListener('click', function() {
+        showFlavors = !showFlavors;
+        this.classList.toggle('active');
+        this.textContent = showFlavors ? 'Hide Flavors' : 'Show Flavors';
+        updateFlavorLabelsVisibility();
+    });
+
+    // Show Connections toggle - controls whether lines are drawn on brand click
     const connectionsBtn = document.getElementById('filter-connections');
     if (connectionsBtn) {
-        connectionsBtn.style.display = 'none'; // Hide the connections toggle
+        connectionsBtn.addEventListener('click', function() {
+            this.classList.toggle('active');
+            const isActive = this.classList.contains('active');
+            this.textContent = isActive ? 'Hide Connections' : 'Show Connections';
+
+            // If turning off connections, clear any existing lines
+            if (!isActive) {
+                clearConnectionLines();
+            } else if (currentlySelectedBrand) {
+                // If turning on and brand is selected, draw lines
+                drawBrandConnectionLines(currentlySelectedBrand);
+            }
+        });
     }
+
+    // Click on map to deselect brand and clear connections
+    map.on('click', function(e) {
+        // Only deselect if clicking on the map background (not on a marker)
+        if (e.originalEvent.target === map.getContainer().querySelector('.leaflet-tile-pane') ||
+            e.originalEvent.target.classList.contains('leaflet-container')) {
+            if (currentlySelectedBrand !== null) {
+                const prevBrand = brandMarkers.find(b => b.data.id === currentlySelectedBrand);
+                if (prevBrand) {
+                    updateBrandMarkerSize(prevBrand.marker, 16, 2);
+                }
+                currentlySelectedBrand = null;
+                resetOriginColors();
+                clearConnectionLines();
+            }
+        }
+    });
 }
 
 async function loadCountryBoundaries() {
@@ -151,11 +206,8 @@ function onEachCountryFeature(feature, layer) {
                 highlightBrandOrigins(currentlySelectedBrand);
             }
             currentlyHoveredCountry = null;
-        },
-        click: function(e) {
-            // Show weather data popup on country click
-            showWeatherPopup(countryName, countryCode, e.latlng);
         }
+        // Removed click event - climate button will handle this instead
     });
 }
 
@@ -180,7 +232,8 @@ function resetOriginColors() {
         if (!originData || !originData.marker) return; // Safety check
 
         const marker = originData.marker;
-        const coordKey = `${originData.data.latitude},${originData.data.longitude}`;
+        // Use 4 decimal precision to match the mapping keys
+        const coordKey = `${originData.data.latitude.toFixed(4)},${originData.data.longitude.toFixed(4)}`;
 
         // Get the default color for this origin (from its brands)
         const defaultColor = getOriginDefaultColor(coordKey);
@@ -257,17 +310,8 @@ async function loadFlavorData() {
         countryFlavorData = await response.json();
         console.log('Loaded flavor data:', countryFlavorData);
 
-        // Add flavor labels to countries once boundaries are loaded
-        if (countryBoundaries) {
-            addFlavorLabelsToCountries();
-        } else {
-            // Wait for boundaries to load
-            setTimeout(() => {
-                if (countryBoundaries) {
-                    addFlavorLabelsToCountries();
-                }
-            }, 2000);
-        }
+        // Don't add flavor labels by default - wait for user to toggle them on
+        // Labels will be added when showClimate or showFlavors are toggled to true
     } catch (error) {
         console.error('Error loading flavor data:', error);
     }
@@ -286,13 +330,15 @@ function addFlavorLabelsToCountries() {
 
         if (!topFlavors || topFlavors.length === 0) return;
 
-        // Find the country feature in the GeoJSON to get centroid
+        // Find the country feature in the GeoJSON to get centroid and country code
         let countryCenter = null;
+        let countryCode = null;
         countryBoundaries.eachLayer(layer => {
             if (layer.feature && layer.feature.properties.name === countryName) {
                 // Get the center of the country polygon
                 const bounds = layer.getBounds();
                 countryCenter = bounds.getCenter();
+                countryCode = layer.feature.id; // ISO code
             }
         });
 
@@ -304,35 +350,103 @@ function addFlavorLabelsToCountries() {
             .map(f => `${capitalizeFirstLetter(f.flavor)} ${Math.round(f.percentage)}%`)
             .join(' • ');
 
-        // Offset the label to the right of the country center
+        // Center the label on the country center
         const offsetLat = countryCenter.lat;
-        const offsetLng = countryCenter.lng + 1.5; // Shift 1.5 degrees to the right
+        const offsetLng = countryCenter.lng;
 
-        // Create a permanent label (tooltip) for this country
+        // Build content based on toggle states
+        let labelContent = '<div class="flavor-label-content">';
+
+        // Show country name
+        labelContent += `<div class="country-name">${countryName}</div>`;
+
+        // Conditionally show flavors
+        if (showFlavors) {
+            labelContent += `<div class="flavor-list">${flavorText}</div>`;
+        }
+
+        // Conditionally show climate button
+        if (showClimate) {
+            labelContent += `<button class="climate-btn" data-country="${countryName}" data-code="${countryCode}" data-lat="${countryCenter.lat}" data-lng="${countryCenter.lng}">
+                🌡️ Climate
+            </button>`;
+        }
+
+        labelContent += '</div>';
+
+        // Create a permanent label (tooltip) for this country with climate button
         const label = L.tooltip({
             permanent: true,
-            direction: 'right',
+            direction: 'center',
             className: 'country-flavor-label',
             opacity: 1,
-            interactive: false, // Ensures tooltip doesn't block interactions
-            offset: [10, 0] // Additional 10px offset to the right
+            interactive: true, // Make interactive so climate button can be clicked
+            offset: [0, 0] // No offset, center it
         })
         .setLatLng([offsetLat, offsetLng])
-        .setContent(`<div class="flavor-label-content">
-            <div class="country-name">${countryName}</div>
-            <div class="flavor-list">${flavorText}</div>
-        </div>`)
+        .setContent(labelContent)
         .addTo(map);
 
         countryFlavorLabels.push(label);
     });
 
+    // Setup climate button event listeners after labels are added
+    setTimeout(() => {
+        setupClimateButtons();
+    }, 100);
+
     console.log(`Added ${countryFlavorLabels.length} flavor labels to countries`);
+}
+
+function updateFlavorLabelsVisibility() {
+    // If both climate and flavors are hidden, remove all labels
+    if (!showClimate && !showFlavors) {
+        countryFlavorLabels.forEach(label => map.removeLayer(label));
+        countryFlavorLabels = [];
+        console.log('All country labels hidden');
+        return;
+    }
+
+    // Otherwise, re-render labels with updated toggle states
+    addFlavorLabelsToCountries();
 }
 
 function capitalizeFirstLetter(string) {
     if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+/**
+ * Setup climate button event listeners
+ */
+function setupClimateButtons() {
+    const climateButtons = document.querySelectorAll('.climate-btn');
+
+    climateButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent event bubbling
+            e.preventDefault(); // Prevent default behavior
+
+            const countryName = this.getAttribute('data-country');
+            const countryCode = this.getAttribute('data-code');
+            const lat = parseFloat(this.getAttribute('data-lat'));
+            const lng = parseFloat(this.getAttribute('data-lng'));
+
+            console.log('Climate button clicked:', countryName);
+
+            showWeatherPopup(countryName, countryCode, L.latLng(lat, lng));
+        });
+
+        // Also prevent mousedown/mouseup from propagating
+        button.addEventListener('mousedown', function(e) {
+            e.stopPropagation();
+        });
+        button.addEventListener('mouseup', function(e) {
+            e.stopPropagation();
+        });
+    });
+
+    console.log(`Setup ${climateButtons.length} climate buttons`);
 }
 
 function renderMap() {
@@ -419,8 +533,9 @@ function buildBrandToOriginsMapping() {
             if (!brandToOrigins[conn.fromId]) {
                 brandToOrigins[conn.fromId] = new Set();
             }
-            // Store the origin coordinates as a unique identifier
-            brandToOrigins[conn.fromId].add(`${conn.toLat},${conn.toLon}`);
+            // Store the origin coordinates with 4 decimal precision to match deduplicated origins
+            const coordKey = `${conn.toLat.toFixed(4)},${conn.toLon.toFixed(4)}`;
+            brandToOrigins[conn.fromId].add(coordKey);
         }
     });
 }
@@ -433,7 +548,8 @@ function buildOriginToBrandsMapping() {
     // Build reverse mapping: origin -> brands
     mapData.connections.forEach(conn => {
         if (conn.type === 'brand-origin' && conn.fromId) {
-            const coordKey = `${conn.toLat},${conn.toLon}`;
+            // Use 4 decimal precision to match deduplicated origins
+            const coordKey = `${conn.toLat.toFixed(4)},${conn.toLon.toFixed(4)}`;
             if (!originToBrands[coordKey]) {
                 originToBrands[coordKey] = [];
             }
@@ -464,7 +580,8 @@ function createBrandMarker(brand) {
 
     const marker = L.marker([brand.latitude, brand.longitude], {
         icon: squareIcon,
-        riseOnHover: true
+        riseOnHover: true,
+        zIndexOffset: 100 // Brand markers at mid-level
     });
 
     // Store original properties for state management
@@ -472,10 +589,12 @@ function createBrandMarker(brand) {
     marker.brandColor = brandColor;
 
     const popupContent = `
-        <div class="popup-title">☕ ${brand.name}</div>
+        <div class="popup-title">
+            <a href="/products.html?brandId=${brand.id}" class="popup-link" style="color: #005F73; text-decoration: none;">☕ ${brand.name}</a>
+        </div>
         <div class="popup-info">
             <strong>Country:</strong> ${brand.country || 'Unknown'}<br>
-            <strong>Products:</strong> ${brand.productCount}<br>
+            <strong>Products:</strong> <a href="/products.html?brandId=${brand.id}" class="popup-link">${brand.productCount}</a><br>
             ${brand.website ? `<a href="${brand.website}" target="_blank" class="popup-link">Visit Website →</a>` : ''}
         </div>
     `;
@@ -499,11 +618,15 @@ function createBrandMarker(brand) {
         }
     });
 
-    marker.on('click', function() {
+    marker.on('click', function(e) {
+        // Stop event propagation to prevent map click handler
+        L.DomEvent.stopPropagation(e);
+
         // Toggle selection
         if (currentlySelectedBrand === brand.id) {
             currentlySelectedBrand = null;
             resetOriginColors();
+            clearConnectionLines();
             updateBrandMarkerSize(marker, 16, 2);
         } else {
             // Reset previous selection
@@ -515,6 +638,8 @@ function createBrandMarker(brand) {
             }
             currentlySelectedBrand = brand.id;
             highlightBrandOrigins(brand.id);
+            // Draw connection lines if toggle is active
+            drawBrandConnectionLines(brand.id);
             // Make selected brand marker more prominent
             updateBrandMarkerSize(marker, 20, 3);
         }
@@ -544,7 +669,8 @@ function highlightBrandOrigins(brandId) {
 
     // Highlight origins related to this brand
     originMarkers.forEach(originData => {
-        const coordKey = `${originData.data.latitude},${originData.data.longitude}`;
+        // Use 4 decimal precision to match the mapping keys
+        const coordKey = `${originData.data.latitude.toFixed(4)},${originData.data.longitude.toFixed(4)}`;
         if (originCoords.has(coordKey)) {
             const marker = originData.marker;
             const element = marker.getElement();
@@ -556,19 +682,126 @@ function highlightBrandOrigins(brandId) {
     });
 }
 
+/**
+ * Draw curved connection lines from a brand to all its coffee origins
+ */
+function drawBrandConnectionLines(brandId) {
+    // Check if connections toggle is active
+    const connectionsBtn = document.getElementById('filter-connections');
+    if (!connectionsBtn || !connectionsBtn.classList.contains('active')) {
+        return;
+    }
+
+    // Clear any existing lines first
+    clearConnectionLines();
+
+    const brand = brandMarkers.find(b => b.data.id === brandId);
+    if (!brand) return;
+
+    const brandColor = brandColors[brandId];
+    const brandLatLng = [brand.data.latitude, brand.data.longitude];
+    const originCoords = brandToOrigins[brandId] || new Set();
+
+    // Draw line to each origin
+    originCoords.forEach(coordKey => {
+        const [lat, lng] = coordKey.split(',').map(parseFloat);
+
+        // Create a curved line using a bezier-like path
+        const line = createCurvedLine(brandLatLng, [lat, lng], brandColor);
+        line.addTo(map);
+        connectionLines.push(line);
+    });
+}
+
+/**
+ * Create a curved line between two points using intermediate points
+ */
+function createCurvedLine(startLatLng, endLatLng, color) {
+    // Calculate midpoint and offset it for curve effect
+    const midLat = (startLatLng[0] + endLatLng[0]) / 2;
+    const midLng = (startLatLng[1] + endLatLng[1]) / 2;
+
+    // Calculate distance for curve amplitude
+    const latDiff = Math.abs(startLatLng[0] - endLatLng[0]);
+    const lngDiff = Math.abs(startLatLng[1] - endLatLng[1]);
+    const distance = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff);
+
+    // Curve offset perpendicular to line (scaled by distance)
+    const curveOffset = distance * 0.15;
+
+    // Determine curve direction (perpendicular to the line)
+    const angle = Math.atan2(endLatLng[0] - startLatLng[0], endLatLng[1] - startLatLng[1]);
+    const perpAngle = angle + Math.PI / 2;
+
+    const controlLat = midLat + Math.sin(perpAngle) * curveOffset;
+    const controlLng = midLng + Math.cos(perpAngle) * curveOffset;
+
+    // Create smooth curve with multiple points
+    const curvePoints = [];
+    const steps = 20;
+
+    for (let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        // Quadratic bezier curve formula
+        const lat = Math.pow(1 - t, 2) * startLatLng[0] +
+                    2 * (1 - t) * t * controlLat +
+                    Math.pow(t, 2) * endLatLng[0];
+        const lng = Math.pow(1 - t, 2) * startLatLng[1] +
+                    2 * (1 - t) * t * controlLng +
+                    Math.pow(t, 2) * endLatLng[1];
+        curvePoints.push([lat, lng]);
+    }
+
+    // Create polyline with the curved points
+    return L.polyline(curvePoints, {
+        color: color,
+        weight: 2,
+        opacity: 0.7,
+        dashArray: '5, 5', // Dashed line for visual appeal
+        className: 'connection-line'
+    });
+}
+
+/**
+ * Clear all connection lines from the map
+ */
+function clearConnectionLines() {
+    connectionLines.forEach(line => {
+        map.removeLayer(line);
+    });
+    connectionLines = [];
+}
+
 function createOriginMarker(origin) {
-    const coordKey = `${origin.latitude},${origin.longitude}`;
+    // Use 4 decimal precision to match the mapping keys
+    const coordKey = `${origin.latitude.toFixed(4)},${origin.longitude.toFixed(4)}`;
     const defaultColor = getOriginDefaultColor(coordKey);
 
+    // Scale radius based on product count
+    // 1 product = 6px, 2-3 = 8px, 4-5 = 10px, 6+ = 12px
+    let radius = 6;
+    const productCount = origin.productCount || 1;
+    if (productCount >= 6) {
+        radius = 12;
+    } else if (productCount >= 4) {
+        radius = 10;
+    } else if (productCount >= 2) {
+        radius = 8;
+    }
+
     const marker = L.circleMarker([origin.latitude, origin.longitude], {
-        radius: 6,
+        radius: radius,
         fillColor: defaultColor,
         color: '#2F4F2F',
         weight: 2,
         opacity: 1,
         fillOpacity: 0.8,
-        className: 'origin-marker'
+        className: 'origin-marker',
+        pane: 'markerPane', // Ensure it's in the marker pane (top layer)
+        interactive: true // Ensure it responds to mouse events
     });
+
+    // Note: circleMarker doesn't support setZIndexOffset, z-index controlled via CSS
 
     const displayName = origin.region
         ? `${origin.region}, ${origin.country}`
@@ -588,6 +821,11 @@ function createOriginMarker(origin) {
     // Add click handler to show related brands and products
     marker.on('click', async function() {
         await showOriginProducts(origin);
+    });
+
+    // Add mouseover handler to bring marker to front (highest z-index in SVG)
+    marker.on('mouseover', function() {
+        this.bringToFront();
     });
 
     // Update the mapping with marker reference
@@ -655,7 +893,7 @@ async function showOriginProducts(origin) {
 function displayProductsPopup(origin, products) {
     // Create popup content with products
     let content = `<div style="max-height: 400px; overflow-y: auto; min-width: 300px;">`;
-    content += `<h3 style="color: #6B4423; margin-bottom: 10px;">☕ Products from ${origin.region || origin.country}</h3>`;
+    content += `<h3 style="color: #005F73; margin-bottom: 10px;">☕ Products from ${origin.region || origin.country}</h3>`;
     content += `<div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">Total: ${products.length} product${products.length !== 1 ? 's' : ''}</div>`;
 
     products.forEach(product => {
@@ -672,15 +910,11 @@ function displayProductsPopup(origin, products) {
         // Brand name at the top with brand color
         content += `<div style="color: ${brandColor}; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px;">${brandName}</div>`;
 
-        // Product name
-        if (productUrl !== '#') {
-            content += `<a href="${productUrl}" target="_blank" style="color: #6B4423; text-decoration: none; font-weight: 500; display: block;">${productName}</a>`;
-        } else {
-            content += `<div style="color: #6B4423; font-weight: 500;">${productName}</div>`;
-        }
+        // Product name with detail link
+        content += `<a href="/product-detail.html?id=${product.id}" style="color: #005F73; text-decoration: none; font-weight: 500; display: block;">${productName}</a>`;
 
         // Product details
-        content += `<div style="margin-top: 4px;">`;
+        content += `<div style="margin-top: 4px; display: flex; align-items: center; gap: 8px;">`;
         content += `<small style="color: #666;">Price: ${price}</small>`;
 
         if (product.process) {
@@ -706,7 +940,7 @@ function displayProductsPopup(origin, products) {
 
 function getBrandColorByName(brandName) {
     // Find brand color by name
-    if (!mapData.brands) return '#6B4423';
+    if (!mapData.brands) return '#005F73';
 
     const brand = mapData.brands.find(b => b.name === brandName);
     if (brand && brandColors[brand.id]) {
@@ -714,7 +948,7 @@ function getBrandColorByName(brandName) {
     }
 
     // Fallback color
-    return '#6B4423';
+    return '#005F73';
 }
 
 function createProducerMarker(producer) {
@@ -725,8 +959,12 @@ function createProducerMarker(producer) {
         weight: 2,
         opacity: 1,
         fillOpacity: 0.8,
-        className: 'producer-marker'
+        className: 'producer-marker',
+        pane: 'markerPane', // Ensure it's in the marker pane (top layer)
+        interactive: true // Ensure it responds to mouse events
     });
+
+    // Note: circleMarker doesn't support setZIndexOffset, z-index controlled via CSS
 
     const location = [
         producer.city,
@@ -743,6 +981,12 @@ function createProducerMarker(producer) {
     `;
 
     marker.bindPopup(popupContent);
+
+    // Add mouseover handler to bring marker to front (highest z-index in SVG)
+    marker.on('mouseover', function() {
+        this.bringToFront();
+    });
+
     return marker;
 }
 
@@ -770,6 +1014,7 @@ function clearMapLayers() {
     brandMarkers.forEach(m => map.removeLayer(m.marker));
     originMarkers.forEach(m => map.removeLayer(m.marker));
     producerMarkers.forEach(m => map.removeLayer(m.marker));
+    clearConnectionLines();
 
     brandMarkers = [];
     originMarkers = [];
@@ -1082,7 +1327,7 @@ function createWeatherChart(canvas, weatherData, metric) {
                         size: 16,
                         weight: 'bold'
                     },
-                    color: '#6B4423'
+                    color: '#005F73'
                 },
                 tooltip: {
                     mode: 'index',
@@ -1103,7 +1348,7 @@ function createWeatherChart(canvas, weatherData, metric) {
                     title: {
                         display: true,
                         text: getMetricUnit(metric),
-                        color: '#6B4423'
+                        color: '#005F73'
                     },
                     grid: {
                         color: 'rgba(0,0,0,0.1)'
@@ -1113,7 +1358,7 @@ function createWeatherChart(canvas, weatherData, metric) {
                     title: {
                         display: true,
                         text: 'Month',
-                        color: '#6B4423'
+                        color: '#005F73'
                     },
                     grid: {
                         display: false

@@ -3,21 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Products - Coffee Finder</title>
+    <title>Products - Graphee.link</title>
     <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <h1>☕ Coffee Finder</h1>
+                <a href="/" class="logo-link">
+                    <img src="/graphee_logo.png" alt="Graphee.link" class="nav-logo">
+                    <span class="brand-name">Graphee.link</span>
+                </a>
                 <p class="tagline">Discover Specialty Coffee</p>
             </div>
             <div class="nav-links">
                 <a href="/">Home</a>
+                <a href="/chat.html">Chat</a>
                 <a href="/brands.html">Brands</a>
                 <a href="/flavor-wheel.html">Flavor Wheel</a>
-                <a href="/swagger-ui/index.html" target="_blank">API Docs</a>
+                <a href="/map.html">Map</a>
             </div>
         </div>
     </nav>
@@ -54,12 +59,7 @@
         </div>
     </main>
 
-    <footer>
-        <div class="container">
-            <p>&copy; 2024 Coffee Finder. Powered by Spring Boot & Neo4j.</p>
-        </div>
-    </footer>
-
+    <script src="/js/common.js"></script>
     <script src="/js/products.js"></script>
 </body>
 </html>

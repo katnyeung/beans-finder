@@ -28,6 +28,9 @@ public class KnowledgeGraphService {
     private final ProcessNodeRepository processNodeRepository;
     private final FlavorNodeRepository flavorNodeRepository;
     private final SCACategoryRepository scaCategoryRepository;
+    private final SubcategoryNodeRepository subcategoryNodeRepository;
+    private final AttributeNodeRepository attributeNodeRepository;
+    private final TastingNoteNodeRepository tastingNoteNodeRepository;
     private final ProducerNodeRepository producerNodeRepository;
     private final VarietyNodeRepository varietyNodeRepository;
     private final BrandNodeRepository brandNodeRepository;
@@ -45,6 +48,9 @@ public class KnowledgeGraphService {
             ProcessNodeRepository processNodeRepository,
             FlavorNodeRepository flavorNodeRepository,
             SCACategoryRepository scaCategoryRepository,
+            SubcategoryNodeRepository subcategoryNodeRepository,
+            AttributeNodeRepository attributeNodeRepository,
+            TastingNoteNodeRepository tastingNoteNodeRepository,
             ProducerNodeRepository producerNodeRepository,
             VarietyNodeRepository varietyNodeRepository,
             BrandNodeRepository brandNodeRepository,
@@ -59,6 +65,9 @@ public class KnowledgeGraphService {
         this.processNodeRepository = processNodeRepository;
         this.flavorNodeRepository = flavorNodeRepository;
         this.scaCategoryRepository = scaCategoryRepository;
+        this.subcategoryNodeRepository = subcategoryNodeRepository;
+        this.attributeNodeRepository = attributeNodeRepository;
+        this.tastingNoteNodeRepository = tastingNoteNodeRepository;
         this.producerNodeRepository = producerNodeRepository;
         this.varietyNodeRepository = varietyNodeRepository;
         this.brandNodeRepository = brandNodeRepository;
@@ -73,6 +82,9 @@ public class KnowledgeGraphService {
     /**
      * Create or update product in knowledge graph
      * Uses Neo4j transaction manager and REQUIRES_NEW to run in separate transaction from PostgreSQL
+     *
+     * IMPORTANT: Only syncs products with valid tasting notes (valid coffee products).
+     * Products without tasting notes are not considered coffee products and will be skipped.
      */
     @Transactional(
         transactionManager = "neo4jTransactionManager",
@@ -80,6 +92,20 @@ public class KnowledgeGraphService {
     )
     public ProductNode syncProductToGraph(CoffeeProduct product) {
         try {
+            // Skip products without valid tasting notes (not a coffee product)
+            if (!hasValidTastingNotes(product)) {
+                log.info("Skipping product without tasting notes: {} (ID: {})",
+                        product.getProductName(), product.getId());
+                // If product already exists in Neo4j, delete it
+                productNodeRepository.findByProductId(product.getId())
+                        .ifPresent(existingNode -> {
+                            log.info("Deleting invalid product from Neo4j: {} (ID: {})",
+                                    product.getProductName(), product.getId());
+                            productNodeRepository.delete(existingNode);
+                        });
+                return null;
+            }
+
             log.info("Syncing product to knowledge graph: {} (ID: {})",
                     product.getProductName(), product.getId());
 
@@ -155,15 +181,11 @@ public class KnowledgeGraphService {
                 productNode.setVarieties(varieties);
             }
 
-            // Link to flavors (combines SCA flavors + tasting notes, all lowercase)
-            Set<FlavorNode> flavors = new HashSet<>();
+            // Create TastingNoteNodes with 4-tier hierarchy links
+            // Product -> TastingNote -> Attribute -> Subcategory -> SCACategory
+            Set<TastingNoteNode> tastingNoteNodes = new HashSet<>();
 
-            // Add SCA-categorized flavors
-            if (product.getScaFlavorsJson() != null && !product.getScaFlavorsJson().isEmpty()) {
-                flavors.addAll(createFlavorNodes(product.getScaFlavorsJson()));
-            }
-
-            // Add raw tasting notes as FlavorNodes (lowercase, with WCR subcategory)
+            // Process raw tasting notes from crawl
             if (product.getTastingNotesJson() != null && !product.getTastingNotesJson().isEmpty()) {
                 try {
                     List<String> tastingNotes = objectMapper.readValue(
@@ -172,23 +194,10 @@ public class KnowledgeGraphService {
                     );
                     for (String note : tastingNotes) {
                         if (note != null && !note.trim().isEmpty()) {
-                            // NORMALIZE TO LOWERCASE before creating FlavorNode
-                            String normalizedNote = note.trim().toLowerCase();
-
-                            // Get category and subcategory from WCR Sensory Lexicon
-                            String category = scaFlavorWheelService.getCategoryForNote(note);
-                            String subcategory = scaFlavorWheelService.getSubcategoryForNote(note);
-
-                            FlavorNode flavorNode = flavorNodeRepository.findById(normalizedNote)
-                                    .orElseGet(() -> {
-                                        FlavorNode newFlavor = FlavorNode.builder()
-                                                .name(normalizedNote)
-                                                .scaCategory(category)
-                                                .scaSubcategory(subcategory)  // ⭐ NEW: Populate subcategory
-                                                .build();
-                                        return flavorNodeRepository.save(newFlavor);
-                                    });
-                            flavors.add(flavorNode);
+                            TastingNoteNode tastingNoteNode = findOrCreateTastingNote(note);
+                            if (tastingNoteNode != null) {
+                                tastingNoteNodes.add(tastingNoteNode);
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -196,13 +205,73 @@ public class KnowledgeGraphService {
                 }
             }
 
-            productNode.setFlavors(flavors);
+            // Also process SCA-mapped flavors as tasting notes
+            if (product.getScaFlavorsJson() != null && !product.getScaFlavorsJson().isEmpty()) {
+                try {
+                    SCAFlavorMapping mapping = objectMapper.readValue(product.getScaFlavorsJson(), SCAFlavorMapping.class);
+                    List<String> allFlavors = new ArrayList<>();
+                    if (mapping.getFruity() != null) allFlavors.addAll(mapping.getFruity());
+                    if (mapping.getFloral() != null) allFlavors.addAll(mapping.getFloral());
+                    if (mapping.getSweet() != null) allFlavors.addAll(mapping.getSweet());
+                    if (mapping.getNutty() != null) allFlavors.addAll(mapping.getNutty());
+                    if (mapping.getSpices() != null) allFlavors.addAll(mapping.getSpices());
+                    if (mapping.getRoasted() != null) allFlavors.addAll(mapping.getRoasted());
+                    if (mapping.getGreen() != null) allFlavors.addAll(mapping.getGreen());
+                    if (mapping.getSour() != null) allFlavors.addAll(mapping.getSour());
+                    if (mapping.getOther() != null) allFlavors.addAll(mapping.getOther());
+
+                    for (String flavor : allFlavors) {
+                        if (flavor != null && !flavor.trim().isEmpty()) {
+                            TastingNoteNode tastingNoteNode = findOrCreateTastingNote(flavor);
+                            if (tastingNoteNode != null) {
+                                tastingNoteNodes.add(tastingNoteNode);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to parse SCA flavors JSON for product {}: {}", product.getId(), e.getMessage());
+                }
+            }
+
+            productNode.setTastingNotes(tastingNoteNodes);
+
+            // Sync flavor profile and character axes vectors (13-dimensional system)
+            if (product.getFlavorProfileJson() != null && !product.getFlavorProfileJson().isEmpty()) {
+                try {
+                    List<Double> flavorProfile = objectMapper.readValue(
+                            product.getFlavorProfileJson(),
+                            new TypeReference<List<Double>>() {}
+                    );
+                    productNode.setFlavorProfile(flavorProfile);
+                } catch (Exception e) {
+                    log.warn("Failed to parse flavor profile for product {}: {}", product.getId(), e.getMessage());
+                }
+            }
+
+            if (product.getCharacterAxesJson() != null && !product.getCharacterAxesJson().isEmpty()) {
+                try {
+                    List<Double> characterAxes = objectMapper.readValue(
+                            product.getCharacterAxesJson(),
+                            new TypeReference<List<Double>>() {}
+                    );
+                    productNode.setCharacterAxes(characterAxes);
+                } catch (Exception e) {
+                    log.warn("Failed to parse character axes for product {}: {}", product.getId(), e.getMessage());
+                }
+            }
 
             // Extract and link to roast level
             String roastLevel = extractRoastLevel(product);
             if (roastLevel != null) {
                 RoastLevelNode roastLevelNode = findOrCreateRoastLevel(roastLevel);
                 productNode.setRoastLevel(roastLevelNode);
+
+                // Sync roast level back to PostgreSQL if not already set
+                if (product.getRoastLevel() == null || !product.getRoastLevel().equals(roastLevel)) {
+                    product.setRoastLevel(roastLevel);
+                    coffeeProductRepository.save(product);
+                    log.info("Synced roast level '{}' to PostgreSQL for product {}", roastLevel, product.getId());
+                }
             }
 
             // Save product node with all relationships
@@ -440,7 +509,7 @@ public class KnowledgeGraphService {
     }
 
     /**
-     * Initialize SCA categories in the graph
+     * Initialize SCA categories in the graph (Tier 1)
      */
     @Transactional(transactionManager = "neo4jTransactionManager")
     public void initializeSCACategories() {
@@ -456,6 +525,162 @@ public class KnowledgeGraphService {
                 log.info("Initialized SCA category: {}", categoryName);
             }
         }
+    }
+
+    /**
+     * Initialize the full 4-tier SCA Flavor Wheel hierarchy in Neo4j.
+     * Reads structure from sca-lexicon.yaml via SCAFlavorWheelService.
+     *
+     * Hierarchy: SCACategory (9) → Subcategory (35) → Attribute (~110) → TastingNote (created on crawl)
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public void initializeFlavorHierarchy() {
+        log.info("Initializing 4-tier SCA Flavor Wheel hierarchy...");
+
+        // Get the hierarchical structure from YAML
+        Map<String, Map<String, List<String>>> hierarchy = scaFlavorWheelService.getHierarchicalStructure();
+
+        int subcategoryCount = 0;
+        int attributeCount = 0;
+
+        for (Map.Entry<String, Map<String, List<String>>> categoryEntry : hierarchy.entrySet()) {
+            String categoryName = categoryEntry.getKey();
+            Map<String, List<String>> subcategories = categoryEntry.getValue();
+
+            // Ensure category exists (Tier 1)
+            SCACategory category = scaCategoryRepository.findById(categoryName)
+                    .orElseGet(() -> {
+                        SCACategory newCat = SCACategory.builder().name(categoryName).build();
+                        return scaCategoryRepository.save(newCat);
+                    });
+
+            // Create subcategories (Tier 2)
+            for (Map.Entry<String, List<String>> subcategoryEntry : subcategories.entrySet()) {
+                String subcategoryId = subcategoryEntry.getKey();
+                List<String> keywords = subcategoryEntry.getValue();
+
+                // Get display name from service (converts "citrus_fruit" to "Citrus Fruit")
+                String displayName = formatDisplayName(subcategoryId);
+
+                SubcategoryNode subcategory = subcategoryNodeRepository.findById(subcategoryId)
+                        .orElseGet(() -> {
+                            SubcategoryNode newSubcat = SubcategoryNode.builder()
+                                    .id(subcategoryId)
+                                    .displayName(displayName)
+                                    .category(category)
+                                    .build();
+                            return subcategoryNodeRepository.save(newSubcat);
+                        });
+                subcategoryCount++;
+
+                // Create attributes from keywords (Tier 3)
+                for (String keyword : keywords) {
+                    String attributeId = keyword.toLowerCase().trim();
+                    String attrDisplayName = formatDisplayName(attributeId);
+
+                    if (attributeNodeRepository.findById(attributeId).isEmpty()) {
+                        AttributeNode attribute = AttributeNode.builder()
+                                .id(attributeId)
+                                .displayName(attrDisplayName)
+                                .subcategory(subcategory)
+                                .build();
+                        attributeNodeRepository.save(attribute);
+                        attributeCount++;
+                    }
+                }
+            }
+        }
+
+        log.info("Initialized SCA hierarchy: {} subcategories, {} attributes", subcategoryCount, attributeCount);
+    }
+
+    /**
+     * Format ID to display name (e.g., "citrus_fruit" → "Citrus Fruit", "blackberry" → "Blackberry")
+     */
+    private String formatDisplayName(String id) {
+        if (id == null || id.isEmpty()) return "";
+        return Arrays.stream(id.split("[_\\s]+"))
+                .map(word -> word.substring(0, 1).toUpperCase() + word.substring(1).toLowerCase())
+                .collect(Collectors.joining(" "));
+    }
+
+    /**
+     * Find or create a TastingNote node and link it to the appropriate Attribute.
+     * Used when syncing products to the graph.
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public TastingNoteNode findOrCreateTastingNote(String rawText) {
+        if (rawText == null || rawText.trim().isEmpty()) {
+            return null;
+        }
+
+        String noteId = rawText.toLowerCase().trim();
+
+        // Check if already exists
+        Optional<TastingNoteNode> existing = tastingNoteNodeRepository.findById(noteId);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        // Find the best matching attribute using SCAFlavorWheelService
+        SCAFlavorWheelService.CategorySubcategory mapping = scaFlavorWheelService.findCategorySubcategory(rawText);
+
+        AttributeNode attribute = null;
+        String scaCategoryName = "other"; // Default category
+        if (mapping != null && mapping.subcategory != null) {
+            // Try to find attribute that matches the raw text or subcategory keyword
+            String attributeId = findBestAttributeId(rawText, mapping.subcategory);
+            attribute = attributeNodeRepository.findById(attributeId).orElse(null);
+            // Store the category name directly for efficient queries (denormalized)
+            if (mapping.category != null) {
+                scaCategoryName = mapping.category;
+            }
+        }
+
+        // Create and save the tasting note with denormalized scaCategoryName
+        TastingNoteNode tastingNote = TastingNoteNode.builder()
+                .id(noteId)
+                .rawText(rawText)
+                .attribute(attribute)
+                .scaCategoryName(scaCategoryName)
+                .build();
+
+        return tastingNoteNodeRepository.save(tastingNote);
+    }
+
+    /**
+     * Find the best matching attribute ID for a raw tasting note.
+     */
+    private String findBestAttributeId(String rawText, String subcategory) {
+        String normalized = rawText.toLowerCase().trim();
+
+        // First, check if the raw text itself is an attribute
+        if (attributeNodeRepository.findById(normalized).isPresent()) {
+            return normalized;
+        }
+
+        // Try to find the keyword that best matches within the raw text
+        // e.g., "blackberry with tea" should match "blackberry"
+        Map<String, Map<String, List<String>>> hierarchy = scaFlavorWheelService.getHierarchicalStructure();
+
+        for (Map.Entry<String, Map<String, List<String>>> catEntry : hierarchy.entrySet()) {
+            Map<String, List<String>> subcats = catEntry.getValue();
+            if (subcats.containsKey(subcategory)) {
+                for (String keyword : subcats.get(subcategory)) {
+                    if (normalized.contains(keyword.toLowerCase())) {
+                        return keyword.toLowerCase();
+                    }
+                }
+                // If no keyword found in text, return the first keyword as default
+                List<String> keywords = subcats.get(subcategory);
+                if (!keywords.isEmpty()) {
+                    return keywords.get(0).toLowerCase();
+                }
+            }
+        }
+
+        // Fallback: return the subcategory itself as attribute
+        return subcategory;
     }
 
     /**
@@ -721,6 +946,93 @@ public class KnowledgeGraphService {
     }
 
     /**
+     * Delete invalid origin nodes (blends, multi-origins, malformed country names)
+     * Examples: "Blend (Colombia", "Brazil)", "Ethiopia)", "Huila, Minas Gerais, Sidamo"
+     */
+    @Transactional
+    public int deleteInvalidOriginNodes() {
+        log.info("Deleting invalid origin nodes from Neo4j");
+
+        List<OriginNode> allOrigins = (List<OriginNode>) originNodeRepository.findAll();
+        int deletedCount = 0;
+
+        for (OriginNode origin : allOrigins) {
+            if (isInvalidOrigin(origin)) {
+                log.info("Deleting invalid origin: id={}, country={}, region={}",
+                        origin.getId(), origin.getCountry(), origin.getRegion());
+                originNodeRepository.delete(origin);
+                deletedCount++;
+            }
+        }
+
+        log.info("Deleted {} invalid origin nodes", deletedCount);
+        return deletedCount;
+    }
+
+    /**
+     * Check if an origin node is invalid (blend, multi-origin, or malformed)
+     */
+    private boolean isInvalidOrigin(OriginNode origin) {
+        String country = origin.getCountry();
+        String region = origin.getRegion();
+
+        // Check country for invalid patterns
+        if (country != null) {
+            String normalized = country.trim().toLowerCase();
+
+            // Malformed country names with unmatched parentheses
+            if (normalized.endsWith(")") || normalized.startsWith("(")) {
+                return true; // "Brazil)", "Ethiopia)", "(Colombia", "Blend (Colombia"
+            }
+
+            // Blend indicators
+            if (normalized.startsWith("blend") || normalized.contains("blend")) {
+                return true;
+            }
+
+            // Multi-country indicators
+            if (normalized.contains(" & ") || normalized.contains(" and ")) {
+                return true; // "Colombia & Ethiopia", "Brazil and Ethiopia"
+            }
+
+            // Percentage indicators (blend ratios)
+            if (normalized.contains("%")) {
+                return true; // "30% Brazil", "20% Nicaragua)"
+            }
+
+            // Single Origin is not a real country
+            if (normalized.equals("single origin")) {
+                return true;
+            }
+        }
+
+        // Check region for multi-origin patterns
+        if (region != null) {
+            String normalized = region.trim().toLowerCase();
+
+            // Check if region contains multiple distinct coffee-producing regions (cross-country blends)
+            if (normalized.contains("huila") && (normalized.contains("minas gerais") || normalized.contains("sidamo"))) {
+                return true; // Huila (Colombia) mixed with Brazil/Ethiopia regions
+            }
+            if (normalized.contains("minas gerais") && normalized.contains("sidamo")) {
+                return true; // Brazil mixed with Ethiopia regions
+            }
+
+            // Check for explicit country names in region (indicates blend)
+            if (normalized.matches(".*\\b(colombia|brazil|ethiopia)\\b.*")) {
+                return true; // Region contains actual country names = blend
+            }
+
+            // General pattern: if region contains 4+ commas, it's likely a multi-origin blend
+            if (normalized.split(",").length > 4) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Fix null SCA categories - set all flavors with null category to 'other'
      */
     @Transactional
@@ -776,101 +1088,75 @@ public class KnowledgeGraphService {
     );
 
     /**
-     * Cleanup and merge duplicate flavor nodes (case-insensitive)
-     * Also filters out non-flavor descriptors
-     * Should be run BEFORE re-analysis with OpenAI
+     * Cleanup and merge duplicate tasting notes (case-insensitive)
+     * Also deletes old FlavorNode nodes that are no longer used.
+     * TastingNoteNode IDs are already normalized (lowercase), so duplicates are rare.
      *
      * @return Map with statistics
      */
     @Transactional(transactionManager = "neo4jTransactionManager")
     public Map<String, Object> cleanupAndMergeFlavors() {
-        log.info("Starting flavor cleanup and merge...");
+        log.info("Starting tasting note cleanup...");
 
+        // Step 1: Clean up old FlavorNode nodes (deprecated)
         List<FlavorNode> allFlavors = flavorNodeRepository.findAll();
-        log.info("Found {} total flavor nodes", allFlavors.size());
+        int flavorNodesDeleted = allFlavors.size();
+        if (!allFlavors.isEmpty()) {
+            log.info("Deleting {} deprecated FlavorNode nodes", flavorNodesDeleted);
+            flavorNodeRepository.deleteAll();
+        }
+
+        // Step 2: Check for duplicate TastingNoteNodes (should be rare since IDs are normalized)
+        List<TastingNoteNode> allNotes = tastingNoteNodeRepository.findAll();
+        log.info("Found {} tasting note nodes", allNotes.size());
 
         int merged = 0;
         int deleted = 0;
-        int kept = 0;
 
-        // Group by lowercase name
-        Map<String, List<FlavorNode>> flavorGroups = allFlavors.stream()
-            .collect(Collectors.groupingBy(f -> f.getName().toLowerCase()));
+        // Group by lowercase ID (should already be lowercase)
+        Map<String, List<TastingNoteNode>> noteGroups = allNotes.stream()
+            .collect(Collectors.groupingBy(n -> n.getId().toLowerCase()));
 
-        for (Map.Entry<String, List<FlavorNode>> entry : flavorGroups.entrySet()) {
-            String lowerName = entry.getKey();
-            List<FlavorNode> duplicates = entry.getValue();
-
-            // Check if this is a non-flavor descriptor
-            if (shouldFilterOut(lowerName)) {
-                log.debug("Filtering out non-flavor descriptor: {}", lowerName);
-                // Keep in 'other' category but mark for later removal if needed
-                for (FlavorNode flavor : duplicates) {
-                    if (flavor.getScaCategory() == null || !flavor.getScaCategory().equals("other")) {
-                        flavor.setScaCategory("other");
-                        flavorNodeRepository.save(flavor);
-                    }
-                }
-                continue;
-            }
-
+        for (Map.Entry<String, List<TastingNoteNode>> entry : noteGroups.entrySet()) {
+            List<TastingNoteNode> duplicates = entry.getValue();
             if (duplicates.size() > 1) {
-                // Found case-insensitive duplicates - merge them
-                log.info("Merging {} duplicates for flavor: {}", duplicates.size(), lowerName);
+                // Found duplicates - keep the first one
+                log.info("Found {} duplicates for note: {}", duplicates.size(), entry.getKey());
+                TastingNoteNode canonical = duplicates.get(0);
 
-                // Find the canonical node (prefer lowercase, or first one)
-                FlavorNode canonical = duplicates.stream()
-                    .filter(f -> f.getName().equals(lowerName))
-                    .findFirst()
-                    .orElse(duplicates.get(0));
+                for (int i = 1; i < duplicates.size(); i++) {
+                    TastingNoteNode duplicate = duplicates.get(i);
+                    // Find products linked to this duplicate and reassign
+                    List<ProductNode> products = productNodeRepository.findAll().stream()
+                        .filter(p -> p.getTastingNotes() != null &&
+                               p.getTastingNotes().stream().anyMatch(n -> n.getId().equals(duplicate.getId())))
+                        .collect(Collectors.toList());
 
-                // If canonical is not lowercase, update it
-                if (!canonical.getName().equals(lowerName)) {
-                    canonical.setName(lowerName);
-                    flavorNodeRepository.save(canonical);
-                }
-
-                // Merge other duplicates into canonical
-                for (FlavorNode duplicate : duplicates) {
-                    if (!duplicate.getName().equals(canonical.getName())) {
-                        // This is a duplicate - need to reassign products and delete
-                        log.debug("Merging '{}' into '{}'", duplicate.getName(), canonical.getName());
-
-                        // Find all products linked to this duplicate
-                        List<ProductNode> products = productNodeRepository.findAll().stream()
-                            .filter(p -> p.getFlavors() != null &&
-                                   p.getFlavors().stream().anyMatch(f -> f.getName().equals(duplicate.getName())))
-                            .collect(Collectors.toList());
-
-                        for (ProductNode product : products) {
-                            // Replace duplicate flavor with canonical
-                            Set<FlavorNode> flavors = product.getFlavors();
-                            flavors.removeIf(f -> f.getName().equals(duplicate.getName()));
-                            flavors.add(canonical);
-                            productNodeRepository.save(product);
-                        }
-
-                        // Delete the duplicate node
-                        flavorNodeRepository.delete(duplicate);
-                        deleted++;
+                    for (ProductNode product : products) {
+                        Set<TastingNoteNode> notes = product.getTastingNotes();
+                        notes.removeIf(n -> n.getId().equals(duplicate.getId()));
+                        notes.add(canonical);
+                        productNodeRepository.save(product);
                     }
+
+                    tastingNoteNodeRepository.delete(duplicate);
+                    deleted++;
                 }
                 merged++;
             }
-            kept++;
         }
 
         Map<String, Object> result = new HashMap<>();
-        result.put("totalFlavors", allFlavors.size());
-        result.put("uniqueFlavors", kept);
+        result.put("flavorNodesDeleted", flavorNodesDeleted);
+        result.put("tastingNotes", allNotes.size());
         result.put("mergedGroups", merged);
-        result.put("nodesDeleted", deleted);
+        result.put("duplicatesDeleted", deleted);
         result.put("message", String.format(
-            "Cleaned up %d flavors: %d unique, merged %d groups, deleted %d duplicate nodes",
-            allFlavors.size(), kept, merged, deleted));
+            "Cleanup complete: deleted %d deprecated FlavorNodes, %d TastingNotes (%d duplicates merged)",
+            flavorNodesDeleted, allNotes.size(), merged));
 
-        log.info("Cleanup complete: {} unique flavors, merged {} groups, deleted {} nodes",
-            kept, merged, deleted);
+        log.info("Cleanup complete: {} FlavorNodes deleted, {} TastingNotes, {} duplicates merged",
+            flavorNodesDeleted, allNotes.size(), merged);
 
         return result;
     }
@@ -987,5 +1273,168 @@ public class KnowledgeGraphService {
             totalCategorized, totalFailed, stillOther);
 
         return result;
+    }
+
+    /**
+     * Re-link unmatched TastingNotes to Attributes using OpenAI LLM.
+     * Processes notes in batches of 50 to avoid token limits.
+     * Cost: ~$0.0002 per batch of 50 notes (~$0.003 for 666 notes)
+     *
+     * @return Map with statistics (total, linked, failed, batchCount)
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public Map<String, Object> relinkUnmatchedTastingNotesWithLLM() {
+        log.info("Re-linking unmatched TastingNotes using OpenAI LLM...");
+
+        // Get all TastingNotes without attribute link
+        List<TastingNoteNode> unmatchedNotes = tastingNoteNodeRepository.findAll().stream()
+                .filter(tn -> tn.getAttribute() == null)
+                .collect(Collectors.toList());
+
+        if (unmatchedNotes.isEmpty()) {
+            log.info("No unmatched TastingNotes to re-link");
+            return Map.of(
+                    "total", 0,
+                    "linked", 0,
+                    "failed", 0,
+                    "message", "No unmatched TastingNotes to re-link"
+            );
+        }
+
+        log.info("Found {} unmatched TastingNotes", unmatchedNotes.size());
+
+        // Get all available attribute IDs
+        List<String> availableAttributes = attributeNodeRepository.findAll().stream()
+                .map(AttributeNode::getId)
+                .collect(Collectors.toList());
+
+        if (availableAttributes.isEmpty()) {
+            log.warn("No attributes found! Run init-flavor-hierarchy first.");
+            return Map.of(
+                    "total", unmatchedNotes.size(),
+                    "linked", 0,
+                    "failed", unmatchedNotes.size(),
+                    "message", "No attributes found - run init-flavor-hierarchy first"
+            );
+        }
+
+        log.info("Available attributes: {}", availableAttributes.size());
+
+        int batchSize = 50;
+        int totalLinked = 0;
+        int totalFailed = 0;
+        int batchCount = 0;
+
+        // Process in batches
+        for (int i = 0; i < unmatchedNotes.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, unmatchedNotes.size());
+            List<TastingNoteNode> batch = unmatchedNotes.subList(i, end);
+            batchCount++;
+
+            log.info("Processing batch {}/{}: notes {}-{}",
+                    batchCount,
+                    (unmatchedNotes.size() + batchSize - 1) / batchSize,
+                    i + 1,
+                    end);
+
+            try {
+                // Extract raw text from batch
+                List<String> noteTexts = batch.stream()
+                        .map(tn -> tn.getRawText() != null ? tn.getRawText() : tn.getId())
+                        .collect(Collectors.toList());
+
+                // Call OpenAI to map notes to attributes
+                Map<String, String> mappings = openAIService.mapTastingNotesToAttributes(noteTexts, availableAttributes);
+
+                // Update TastingNote nodes with attribute links
+                for (TastingNoteNode note : batch) {
+                    String noteText = note.getRawText() != null ? note.getRawText() : note.getId();
+                    String attributeId = mappings.get(noteText);
+
+                    if (attributeId != null && !attributeId.equals("null")) {
+                        Optional<AttributeNode> attribute = attributeNodeRepository.findById(attributeId.toLowerCase());
+                        if (attribute.isPresent()) {
+                            note.setAttribute(attribute.get());
+                            tastingNoteNodeRepository.save(note);
+                            totalLinked++;
+                            log.debug("Linked '{}' -> '{}'", noteText, attributeId);
+                        } else {
+                            log.warn("Attribute '{}' not found for note '{}'", attributeId, noteText);
+                            totalFailed++;
+                        }
+                    } else {
+                        log.debug("No match for note '{}'", noteText);
+                        // Not counted as failed - just no good match exists
+                    }
+                }
+
+                // Small delay between batches to avoid rate limiting
+                if (i + batchSize < unmatchedNotes.size()) {
+                    Thread.sleep(500);
+                }
+
+            } catch (Exception e) {
+                log.error("Failed to process batch {}: {}", batchCount, e.getMessage());
+                totalFailed += batch.size();
+            }
+        }
+
+        int stillUnmatched = unmatchedNotes.size() - totalLinked - totalFailed;
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("total", unmatchedNotes.size());
+        result.put("linked", totalLinked);
+        result.put("failed", totalFailed);
+        result.put("stillUnmatched", stillUnmatched);
+        result.put("batchCount", batchCount);
+        result.put("message", String.format(
+                "Re-linked %d TastingNotes: %d linked, %d failed, %d no match found",
+                unmatchedNotes.size(), totalLinked, totalFailed, stillUnmatched));
+
+        log.info("Re-link complete: {} linked, {} failed, {} no match",
+                totalLinked, totalFailed, stillUnmatched);
+
+        return result;
+    }
+
+    /**
+     * Get list of all available attribute IDs (for reference)
+     */
+    public List<String> getAvailableAttributeIds() {
+        return attributeNodeRepository.findAll().stream()
+                .map(AttributeNode::getId)
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Check if a product has valid tasting notes (is a valid coffee product).
+     * Products without tasting notes are not considered coffee products.
+     */
+    private boolean hasValidTastingNotes(CoffeeProduct product) {
+        String tastingNotesJson = product.getTastingNotesJson();
+
+        // Check if tasting notes JSON is null, empty, or empty array
+        if (tastingNotesJson == null || tastingNotesJson.isEmpty()) {
+            return false;
+        }
+
+        // Check for empty array
+        String trimmed = tastingNotesJson.trim();
+        if (trimmed.equals("[]") || trimmed.equals("null")) {
+            return false;
+        }
+
+        // Parse and check for actual content
+        try {
+            List<String> notes = objectMapper.readValue(tastingNotesJson,
+                    new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+            // Check if there are any non-empty notes
+            return notes != null && notes.stream()
+                    .anyMatch(note -> note != null && !note.trim().isEmpty());
+        } catch (Exception e) {
+            log.warn("Failed to parse tasting notes for product {}: {}", product.getId(), e.getMessage());
+            return false;
+        }
     }
 }

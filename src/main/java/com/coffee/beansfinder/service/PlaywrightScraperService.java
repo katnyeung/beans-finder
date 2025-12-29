@@ -14,6 +14,7 @@ import jakarta.annotation.PreDestroy;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,14 +30,115 @@ public class PlaywrightScraperService {
     private final ObjectMapper objectMapper;
     private Playwright playwright;
     private Browser browser;
+    private final Random random = new Random();
+    private int consecutiveFailures = 0;
+    private static final int MAX_CONSECUTIVE_FAILURES_BEFORE_RESTART = 3;
+
+    // Common user agents for rotation (Chrome on Windows/Mac)
+    private static final String[] USER_AGENTS = {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15"
+    };
+
+    // Common viewport sizes for rotation
+    private static final int[][] VIEWPORTS = {
+        {1920, 1080},
+        {1366, 768},
+        {1536, 864},
+        {1440, 900},
+        {1280, 720},
+        {1600, 900},
+        {2560, 1440}
+    };
 
     @PostConstruct
     public void init() {
         log.info("Initializing Playwright browser");
-        playwright = Playwright.create();
-        browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
-                .setHeadless(true)
-                .setTimeout(30000));
+        initBrowser();
+    }
+
+    /**
+     * Initialize or reinitialize the browser
+     */
+    private synchronized void initBrowser() {
+        try {
+            // Close existing browser if any
+            if (browser != null) {
+                try {
+                    browser.close();
+                } catch (Exception e) {
+                    log.warn("Error closing existing browser: {}", e.getMessage());
+                }
+            }
+            if (playwright == null) {
+                playwright = Playwright.create();
+            }
+
+            browser = playwright.chromium().launch(new BrowserType.LaunchOptions()
+                    .setHeadless(true)
+                    .setTimeout(30000)
+                    .setArgs(List.of(
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-dev-shm-usage",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox",
+                        "--disable-web-security",
+                        "--disable-features=IsolateOrigins,site-per-process"
+                    )));
+            log.info("Playwright browser initialized successfully");
+        } catch (Exception e) {
+            log.error("Failed to initialize Playwright browser: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to initialize browser", e);
+        }
+    }
+
+    /**
+     * Restart browser if it seems stuck (called after consecutive failures)
+     */
+    public synchronized void restartBrowser() {
+        log.warn("Restarting Playwright browser due to failures");
+        initBrowser();
+    }
+
+    /**
+     * Get a random user agent string
+     */
+    private String getRandomUserAgent() {
+        return USER_AGENTS[random.nextInt(USER_AGENTS.length)];
+    }
+
+    /**
+     * Get a random viewport size
+     */
+    private int[] getRandomViewport() {
+        return VIEWPORTS[random.nextInt(VIEWPORTS.length)];
+    }
+
+    /**
+     * Create a browser context with randomized fingerprint to avoid detection
+     */
+    private BrowserContext createStealthContext() {
+        String userAgent = getRandomUserAgent();
+        int[] viewport = getRandomViewport();
+
+        log.debug("Using fingerprint: UA={}, viewport={}x{}",
+                userAgent.substring(0, 50) + "...", viewport[0], viewport[1]);
+
+        return browser.newContext(new Browser.NewContextOptions()
+                .setUserAgent(userAgent)
+                .setViewportSize(viewport[0], viewport[1])
+                .setLocale("en-GB")
+                .setTimezoneId("Europe/London")
+                .setDeviceScaleFactor(1.0)
+                .setHasTouch(false)
+                .setJavaScriptEnabled(true)
+                .setIgnoreHTTPSErrors(true));
     }
 
     @PreDestroy
@@ -61,9 +163,7 @@ public class PlaywrightScraperService {
     public String renderPageToHtml(String url) {
         log.info("Rendering page with Playwright: {}", url);
 
-        BrowserContext context = browser.newContext(new Browser.NewContextOptions()
-                .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
-
+        BrowserContext context = createStealthContext();
         Page page = context.newPage();
 
         try {
@@ -104,52 +204,144 @@ public class PlaywrightScraperService {
             Page page = null;
 
             try {
-                context = browser.newContext(new Browser.NewContextOptions()
-                        .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"));
-
+                log.info("Attempt {}/{} - Creating stealth browser context", attempt, maxRetries);
+                context = createStealthContext();
                 page = context.newPage();
 
-                // Navigate with reduced timeout to fail faster
-                page.navigate(url, new Page.NavigateOptions()
-                        .setTimeout(20000)  // 20s timeout instead of 30s
-                        .setWaitUntil(WaitUntilState.DOMCONTENTLOADED));  // Don't wait for all resources
+                // Add random delay before navigation (1-3 seconds) to simulate human behavior
+                int delay = 1000 + random.nextInt(2000);
+                log.info("Waiting {}ms before navigation to {}", delay, url);
+                Thread.sleep(delay);
 
-                // Wait briefly for dynamic content (but use try-catch to avoid crashes)
+                // Navigate with reduced timeout to fail faster
+                log.info("Navigating to {} (timeout: 25s)", url);
+                page.navigate(url, new Page.NavigateOptions()
+                        .setTimeout(25000)  // 25s timeout
+                        .setWaitUntil(WaitUntilState.DOMCONTENTLOADED));  // Don't wait for all resources
+                log.info("Navigation complete for {}", url);
+
+                // Wait for dynamic content and try to expand accordions/tabs
                 try {
-                    page.waitForTimeout(1500);  // Reduced from 2000ms
+                    log.info("Waiting 2s for dynamic content...");
+                    page.waitForTimeout(2000);
+
+                    // Try to expand any collapsed accordion sections or tabs that might contain tasting notes
+                    log.info("Attempting to expand collapsed content sections...");
+                    page.evaluate("""
+                        () => {
+                            // Click on accordion headers, tabs, or "show more" buttons
+                            const expandSelectors = [
+                                '.accordion__header:not(.is-open)',
+                                '.accordion-trigger:not([aria-expanded="true"])',
+                                '.tab-link:not(.active)',
+                                '.collapsible-trigger:not(.is-open)',
+                                '[data-toggle="collapse"]:not(.collapsed)',
+                                '.product__description-toggle',
+                                '.read-more-btn',
+                                '.show-more',
+                                'button:contains("Read more")',
+                                'button:contains("Show more")',
+                                'details:not([open]) summary'
+                            ];
+
+                            expandSelectors.forEach(selector => {
+                                try {
+                                    document.querySelectorAll(selector).forEach(el => {
+                                        try { el.click(); } catch(e) {}
+                                    });
+                                } catch(e) {}
+                            });
+
+                            // Open any <details> elements
+                            document.querySelectorAll('details:not([open])').forEach(d => {
+                                try { d.setAttribute('open', ''); } catch(e) {}
+                            });
+                        }
+                        """);
+
+                    // Wait a bit more for expanded content to render
+                    page.waitForTimeout(500);
                 } catch (Exception waitError) {
-                    log.warn("Wait timeout interrupted for {}, continuing anyway", url);
+                    log.warn("Wait/expand timeout interrupted for {}, continuing anyway", url);
                 }
 
                 // Extract only product-relevant content using CSS selectors
+                log.info("Extracting text content via JavaScript evaluation...");
                 String productText = page.evaluate("""
                     () => {
-                        // Remove script, style, nav, footer, header
-                        ['script', 'style', 'nav', 'footer', 'header', 'iframe'].forEach(tag => {
-                            document.querySelectorAll(tag).forEach(el => el.remove());
+                        // Quick removal of non-content elements (no iteration over all elements)
+                        ['script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript'].forEach(tag => {
+                            document.querySelectorAll(tag).forEach(el => {
+                                try { el.remove(); } catch (e) {}
+                            });
                         });
 
-                        // Try to find main product container
-                        const selectors = [
+                        // Collect text from multiple product-related areas (not just the first match)
+                        let allText = [];
+
+                        // Product description selectors (collect from all matching elements)
+                        const descriptionSelectors = [
+                            '.product-single__description',
+                            '.product__description',
+                            '.product-description',
+                            '.rte',  // Rich text editor content (common in Shopify)
+                            '.product__content-text',
+                            '.product-meta',
+                            '[data-product-description]',
+                            '.accordion__content',
+                            '.tab-content',
+                            '.product__info-wrapper',
+                            '.product-single__content-text'
+                        ];
+
+                        descriptionSelectors.forEach(selector => {
+                            try {
+                                document.querySelectorAll(selector).forEach(el => {
+                                    const text = el.innerText || el.textContent;
+                                    if (text && text.trim().length > 50) {
+                                        allText.push(text.trim());
+                                    }
+                                });
+                            } catch(e) {}
+                        });
+
+                        // If we found description content, combine it
+                        if (allText.length > 0) {
+                            return allText.join('\\n\\n');
+                        }
+
+                        // Fallback: Try to find main product container
+                        const containerSelectors = [
+                            '.product-single__content',
+                            '.product__content',
+                            '.product-details',
+                            '.product-single',
+                            '.product-info',
+                            'main .product',
+                            'article.product',
+                            '.product',
                             'main',
                             'article',
-                            '.product',
-                            '.product-single',
-                            '.product-details',
-                            '[class*="product"]',
-                            '#product',
+                            '#MainContent',
+                            '#main-content',
+                            '[role="main"]',
                             'body'
                         ];
 
-                        for (const selector of selectors) {
-                            const element = document.querySelector(selector);
-                            if (element && element.textContent.length > 200) {
-                                return element.textContent;
-                            }
+                        for (const selector of containerSelectors) {
+                            try {
+                                const element = document.querySelector(selector);
+                                if (element) {
+                                    const text = element.innerText || element.textContent;
+                                    if (text && text.length > 200) {
+                                        return text;
+                                    }
+                                }
+                            } catch (e) {}
                         }
 
-                        // Fallback to body text
-                        return document.body.textContent;
+                        // Final fallback to body text
+                        return document.body.innerText || document.body.textContent || '';
                     }
                     """).toString();
 
@@ -157,10 +349,12 @@ public class PlaywrightScraperService {
                 productText = productText.replaceAll("\\s+", " ").trim();
 
                 log.info("Extracted product text ({} chars): {}", productText.length(), url);
+                consecutiveFailures = 0; // Reset on success
                 return productText;
 
             } catch (Exception e) {
                 log.error("Attempt {}/{} failed for {}: {}", attempt, maxRetries, url, e.getMessage());
+                consecutiveFailures++;
 
                 // Close page and context to free resources before retry
                 try {
@@ -170,15 +364,22 @@ public class PlaywrightScraperService {
                     log.warn("Error closing page/context: {}", closeError.getMessage());
                 }
 
+                // Restart browser if too many consecutive failures
+                if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES_BEFORE_RESTART) {
+                    log.warn("Too many consecutive failures ({}), restarting browser", consecutiveFailures);
+                    restartBrowser();
+                    consecutiveFailures = 0;
+                }
+
                 // If this was the last attempt, log final error
                 if (attempt == maxRetries) {
                     log.error("All {} attempts failed for {}: {}", maxRetries, url, e.getMessage());
                     return null;
                 }
 
-                // Wait briefly before retry
+                // Wait briefly before retry (with some randomization)
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(2000 + random.nextInt(2000));
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     return null;

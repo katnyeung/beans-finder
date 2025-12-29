@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Details - Graphee.link</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/" class="logo-link">
+                    <img src="/graphee_logo.png" alt="Graphee.link" class="nav-logo">
+                    <span class="brand-name">Graphee.link</span>
+                </a>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/chat.html">Chat</a>
+                <a href="/brands.html">Brands</a>
+                <a href="/flavor-wheel.html">Flavor Wheel</a>
+                <a href="/map.html">Map</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div id="loading" class="loading" style="display: block;">Loading product...</div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="product-detail-container" style="display: none;">
+            <!-- Hero Section -->
+            <div class="product-hero">
+                <div class="product-breadcrumb">
+                    <a href="/brands.html" class="breadcrumb-link">Brands</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <a href="#" id="brand-link" class="breadcrumb-link">Brand</a>
+                    <span class="breadcrumb-separator">/</span>
+                    <span id="product-name-breadcrumb">Product</span>
+                </div>
+                <h1 id="product-name" class="product-title"></h1>
+                <div class="product-actions">
+                    <a id="seller-url-btn" href="#" target="_blank" class="btn btn-primary">🛒 View on Seller's Website</a>
+                    <button id="ask-chatbot-btn" class="btn btn-secondary">💬 Ask Chatbot</button>
+                    <button id="request-update-btn" class="btn btn-secondary">🔄 Request Update</button>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="product-grid">
+                <!-- Left Column: Details -->
+                <div class="product-details-section">
+                    <!-- Basic Info Card -->
+                    <div class="detail-card">
+                        <h3 class="detail-card-title">Product Information</h3>
+                        <div class="detail-grid">
+                            <div class="detail-item">
+                                <span class="detail-label">Brand</span>
+                                <span id="detail-brand" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Price</span>
+                                <span id="detail-price" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Origin</span>
+                                <span id="detail-origin" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Region</span>
+                                <span id="detail-region" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Roast Level</span>
+                                <span id="detail-roast" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Process</span>
+                                <span id="detail-process" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Variety</span>
+                                <span id="detail-variety" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Altitude</span>
+                                <span id="detail-altitude" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Producer</span>
+                                <span id="detail-producer" class="detail-value"></span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">In Stock</span>
+                                <span id="detail-stock" class="detail-value"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flavor Profile Radar Charts -->
+                    <div class="detail-card" id="flavor-profile-card" style="display: none;">
+                        <h3 class="detail-card-title">Flavor Profile</h3>
+                        <div class="radar-charts-container">
+                            <div class="radar-chart-wrapper">
+                                <canvas id="flavorProfileChart"></canvas>
+                                <p class="chart-label">Flavor Intensity</p>
+                            </div>
+                            <div class="radar-chart-wrapper">
+                                <canvas id="characterAxesChart"></canvas>
+                                <p class="chart-label">Coffee Character</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tasting Notes Card (merged with flavor profile) -->
+                    <div class="detail-card" id="flavor-card" style="display: none;">
+                        <h3 class="detail-card-title">
+                            Tasting Notes
+                            <a href="/flavor-wheel.html" class="flavor-wheel-link" title="View SCA Flavor Wheel">🎨 View Full Wheel</a>
+                        </h3>
+                        <div id="flavor-badges" class="flavor-badges"></div>
+                    </div>
+
+                    <!-- Description Card -->
+                    <div class="detail-card" id="description-card" style="display: none;">
+                        <h3 class="detail-card-title">Description</h3>
+                        <div id="product-description" class="product-description"></div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Map & Related Products -->
+                <div class="product-sidebar">
+                    <!-- Origin Map Card -->
+                    <div class="detail-card" id="map-card">
+                        <h3 class="detail-card-title">
+                            Origin Location
+                            <a href="/map.html" class="map-link" title="View Full Map">🗺️ Full Map</a>
+                        </h3>
+                        <div id="product-map" class="product-mini-map"></div>
+                    </div>
+
+                    <!-- Related Products Card -->
+                    <div class="detail-card" id="related-card">
+                        <h3 class="detail-card-title">More from <span id="related-brand-name"></span></h3>
+                        <div id="related-products" class="related-products-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/common.js"></script>
+    <script src="/js/product-detail.js"></script>
+</body>
+</html>
