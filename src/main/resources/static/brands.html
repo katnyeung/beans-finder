@@ -21,9 +21,17 @@
             <div class="nav-links">
                 <a href="/">Home</a>
                 <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">🎨 By Flavor</a>
+                        <a href="/filter-products.html">🔍 By Product</a>
+                        <a href="/discover.html">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
                 <a href="/brands.html" class="active">Brands</a>
-                <a href="/flavor-wheel.html">Flavor Wheel</a>
-                <a href="/map.html">Map</a>
+                <a href="/insights.html">Insights</a>
             </div>
         </div>
     </nav>
@@ -86,14 +94,17 @@
             <table class="data-table" id="brandsTable">
                 <thead>
                     <tr>
-                        <th>Brand Name</th>
+                        <th class="sortable" onclick="sortTable('name')">
+                            Brand Name <span id="sort-name" class="sort-indicator"></span>
+                        </th>
                         <th>Country</th>
-                        <th>Website</th>
+                        <th>Top Flavors</th>
+                        <th>Origins</th>
                         <th class="sortable" onclick="sortTable('productCount')">
                             Products <span id="sort-productCount" class="sort-indicator"></span>
                         </th>
                         <th class="sortable" onclick="sortTable('lastCrawl')">
-                            Last Crawl <span id="sort-lastCrawl" class="sort-indicator"></span>
+                            Last Fetch <span id="sort-lastCrawl" class="sort-indicator"></span>
                         </th>
                     </tr>
                 </thead>

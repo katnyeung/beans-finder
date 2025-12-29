@@ -18,7 +18,7 @@ let flavorWheelData = null;
 let currentProducts = [];
 let hoveredFlavor = null;
 let correlations = {};
-let expandedCategories = new Set(); // Track which categories have "More..." expanded
+let panzoomInstance = null; // Panzoom instance for grid navigation
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', async () => {
@@ -26,10 +26,134 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadFlavorWheelData();
         renderFlavorGrid();
         setupEventListeners();
+        setupPanzoom();
     } catch (error) {
         showError('Failed to load flavor wheel data: ' + error.message);
     }
 });
+
+// Setup panzoom for grid navigation
+function setupPanzoom() {
+    const gridElement = document.getElementById('flavor-grid');
+    const container = document.getElementById('grid-container');
+
+    if (!gridElement || typeof Panzoom === 'undefined') {
+        console.warn('Panzoom not available');
+        return;
+    }
+
+    const startScale = 0.5;
+
+    // Get dimensions
+    const containerRect = container.getBoundingClientRect();
+    const gridWidth = gridElement.scrollWidth;
+    const gridHeight = gridElement.scrollHeight;
+
+    // Calculate offset to center the grid
+    // We want the center of the grid to appear in the center of the container
+    // With panzoom scaling from origin (0,0), we need to position the grid appropriately
+    const scaledWidth = gridWidth * startScale;
+    const scaledHeight = gridHeight * startScale;
+
+    // Calculate pan offset to center the grid
+    // The grid center is at (gridWidth/2, gridHeight/2). After scaling, this is at (scaledWidth/2, scaledHeight/2).
+    // To show the grid center at the container center, we need to pan by the difference.
+    const gridCenterX = scaledWidth / 2;
+    const gridCenterY = scaledHeight / 2;
+    const containerCenterX = containerRect.width / 2;
+    const containerCenterY = containerRect.height / 2;
+
+    // Pan offset: move view so grid center appears at container center
+    // Subtract 500px adjustment for the smaller Attribute grid (~110 items)
+    const panX = containerCenterX - gridCenterX - 500;
+    const panY = containerCenterY - gridCenterY - 500;
+
+    console.log('Centering:', {
+        gridWidth, gridHeight,
+        scaledWidth, scaledHeight,
+        containerWidth: containerRect.width,
+        containerHeight: containerRect.height,
+        panX, panY
+    });
+
+    // Initialize panzoom with starting position
+    panzoomInstance = Panzoom(gridElement, {
+        maxScale: 2,
+        minScale: 0.3,
+        startScale: startScale,
+        startX: panX,
+        startY: panY,
+        contain: false,
+        cursor: 'grab'
+    });
+
+    // Enable mouse wheel zoom
+    container.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e);
+    }, { passive: false });
+
+    // Zoom controls
+    document.getElementById('zoom-in').addEventListener('click', () => {
+        panzoomInstance.zoomIn();
+    });
+
+    document.getElementById('zoom-out').addEventListener('click', () => {
+        panzoomInstance.zoomOut();
+    });
+
+    document.getElementById('zoom-reset').addEventListener('click', () => {
+        // Reset panzoom and re-center
+        panzoomInstance.reset();
+        gridElement.style.marginLeft = `${offsetX}px`;
+        gridElement.style.marginTop = `${offsetY}px`;
+    });
+}
+
+// Center the grid in the container
+function centerGrid(animate = false) {
+    const gridElement = document.getElementById('flavor-grid');
+    const container = document.getElementById('grid-container');
+
+    if (!panzoomInstance || !gridElement || !container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const scale = panzoomInstance.getScale();
+
+    // Get grid's natural (unscaled) size
+    const gridWidth = gridElement.scrollWidth;
+    const gridHeight = gridElement.scrollHeight;
+
+    // Scaled size
+    const scaledWidth = gridWidth * scale;
+    const scaledHeight = gridHeight * scale;
+
+    // Calculate desired offset to center
+    const desiredX = (containerRect.width - scaledWidth) / 2;
+    const desiredY = (containerRect.height - scaledHeight) / 2;
+
+    // Get current position from panzoom
+    const currentPan = panzoomInstance.getPan();
+
+    // Calculate how much to pan (relative movement)
+    const panX = desiredX - currentPan.x;
+    const panY = desiredY - currentPan.y;
+
+    console.log('Centering grid:', {
+        scale,
+        gridWidth, gridHeight,
+        scaledWidth, scaledHeight,
+        desiredX, desiredY,
+        currentPan,
+        panX, panY
+    });
+
+    // Panzoom's pan() doesn't seem to update the CSS, so set it directly
+    // Use the same format panzoom uses: scale first, then translate
+    gridElement.style.transform = `scale(${scale}) translate(${desiredX}px, ${desiredY}px)`;
+
+    console.log('Set transform to:', gridElement.style.transform);
+}
 
 // Load flavor wheel hierarchy data
 async function loadFlavorWheelData() {
@@ -86,15 +210,20 @@ function renderFlavorGrid() {
     // Calculate max product count for sizing
     const maxCount = Math.max(...flavorWheelData.categories.map(cat => cat.productCount));
 
-    // Calculate cell spans based on absolute count (better distribution)
+    // Calculate cell spans based on absolute count (balanced distribution)
+    // Returns { cols, rows } for rectangular cells
     const calculateCellSpan = (count) => {
-        if (count === 0) return 1;
+        if (count === 0) return { cols: 1, rows: 1 };
 
-        // Adjusted thresholds for better visual balance
-        if (count >= 250) return 4;   // 250+ items: 4x4 cells (very large categories)
-        if (count >= 30) return 3;    // 30-249 items: 3x3 cells (popular flavors)
-        if (count >= 10) return 2;    // 10-29 items: 2x2 cells (common flavors)
-        return 1; // <10 items: 1x1 cell (rare flavors)
+        // Granular thresholds for visual variety
+        if (count >= 400) return { cols: 4, rows: 3 };  // 400+: 4x3 (largest)
+        if (count >= 200) return { cols: 4, rows: 2 };  // 200-399: 4x2
+        if (count >= 100) return { cols: 3, rows: 3 };  // 100-199: 3x3
+        if (count >= 50) return { cols: 3, rows: 2 };   // 50-99: 3x2
+        if (count >= 30) return { cols: 3, rows: 1 };   // 30-49: 3x1 (wide bar)
+        if (count >= 20) return { cols: 2, rows: 2 };   // 20-29: 2x2
+        if (count >= 10) return { cols: 2, rows: 1 };   // 10-19: 2x1 (short bar)
+        return { cols: 1, rows: 1 }; // <10 items: 1x1 cell
     };
 
     // Define category zones (relative to center)
@@ -111,16 +240,15 @@ function renderFlavorGrid() {
         'other': { direction: 'center', angle: 0 }
     };
 
-    // Group items by category with dynamic sizing
+    // Group items by category with dynamic sizing - show ALL flavors
     const categoryGroups = {};
 
     flavorWheelData.categories.forEach(category => {
         const categoryItems = [];
-        const isExpanded = expandedCategories.has(category.name);
 
-        // Add category label itself - higher minimum opacity for better readability
-        const opacity = 0.6 + (category.productCount / maxCount) * 0.4;
-        const span = calculateCellSpan(category.productCount);
+        // Add category label itself
+        const opacity = 0.7 + (category.productCount / maxCount) * 0.3;
+        const size = calculateCellSpan(category.productCount);
 
         categoryItems.push({
             type: 'category',
@@ -129,21 +257,25 @@ function renderFlavorGrid() {
             color: CATEGORY_COLORS[category.name] || '#95A5A6',
             opacity: opacity,
             productCount: category.productCount,
-            span: span,
+            cols: size.cols,
+            rows: size.rows,
             onClick: () => selectCategory(category.name)
         });
 
-        // Add TOP flavors (always shown)
-        const topFlavors = category.topFlavors || [];
-        topFlavors.forEach(flavor => {
+        // Combine ALL flavors (top + more)
+        const allFlavors = [
+            ...(category.topFlavors || []),
+            ...(category.moreFlavors || [])
+        ];
+
+        allFlavors.forEach(flavor => {
             // Skip if flavor name is the same as category name
             if (flavor.name.toLowerCase() === category.name.toLowerCase()) {
                 return;
             }
 
-            // Higher minimum opacity for better readability
-            const flavorOpacity = 0.6 + (flavor.productCount / maxCount) * 0.4;
-            const flavorSpan = calculateCellSpan(flavor.productCount);
+            const flavorOpacity = 0.7 + (flavor.productCount / maxCount) * 0.3;
+            const flavorSize = calculateCellSpan(flavor.productCount);
 
             categoryItems.push({
                 type: 'flavor',
@@ -153,62 +285,16 @@ function renderFlavorGrid() {
                 color: CATEGORY_COLORS[category.name] || '#95A5A6',
                 opacity: flavorOpacity,
                 productCount: flavor.productCount,
-                span: flavorSpan,
+                cols: flavorSize.cols,
+                rows: flavorSize.rows,
                 onClick: () => handleFlavorClick(flavor.name, category.name)
             });
         });
 
-        // Add MORE flavors (only if expanded)
-        const moreFlavors = category.moreFlavors || [];
-        if (isExpanded && moreFlavors.length > 0) {
-            moreFlavors.forEach(flavor => {
-                if (flavor.name.toLowerCase() === category.name.toLowerCase()) {
-                    return;
-                }
-
-                // Higher minimum opacity for better readability
-                const flavorOpacity = 0.6 + (flavor.productCount / maxCount) * 0.4;
-                const flavorSpan = calculateCellSpan(flavor.productCount);
-
-                categoryItems.push({
-                    type: 'flavor',
-                    name: flavor.name,
-                    category: category.name,
-                    label: `${capitalize(flavor.name)}\n(${flavor.productCount})`,
-                    color: CATEGORY_COLORS[category.name] || '#95A5A6',
-                    opacity: flavorOpacity,
-                    productCount: flavor.productCount,
-                    span: flavorSpan,
-                    isMoreFlavor: true, // Mark as "more" flavor for styling
-                    onClick: () => handleFlavorClick(flavor.name, category.name)
-                });
-            });
-        }
-
-        // Add "More..." cell if there are hidden flavors
-        const moreCount = category.moreCount || moreFlavors.length;
-        if (moreCount > 0) {
-            categoryItems.push({
-                type: 'more',
-                name: `more_${category.name}`,
-                category: category.name,
-                label: isExpanded ? `Less ▲` : `More... (${moreCount})`,
-                color: CATEGORY_COLORS[category.name] || '#95A5A6',
-                opacity: 0.5,
-                productCount: 0, // Place at end
-                span: 1,
-                isExpanded: isExpanded,
-                onClick: () => toggleMoreFlavors(category.name)
-            });
-        }
-
         // Sort items within category by product count (descending)
-        // Category first, then flavors by count, then "More..." at end
         categoryItems.sort((a, b) => {
             if (a.type === 'category') return -1;
             if (b.type === 'category') return 1;
-            if (a.type === 'more') return 1;
-            if (b.type === 'more') return -1;
             return (b.productCount || 0) - (a.productCount || 0);
         });
 
@@ -219,22 +305,21 @@ function renderFlavorGrid() {
     });
 
     // Layout algorithm: Pack items in zones
-    const cellSize = 60; // Base cell size
-    const gap = 4;
+    const cellSize = 40; // Smaller cell size for compact view
+    const gap = 2;
 
     // Estimate grid size needed
     let totalArea = 1; // Center cell
     Object.values(categoryGroups).forEach(group => {
-        totalArea += group.items.reduce((sum, item) => sum + (item.span * item.span), 0);
+        totalArea += group.items.reduce((sum, item) => sum + (item.cols * item.rows), 0);
     });
     const gridSize = Math.ceil(Math.sqrt(totalArea)) + 10; // Extra padding for zones
 
-    gridContainer.style.display = 'grid';
     gridContainer.style.gridTemplateColumns = `repeat(${gridSize}, ${cellSize}px)`;
     gridContainer.style.gridTemplateRows = `repeat(${gridSize}, ${cellSize}px)`;
     gridContainer.style.gap = `${gap}px`;
-    gridContainer.style.justifyContent = 'center';
-    gridContainer.style.alignContent = 'center';
+
+    console.log('Grid size:', gridSize, 'Cell size:', cellSize, 'Total items:', Object.values(categoryGroups).reduce((sum, g) => sum + g.items.length, 0));
 
     // Create occupancy grid to track filled cells
     const occupied = Array(gridSize).fill(null).map(() => Array(gridSize).fill(false));
@@ -246,7 +331,8 @@ function renderFlavorGrid() {
         label: 'SCA Wheel',
         color: '#005F73',
         opacity: 1,
-        span: 1,
+        cols: 1,
+        rows: 1,
         onClick: null
     };
     placeItem(gridContainer, centerItem, centerPos, centerPos, occupied, cellSize);
@@ -265,13 +351,15 @@ function renderFlavorGrid() {
 
             const item = items[itemIndex];
 
-            // Check if this position can fit the item
-            if (canPlaceItem(occupied, pos.row, pos.col, item.span, gridSize)) {
+            // Check if this position can fit the item (using cols x rows)
+            if (canPlaceItem(occupied, pos.row, pos.col, item.cols, item.rows, gridSize)) {
                 placeItem(gridContainer, item, pos.row, pos.col, occupied, cellSize);
                 itemIndex++;
             }
         }
     });
+
+    console.log('Grid rendered, children:', gridContainer.children.length);
 }
 
 // Get positions for a specific zone, sorted by distance to center
@@ -310,12 +398,12 @@ function getZonePositions(gridSize, centerPos, direction) {
     return positions;
 }
 
-// Check if an item can be placed at given position
-function canPlaceItem(occupied, row, col, span, gridSize) {
-    if (row + span > gridSize || col + span > gridSize) return false;
+// Check if an item can be placed at given position (cols x rows)
+function canPlaceItem(occupied, row, col, cols, rows, gridSize) {
+    if (row + rows > gridSize || col + cols > gridSize) return false;
 
-    for (let r = row; r < row + span; r++) {
-        for (let c = col; c < col + span; c++) {
+    for (let r = row; r < row + rows; r++) {
+        for (let c = col; c < col + cols; c++) {
             if (occupied[r][c]) return false;
         }
     }
@@ -324,11 +412,14 @@ function canPlaceItem(occupied, row, col, span, gridSize) {
 
 // Place an item on the grid and mark occupied cells
 function placeItem(container, item, row, col, occupied, cellSize) {
-    const cellDiv = createCell(item, cellSize * item.span + (item.span - 1) * 4, cellSize * item.span + (item.span - 1) * 4);
+    const gap = 2;
+    const width = cellSize * item.cols + (item.cols - 1) * gap;
+    const height = cellSize * item.rows + (item.rows - 1) * gap;
+    const cellDiv = createCell(item, width, height);
 
     // Mark cells as occupied
-    for (let r = row; r < row + item.span; r++) {
-        for (let c = col; c < col + item.span; c++) {
+    for (let r = row; r < row + item.rows; r++) {
+        for (let c = col; c < col + item.cols; c++) {
             if (r < occupied.length && c < occupied[0].length) {
                 occupied[r][c] = true;
             }
@@ -336,8 +427,8 @@ function placeItem(container, item, row, col, occupied, cellSize) {
     }
 
     // Position using grid coordinates (span across multiple cells)
-    cellDiv.style.gridColumn = `${col + 1} / span ${item.span}`;
-    cellDiv.style.gridRow = `${row + 1} / span ${item.span}`;
+    cellDiv.style.gridColumn = `${col + 1} / span ${item.cols}`;
+    cellDiv.style.gridRow = `${row + 1} / span ${item.rows}`;
 
     container.appendChild(cellDiv);
 }
@@ -382,15 +473,6 @@ function createCell(cell, width, height) {
     const cellDiv = document.createElement('div');
     cellDiv.className = `flavor-cell ${cell.type}-cell`;
 
-    // Add extra class for "more" flavor cells (expanded state)
-    if (cell.isMoreFlavor) {
-        cellDiv.classList.add('more-flavor');
-    }
-
-    // Add expanded class for "more" button when expanded
-    if (cell.type === 'more' && cell.isExpanded) {
-        cellDiv.classList.add('expanded');
-    }
 
     // Apply color and opacity
     cellDiv.style.backgroundColor = cell.color;
@@ -411,23 +493,19 @@ function createCell(cell, width, height) {
         label.appendChild(document.createTextNode(line));
     });
 
-    // Font size based on cell type and span - larger for readability
+    // Font size based on cell type and size - use max of cols/rows for sizing
+    const cellSize = Math.max(cell.cols || 1, cell.rows || 1);
     if (cell.type === 'center') {
-        label.style.fontSize = '16px';
+        label.style.fontSize = '10px';
         label.style.fontWeight = 'bold';
     } else if (cell.type === 'category') {
-        // Scale font based on span - increased sizes
-        const fontSize = cell.span >= 4 ? '22px' : cell.span >= 3 ? '18px' : cell.span >= 2 ? '15px' : '13px';
+        // Scale font based on size
+        const fontSize = cellSize >= 3 ? '11px' : cellSize >= 2 ? '10px' : '9px';
         label.style.fontSize = fontSize;
         label.style.fontWeight = 'bold';
-    } else if (cell.type === 'more') {
-        // "More..." button styling
-        label.style.fontSize = '11px';
-        label.style.fontWeight = 'normal';
-        label.style.fontStyle = 'italic';
     } else {
-        // Flavor cells - increased sizes for readability
-        const fontSize = cell.span >= 4 ? '18px' : cell.span >= 3 ? '15px' : cell.span >= 2 ? '12px' : '11px';
+        // Flavor cells - compact sizes
+        const fontSize = cellSize >= 3 ? '10px' : cellSize >= 2 ? '9px' : '8px';
         label.style.fontSize = fontSize;
     }
 
@@ -451,31 +529,9 @@ function createCell(cell, width, height) {
         cellDiv.title = `${cell.label.replace('\n', ' ')}\nClick to see correlations & products`;
     } else if (cell.type === 'category') {
         cellDiv.title = `${cell.label.replace('\n', ' ')}\nClick to see all products`;
-    } else if (cell.type === 'more') {
-        cellDiv.title = cell.isExpanded ? 'Click to hide rare flavors' : 'Click to show more rare flavors';
     }
 
     return cellDiv;
-}
-
-// Toggle "More..." expansion for a category
-function toggleMoreFlavors(categoryName) {
-    if (expandedCategories.has(categoryName)) {
-        expandedCategories.delete(categoryName);
-    } else {
-        expandedCategories.add(categoryName);
-    }
-
-    // Re-render the grid with new expansion state
-    renderFlavorGrid();
-}
-
-// Expand a category to show all flavors (called when clicking a flavor)
-function expandCategory(categoryName) {
-    if (!expandedCategories.has(categoryName)) {
-        expandedCategories.add(categoryName);
-        renderFlavorGrid();
-    }
 }
 
 // Handle flavor click - show correlations AND products
@@ -486,14 +542,11 @@ async function handleFlavorClick(flavorName, categoryName) {
     // Load and show correlations
     await showFlavorCorrelations(flavorName);
 
-    // Expand the clicked flavor's category to show ALL flavors
-    expandCategory(categoryName);
-
-    // Also show products in the panel
+    // Show products in the panel
     await selectFlavor(flavorName, categoryName);
 }
 
-// Show flavor correlations (highlight correlated cells)
+// Show flavor correlations (highlight correlated cells AND show panel above grid)
 async function showFlavorCorrelations(flavorName) {
     hoveredFlavor = flavorName;
 
@@ -541,11 +594,51 @@ async function showFlavorCorrelations(flavorName) {
             }
         }
     });
+
+    // Show correlations panel above the grid
+    showCorrelationsPanel(flavorName, correlated);
+}
+
+// Show the correlated flavors in the inline panel
+function showCorrelationsPanel(flavorName, correlated) {
+    const listContainer = document.getElementById('correlations-list');
+    if (!listContainer) return;
+
+    listContainer.innerHTML = '';
+
+    if (correlated.length === 0) {
+        listContainer.innerHTML = '<span class="no-correlations">No strong correlations found</span>';
+    } else {
+        // Sort by percentage descending and show top correlations
+        const sorted = [...correlated].sort((a, b) => b.percentage - a.percentage);
+        sorted.forEach(item => {
+            const badge = document.createElement('span');
+            badge.className = 'correlation-badge';
+            badge.innerHTML = `${capitalize(item.flavor)} <small>(${item.percentage}%)</small>`;
+            badge.title = `${item.percentage}% of products with ${flavorName} also have ${item.flavor}`;
+            badge.style.cursor = 'pointer';
+            badge.addEventListener('click', () => {
+                // Click to navigate to that flavor
+                handleFlavorClick(item.flavor, item.category || 'other');
+            });
+            listContainer.appendChild(badge);
+        });
+    }
+    // Note: panel visibility is controlled by showProductsPanel()
+}
+
+// Hide the correlations panel
+function hideCorrelationsPanel() {
+    const panel = document.getElementById('correlations-panel');
+    panel.style.display = 'none';
 }
 
 // Clear correlation highlights
 function clearCorrelationHighlights() {
     hoveredFlavor = null;
+
+    // Hide the correlations panel
+    hideCorrelationsPanel();
 
     const cells = document.querySelectorAll('.flavor-cell');
     cells.forEach(cell => {
@@ -632,12 +725,14 @@ async function selectFlavor(flavorName, categoryName) {
     }
 }
 
-// Show products panel on the right
+// Show products panel in the side panel
 function showProductsPanel(title, description, products) {
-    const panel = document.getElementById('products-panel');
+    const placeholder = document.getElementById('panel-placeholder');
+    const results = document.getElementById('panel-results');
     const panelTitle = document.getElementById('panel-title');
     const panelDescription = document.getElementById('panel-description');
     const productCount = document.getElementById('product-count');
+    const correlationsPanel = document.getElementById('correlations-panel');
 
     panelTitle.textContent = title;
     panelDescription.textContent = description;
@@ -645,54 +740,31 @@ function showProductsPanel(title, description, products) {
 
     renderProducts(products);
 
-    panel.style.display = 'block';
-
-    // Flash animation to indicate new products loaded
-    panel.classList.add('flash-indicator');
-    setTimeout(() => {
-        panel.classList.remove('flash-indicator');
-    }, 2000);
-
-    // Add info message based on selection type
-    const existingInfo = panelDescription.parentElement.querySelector('.correlation-info');
-    if (existingInfo) {
-        existingInfo.remove();
+    // Show/hide correlations section based on whether it's a flavor selection
+    if (title.startsWith('Flavor:') && hoveredFlavor) {
+        correlationsPanel.style.display = 'block';
+    } else {
+        correlationsPanel.style.display = 'none';
     }
 
-    const infoMessage = document.createElement('p');
-    infoMessage.style.fontSize = '0.9rem';
-    infoMessage.style.color = '#666';
-    infoMessage.style.marginTop = '0.5rem';
-    infoMessage.className = 'correlation-info';
-
-    if (title.startsWith('Category:')) {
-        // Category selected - show all flavors in category highlighted
-        infoMessage.innerHTML = `<strong>✨ All ${title.split(': ')[1]} flavors highlighted</strong> - Click another cell or close panel to clear`;
-    } else if (title.startsWith('Flavor:') && hoveredFlavor) {
-        // Flavor selected - show correlations
-        infoMessage.innerHTML = `<strong>✨ Correlated flavors highlighted</strong> - Click another flavor or close panel to clear`;
-    }
-
-    if (infoMessage.innerHTML) {
-        panelDescription.parentElement.appendChild(infoMessage);
-    }
+    // Hide placeholder, show results
+    placeholder.style.display = 'none';
+    results.style.display = 'block';
 }
 
-// Render products table
+// Render products as compact cards
 function renderProducts(products) {
-    const tbody = document.getElementById('products-tbody');
-    tbody.innerHTML = '';
+    const container = document.getElementById('products-list-compact');
+    container.innerHTML = '';
 
     if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No products found</td></tr>';
+        container.innerHTML = '<p class="no-products">No products found</p>';
         return;
     }
 
     products.forEach(product => {
-        const row = document.createElement('tr');
-
         // Extract brand from relationship
-        let brand = 'N/A';
+        let brand = '';
         if (product.soldBy && product.soldBy.name) {
             brand = product.soldBy.name;
         }
@@ -702,61 +774,47 @@ function renderProducts(products) {
         if (product.origins && Array.isArray(product.origins)) {
             origins = product.origins.map(o => o.country).filter(c => c);
         }
-        const originText = origins.length > 0 ? origins.join(', ') : 'N/A';
+        const originText = origins.length > 0 ? origins.join(', ') : '';
 
-        // Extract flavors from tastingNotes (4-tier hierarchy)
-        let flavors = [];
-        if (product.tastingNotes && Array.isArray(product.tastingNotes)) {
-            flavors = product.tastingNotes.map(tn => tn.rawText || tn.id).filter(n => n);
-        }
+        // Extract price
+        const price = product.price ? `${product.currency || '£'}${product.price}` : '';
 
-        // Create product name with detail link
-        const productNameHtml = `<a href="/product-detail.html?id=${product.productId}" class="product-link">${escapeHtml(product.productName || 'N/A')}</a>`;
-
-        // Extract roast level
-        let roastLevel = 'N/A';
-        if (product.roastLevel && product.roastLevel.level) {
-            roastLevel = product.roastLevel.level;
-        }
-
-        row.innerHTML = `
-            <td>${productNameHtml}</td>
-            <td>${escapeHtml(brand)}</td>
-            <td>${escapeHtml(originText)}</td>
-            <td>${escapeHtml(roastLevel)}</td>
-            <td class="flavors-cell">${flavors.slice(0, 3).map(f => `<span class="flavor-tag">${escapeHtml(f)}</span>`).join(' ')}${flavors.length > 3 ? '...' : ''}</td>
-            <td>${product.price ? `${product.currency || '£'}${product.price}` : 'N/A'}</td>
+        const card = document.createElement('a');
+        card.href = `/product-detail.html?id=${product.productId}`;
+        card.className = 'product-card-compact';
+        card.innerHTML = `
+            <div class="product-card-main">
+                <span class="product-card-name">${escapeHtml(product.productName || 'Unknown')}</span>
+                ${price ? `<span class="product-card-price">${price}</span>` : ''}
+            </div>
+            <div class="product-card-meta">
+                ${brand ? `<span class="product-card-brand">${escapeHtml(brand)}</span>` : ''}
+                ${originText ? `<span class="product-card-origin">${escapeHtml(originText)}</span>` : ''}
+            </div>
         `;
-
-        tbody.appendChild(row);
+        container.appendChild(card);
     });
 }
 
 // Setup event listeners
 function setupEventListeners() {
-    const panel = document.getElementById('products-panel');
+    const placeholder = document.getElementById('panel-placeholder');
+    const results = document.getElementById('panel-results');
 
-    // Helper function to close panel
+    // Helper function to close panel (reset to placeholder)
     const closePanel = () => {
-        panel.style.display = 'none';
+        results.style.display = 'none';
+        placeholder.style.display = 'flex';
         clearCorrelationHighlights();
     };
 
     // Close panel button
     document.getElementById('close-panel').addEventListener('click', closePanel);
 
-    // Product search (keep existing functionality)
-    const panelContent = panel.querySelector('.panel-content');
-    if (panelContent) {
-        panelContent.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-    }
-
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && panel.style.display === 'block') {
-            closeModal();
+        if (e.key === 'Escape' && results.style.display === 'block') {
+            closePanel();
         }
     });
 

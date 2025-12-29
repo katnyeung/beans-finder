@@ -6,6 +6,8 @@
     <title>SCA Flavor Wheel - Graphee.link</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="icon" type="image/png" href="/graphee_logo.png">
+    <!-- Panzoom for draggable/zoomable grid -->
+    <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 </head>
 <body>
     <nav class="navbar">
@@ -20,9 +22,17 @@
             <div class="nav-links">
                 <a href="/">Home</a>
                 <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle active">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html" class="active">🎨 By Flavor</a>
+                        <a href="/filter-products.html">🔍 By Product</a>
+                        <a href="/discover.html">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
                 <a href="/brands.html">Brands</a>
-                <a href="/flavor-wheel.html" class="active">Flavor Wheel</a>
-                <a href="/map.html">Map</a>
+                <a href="/insights.html">Insights</a>
             </div>
         </div>
     </nav>
@@ -44,61 +54,52 @@
         <!-- Flavor Wheel Grid Container -->
         <section class="flavor-wheel-section" id="wheel-section" style="display: none;">
             <div class="wheel-info">
-                <h3>Interactive Flavor Grid</h3>
-                <p>
-                    <strong>Click on a category</strong> to see all products in that flavor family (popup).<br>
-                    <strong>Click on a flavor</strong> to see products AND highlight correlated flavors (with co-occurrence %).<br>
-                    <strong>Organized by zones</strong> - Each flavor family has its own area, popular items closer to center.<br>
-                    <em>Close popup: Click outside, press ESC, or click ×</em>
-                </p>
+                <p class="wheel-hint">Click a flavor to see products and correlations</p>
                 <div class="wheel-stats">
-                    <span class="stat-item">
-                        <strong id="total-products">0</strong> Products
-                    </span>
-                    <span class="stat-item">
-                        <strong id="total-categories">0</strong> Categories
-                    </span>
-                    <span class="stat-item">
-                        <strong id="total-flavors">0</strong> Flavors
-                    </span>
+                    <span class="stat-item"><strong id="total-products">0</strong> Products</span>
+                    <span class="stat-item"><strong id="total-categories">0</strong> Categories</span>
+                    <span class="stat-item"><strong id="total-flavors">0</strong> Flavors</span>
                 </div>
             </div>
 
-            <!-- Flavor Grid (Full Width) -->
-            <div class="flavor-grid-wrapper">
-                <div id="flavor-grid" class="flavor-grid">
-                    <!-- Grid cells will be generated here -->
-                </div>
-            </div>
-
-            <!-- Products Panel Below (Collapsible) -->
-            <div id="products-panel" class="products-panel-bottom" style="display: none;">
-                <div class="panel-header">
-                    <h3 id="panel-title">Products</h3>
-                    <button id="close-panel" class="btn-close">×</button>
-                </div>
-                <div class="panel-content">
-                    <div class="section-header">
-                        <p id="panel-description"></p>
-                        <span id="product-count" class="product-count">0 products</span>
+            <!-- Split Layout: Grid Left, Results Right -->
+            <div class="flavor-split-layout">
+                <!-- Left: Compact Flavor Grid with Pan/Zoom -->
+                <div class="flavor-grid-compact" id="grid-container">
+                    <div class="grid-controls">
+                        <button id="zoom-in" class="zoom-btn" title="Zoom In">+</button>
+                        <button id="zoom-out" class="zoom-btn" title="Zoom Out">−</button>
+                        <button id="zoom-reset" class="zoom-btn" title="Reset">⟲</button>
                     </div>
-                    <input type="text" id="product-search" class="search-input" placeholder="Search products...">
-                    <div class="table-container">
-                        <table id="products-table">
-                            <thead>
-                                <tr>
-                                    <th>Product</th>
-                                    <th>Brand</th>
-                                    <th>Origin</th>
-                                    <th>Roast</th>
-                                    <th>Flavors</th>
-                                    <th>Price</th>
-                                </tr>
-                            </thead>
-                            <tbody id="products-tbody">
-                                <!-- Products will be inserted here -->
-                            </tbody>
-                        </table>
+                    <div id="flavor-grid" class="flavor-grid">
+                        <!-- Grid cells will be generated here -->
+                    </div>
+                </div>
+
+                <!-- Right: Results Panel -->
+                <div id="products-panel" class="products-panel-side">
+                    <div class="panel-placeholder" id="panel-placeholder">
+                        <div class="placeholder-icon">🎨</div>
+                        <p>Select a flavor from the grid to see matching products</p>
+                    </div>
+                    <div class="panel-results" id="panel-results" style="display: none;">
+                        <div class="panel-header-side">
+                            <h3 id="panel-title">Products</h3>
+                            <button id="close-panel" class="btn-close-small">×</button>
+                        </div>
+                        <p id="panel-description" class="panel-desc"></p>
+                        <span id="product-count" class="product-count-badge">0 products</span>
+
+                        <!-- Correlated Flavors -->
+                        <div id="correlations-panel" class="correlations-section" style="display: none;">
+                            <span class="correlations-label">Often paired with:</span>
+                            <div id="correlations-list" class="correlations-list"></div>
+                        </div>
+
+                        <input type="text" id="product-search" class="search-input-compact" placeholder="Search...">
+                        <div class="products-list-compact" id="products-list-compact">
+                            <!-- Products will be inserted here as cards -->
+                        </div>
                     </div>
                 </div>
             </div>

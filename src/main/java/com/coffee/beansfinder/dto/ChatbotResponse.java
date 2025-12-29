@@ -34,6 +34,11 @@ public class ChatbotResponse {
     private List<Map<String, String>> suggestedActions;
 
     /**
+     * Optional clarifying question when bot needs more info
+     */
+    private String clarifyingQuestion;
+
+    /**
      * Error message (if any)
      */
     private String error;

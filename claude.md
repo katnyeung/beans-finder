@@ -15,7 +15,8 @@ This document provides context for Claude Code when working on the beans-finder 
 - **Perplexity API** - LLM-powered data extraction from HTML
 - **OpenAI GPT-4o-mini** - Text extraction (20x cheaper than Perplexity)
 - **Grok (X.AI)** - RAG-powered chatbot with Neo4j knowledge graph
-- **Playwright** - JavaScript rendering for dynamic sites
+- **Crawl4AI** - Python microservice for LLM-friendly markdown extraction (port 8081)
+- **Playwright** - JavaScript rendering for dynamic sites (fallback when Crawl4AI fails)
 - **Jsoup** - HTML parsing
 - **Vanilla JavaScript** - Frontend (no frameworks)
 - **Leaflet.js** - Interactive map visualization
@@ -30,6 +31,7 @@ This document provides context for Claude Code when working on the beans-finder 
 - **location_coordinates** - Geocoding cache for brands, origins, producers (reduces API calls)
 - **country_weather_data** - Historical weather data cache (monthly aggregates, 2020-2025)
 - **chatbot_conversations** - Persistent conversation state with JSONB for messages (includes products) and shown_product_ids (V5 migration)
+- **price_history** - Price snapshots recorded on every crawl (V15 migration) with origin/brand_id for future B2B reports
 
 ### Key Relationships
 - **One-to-Many**: CoffeeBrand → CoffeeProduct
@@ -217,8 +219,14 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - **Endpoints**:
   - `GET /api/products/{id}` - Fetch single product with brand info (returns ProductDetailDTO)
   - `GET /api/products/{id}/related?limit=6` - Get related products from same brand
+  - `GET /api/products/{id}/price-history` - Get price history grouped by bag size (for chart)
   - `POST /api/products/{id}/request-update` - Re-crawl product page to update information (NEW)
   - `POST /api/products/sync-roast-levels` - Backfill roast levels from Neo4j to PostgreSQL
+- **Price History Chart** (NEW):
+  - Chart.js line graph showing price over time
+  - Multi-line chart if product has multiple bag sizes (250g, 500g, 1kg)
+  - Only shows if product has ≥2 price snapshots
+  - Uses `chartjs-adapter-date-fns` for time-based X axis
 - **Request Update Feature**:
   - "🔄 Request Update" button triggers Playwright + OpenAI re-crawl
   - **Updates existing product by ID** (no duplicates created)
@@ -232,14 +240,47 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
   - Auto-refreshes page after successful update
   - Cost: ~$0.0015 per product update (still very cheap)
 
-### 9. Crawler Architecture
+### 9. Price Tracking & Trending (NEW)
+
+#### Price History System
+- **Database**: `price_history` table (V15 migration)
+  - Stores price snapshot on every crawl (even if unchanged)
+  - Denormalized `origin` and `brand_id` for future B2B analytics
+  - Calculates `price_per_100g` for normalized comparisons
+  - Records each price variant as separate row (250g, 500g, 1kg)
+- **Service**: `PriceHistoryService.java`
+  - `recordPrice(product)` - called by crawler after saving product
+  - `getPriceHistoryBySize(productId)` - grouped by bag size for chart
+- **Integration**: `CrawlerService.java` calls `recordPrice()` after product save
+
+#### Homepage Trending Section
+- **Static Cache**: `/cache/trending-data.json` (rebuilt after crawl)
+- **Time Periods**: Week (7 days), Month (30 days), All-time
+- **Metrics Displayed**:
+  - New Products: count + top 10 newest products
+  - Top Origins: top 5 most common countries
+  - Top Flavors: top 10 most common tasting notes
+- **Cache Rebuild**: `MapCacheService.rebuildTrendingCache()` called in `rebuildAllCaches()`
+- **Frontend**: `index.js` loads static JSON, renders cards with period tabs
+
+#### Future B2B Reports (Schema Ready)
+- **Origin price trends**: `SELECT AVG(price_per_100g) FROM price_history WHERE origin = 'Colombia'`
+- **Brand competitive analysis**: Compare pricing across roasters
+- **Flavor trends by time**: Track which flavors are rising/falling
+
+### 10. Crawler Architecture
 
 #### Hybrid AI Strategy
-- **OpenAI GPT-4o-mini**: Text extraction (primary, ~$0.0015 per product with 40KB clean text)
+- **Crawl4AI** (Python microservice, port 8081): Primary page extraction
+  - LLM-friendly markdown output (better for OpenAI extraction)
+  - Docker container: `crawl-service/` directory
+  - Endpoints: `/crawl/smart`, `/crawl/crawl4ai`, `/crawl/compare`, `/health`
+  - Enable via: `crawl.service.enabled=true` in application.properties
+- **OpenAI GPT-4o-mini**: Text extraction (~$0.0015 per product with 40KB clean text)
   - **Improved prompt** with detailed instructions for blends, multiple origins, processes, producers
   - Handles complex products like "Ethiopia / El Salvador" blends
   - Extracts: origin, region, process, producer, variety, altitude, tasting notes, price, stock status
-- **Playwright**: JavaScript rendering + clean text extraction (removes scripts/styles/nav)
+- **Playwright**: JavaScript rendering fallback (when Crawl4AI fails or disabled)
 - **Perplexity**: Brand discovery only (not used for product extraction due to cost)
 
 #### Sitemap Crawling Flow
@@ -271,7 +312,7 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - `entity/` - CoffeeBrand, CoffeeProduct, LocationCoordinates, CountryWeatherData, ConversationContext (@Entity)
 - `dto/` - ChatbotRequest, ChatbotResponse, ProductRecommendation, GraphContext, GrokDecision, ExtractedProductData
 - `repository/` - ConversationRepository (JPA), ProductNodeRepository (Neo4j with graph count queries)
-- `service/` - CrawlerService, PerplexityApiService, OpenAIService, GrokService, ChatbotService (LLM-driven), PlaywrightScraperService, SCAFlavorWheelService, KnowledgeGraphService, NominatimGeolocationService, OpenMeteoWeatherService
+- `service/` - CrawlerService, PerplexityApiService, OpenAIService, GrokService, ChatbotService (LLM-driven), PlaywrightScraperService, CrawlClientService (Crawl4AI HTTP client), SCAFlavorWheelService, KnowledgeGraphService, NominatimGeolocationService, OpenMeteoWeatherService
 - `controller/` - BrandController, ProductController, CrawlerController, ChatbotController, KnowledgeGraphController, FlavorWheelController, MapController, GeolocationController
 
 ### Frontend
@@ -303,6 +344,7 @@ Use `@Type(JsonBinaryType.class)` and `columnDefinition = "jsonb"` for JSONB fie
 - `GET /api/products/brand/{brandId}` - Products by brand
 - `GET /api/products/origin/{origin}` - Products by origin
 - `GET /api/products/search?query={}&limit={}` - **Search products by name** (case-insensitive partial match)
+- `GET /api/products/{id}/price-history` - Get price history grouped by bag size (for chart display)
 
 ### Crawler
 - `POST /api/crawler/crawl-from-sitemap?brandId={}` - Crawl all products from sitemap (RECOMMENDED)
@@ -405,9 +447,10 @@ docker-compose up -d
 1. **Static Cache Files** (Zero Neo4j queries for these endpoints):
    - `/cache/map-data.json` - Map visualization (brands, origins, producers, connections)
    - `/cache/flavors-by-country.json` - Country flavor data for map labels
-   - `/cache/flavor-wheel-data.json` - **NEW**: Flavor wheel hierarchy (categories, flavors, product counts)
+   - `/cache/flavor-wheel-data.json` - Flavor wheel hierarchy (categories, flavors, product counts)
+   - `/cache/trending-data.json` - **NEW**: Homepage trending (new products, top origins, top flavors)
    - Frontend loads static JSON files directly (no database queries)
-   - Cache rebuilt via `POST /api/map/rebuild-cache` (manual trigger, rebuilds all 3 caches)
+   - Cache rebuilt via `POST /api/map/rebuild-cache` (manual trigger, rebuilds all 4 caches)
 
 2. **Neo4j Query Usage** (by endpoint):
    - **Chatbot** (`POST /api/chatbot/query`): ~7-10 queries per request
@@ -528,6 +571,6 @@ CHATBOT_COST_DAILY_LIMIT=1.00      # Daily budget in USD (stops service if excee
 
 ---
 
-**Last Updated**: 2025-11-07
+**Last Updated**: 2025-12-05
 **Project Status**: Active Development
-**Branch**: `claude/coffee-database-knowledge-graph-011CUoFQ7AySDKqpeqwL7d18`
+**Branch**: `feature/chatbot`

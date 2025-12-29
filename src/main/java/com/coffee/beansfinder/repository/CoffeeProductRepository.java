@@ -98,9 +98,10 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     long countByBrandId(Long brandId);
 
     /**
-     * Count products by brand ID - only valid coffee products with tasting notes
+     * Count products by brand ID - only valid coffee products with tasting notes (excludes deleted)
      */
     @Query(value = "SELECT COUNT(*) FROM coffee_products p WHERE p.brand_id = :brandId " +
+           "AND p.deleted_at IS NULL " +
            "AND p.tasting_notes_json IS NOT NULL " +
            "AND p.tasting_notes_json::text <> '' " +
            "AND p.tasting_notes_json::text <> '[]' " +
@@ -108,9 +109,10 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     long countValidProductsByBrandId(@Param("brandId") Long brandId);
 
     /**
-     * Find products by brand ID - only valid coffee products with tasting notes
+     * Find products by brand ID - only valid coffee products with tasting notes (excludes deleted)
      */
     @Query(value = "SELECT * FROM coffee_products p WHERE p.brand_id = :brandId " +
+           "AND p.deleted_at IS NULL " +
            "AND p.tasting_notes_json IS NOT NULL " +
            "AND p.tasting_notes_json::text <> '' " +
            "AND p.tasting_notes_json::text <> '[]' " +
@@ -118,21 +120,22 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     List<CoffeeProduct> findValidProductsByBrandId(@Param("brandId") Long brandId);
 
     /**
-     * Batch count products by multiple brand IDs (to avoid N+1 queries)
+     * Batch count products by multiple brand IDs (excludes deleted)
      * Returns a list of projections with brandId and count
      */
     @Query("SELECT p.brand.id as brandId, COUNT(p) as count " +
            "FROM CoffeeProduct p " +
-           "WHERE p.brand.id IN :brandIds " +
+           "WHERE p.brand.id IN :brandIds AND p.deletedAt IS NULL " +
            "GROUP BY p.brand.id")
     List<BrandProductCount> countByBrandIds(@Param("brandIds") List<Long> brandIds);
 
     /**
-     * Batch count valid products (with tasting notes) by multiple brand IDs
+     * Batch count valid products (with tasting notes) by multiple brand IDs (excludes deleted)
      */
     @Query(value = "SELECT p.brand_id as brandId, COUNT(*) as count " +
            "FROM coffee_products p " +
            "WHERE p.brand_id IN :brandIds " +
+           "AND p.deleted_at IS NULL " +
            "AND p.tasting_notes_json IS NOT NULL " +
            "AND p.tasting_notes_json::text <> '' " +
            "AND p.tasting_notes_json::text <> '[]' " +
@@ -141,12 +144,12 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     List<BrandProductCount> countValidProductsByBrandIds(@Param("brandIds") List<Long> brandIds);
 
     /**
-     * Batch count products by origins (to avoid N+1 queries)
+     * Batch count products by origins (excludes deleted)
      * Returns a list of projections with origin and count
      */
     @Query("SELECT p.origin as origin, COUNT(p) as count " +
            "FROM CoffeeProduct p " +
-           "WHERE p.origin IS NOT NULL " +
+           "WHERE p.origin IS NOT NULL AND p.deletedAt IS NULL " +
            "GROUP BY p.origin")
     List<OriginProductCount> countByOrigins();
 
@@ -179,6 +182,13 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
      * Ordered by lastUpdateDate descending (most recently updated first)
      */
     List<CoffeeProduct> findByLastUpdateDateAfterOrderByLastUpdateDateDesc(LocalDateTime cutoffDate);
+
+    /**
+     * Find all products with brand eagerly fetched (for trending cache rebuild)
+     * Avoids LazyInitializationException in async contexts
+     */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand")
+    List<CoffeeProduct> findAllWithBrand();
 
     /**
      * Find product by brand and seller URL (for efficient lookup during crawl)
@@ -229,4 +239,93 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     @Transactional
     @Query("UPDATE CoffeeProduct p SET p.contentHash = NULL WHERE p.brand.id = :brandId")
     int clearContentHashByBrandId(@Param("brandId") Long brandId);
+
+    // ===== Soft delete methods =====
+
+    /**
+     * Find active (non-deleted) products by brand
+     */
+    List<CoffeeProduct> findByBrandAndDeletedAtIsNull(CoffeeBrand brand);
+
+    /**
+     * Find active (non-deleted) products by brand ID
+     */
+    List<CoffeeProduct> findByBrandIdAndDeletedAtIsNull(Long brandId);
+
+    /**
+     * Find product by seller URL including soft-deleted products (for recovery)
+     */
+    @Query("SELECT p FROM CoffeeProduct p WHERE p.sellerUrl = :sellerUrl")
+    Optional<CoffeeProduct> findBySellerUrlIncludeDeleted(@Param("sellerUrl") String sellerUrl);
+
+    /**
+     * Find all active products
+     */
+    List<CoffeeProduct> findByDeletedAtIsNull();
+
+    /**
+     * Find all soft-deleted products
+     */
+    List<CoffeeProduct> findByDeletedAtIsNotNull();
+
+    /**
+     * Count active products by brand ID
+     */
+    long countByBrandIdAndDeletedAtIsNull(Long brandId);
+
+    /**
+     * Find active products by origin
+     */
+    List<CoffeeProduct> findByOriginIgnoreCaseAndDeletedAtIsNull(String origin);
+
+    /**
+     * Search active products by name
+     */
+    List<CoffeeProduct> findByProductNameContainingIgnoreCaseAndDeletedAtIsNull(String productName);
+
+    /**
+     * Search active products by product name OR brand name
+     */
+    @Query("SELECT p FROM CoffeeProduct p WHERE p.deletedAt IS NULL AND (" +
+           "LOWER(p.productName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(p.brand.name) LIKE LOWER(CONCAT('%', :query, '%')))")
+    List<CoffeeProduct> searchActiveByProductOrBrandName(@Param("query") String query);
+
+    /**
+     * Find all active products with brand eagerly fetched
+     */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.deletedAt IS NULL")
+    List<CoffeeProduct> findAllActiveWithBrand();
+
+    /**
+     * Count active products by origins
+     */
+    @Query("SELECT p.origin as origin, COUNT(p) as count " +
+           "FROM CoffeeProduct p " +
+           "WHERE p.origin IS NOT NULL AND p.deletedAt IS NULL " +
+           "GROUP BY p.origin")
+    List<OriginProductCount> countActiveByOrigins();
+
+    // ===== Efficient filtered queries for DiscoverController (avoid loading all products) =====
+
+    /**
+     * Find active products by process (partial match, case-insensitive) with brand eager fetch
+     */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand " +
+           "WHERE p.deletedAt IS NULL AND LOWER(p.process) LIKE LOWER(CONCAT('%', :process, '%'))")
+    List<CoffeeProduct> findActiveByProcessContainingWithBrand(@Param("process") String process);
+
+    /**
+     * Find active products by variety (partial match, case-insensitive) with brand eager fetch
+     */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand " +
+           "WHERE p.deletedAt IS NULL AND LOWER(p.variety) LIKE LOWER(CONCAT('%', :variety, '%'))")
+    List<CoffeeProduct> findActiveByVarietyContainingWithBrand(@Param("variety") String variety);
+
+    /**
+     * Find active products by roast level (exact match, case-insensitive) with brand eager fetch
+     */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand " +
+           "WHERE p.deletedAt IS NULL AND LOWER(p.roastLevel) = LOWER(:roastLevel)")
+    List<CoffeeProduct> findActiveByRoastLevelWithBrand(@Param("roastLevel") String roastLevel);
 }

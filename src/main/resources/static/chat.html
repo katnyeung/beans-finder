@@ -20,9 +20,17 @@
             <div class="nav-links">
                 <a href="/">Home</a>
                 <a href="/chat.html" class="active">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">🎨 By Flavor</a>
+                        <a href="/filter-products.html">🔍 By Product</a>
+                        <a href="/discover.html">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
                 <a href="/brands.html">Brands</a>
-                <a href="/flavor-wheel.html">Flavor Wheel</a>
-                <a href="/map.html">Map</a>
+                <a href="/insights.html">Insights</a>
             </div>
         </div>
     </nav>
@@ -48,6 +56,20 @@
                             <li>"Find me a light roast with floral notes"</li>
                             <li>"What natural processed coffees do you have?"</li>
                         </ul>
+                    </div>
+                </div>
+                <!-- Personalized actions (shown when user is signed in with tracked products) -->
+                <div id="personalized-actions" class="personalized-actions hidden">
+                    <div class="personalized-header">Based on your taste profile:</div>
+                    <div class="personalized-buttons">
+                        <button id="btn-find-loved" onclick="findSimilarToLoved()" class="personalized-btn">
+                            <span class="btn-icon-large">&#10084;</span>
+                            <span class="btn-label">Find similar to coffees you love</span>
+                        </button>
+                        <button id="btn-find-pinned" onclick="findSimilarToPinned()" class="personalized-btn">
+                            <span class="btn-icon-large">&#128204;</span>
+                            <span class="btn-label">Find similar to coffees you want to try</span>
+                        </button>
                     </div>
                 </div>
             </div>

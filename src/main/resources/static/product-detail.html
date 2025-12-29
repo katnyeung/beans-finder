@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
     <nav class="navbar">
@@ -23,9 +24,17 @@
             <div class="nav-links">
                 <a href="/">Home</a>
                 <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">🎨 By Flavor</a>
+                        <a href="/filter-products.html">🔍 By Product</a>
+                        <a href="/discover.html">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
                 <a href="/brands.html">Brands</a>
-                <a href="/flavor-wheel.html">Flavor Wheel</a>
-                <a href="/map.html">Map</a>
+                <a href="/insights.html">Insights</a>
             </div>
         </div>
     </nav>
@@ -48,8 +57,79 @@
                 <div class="product-actions">
                     <a id="seller-url-btn" href="#" target="_blank" class="btn btn-primary">🛒 View on Seller's Website</a>
                     <button id="ask-chatbot-btn" class="btn btn-secondary">💬 Ask Chatbot</button>
-                    <button id="request-update-btn" class="btn btn-secondary">🔄 Request Update</button>
                 </div>
+
+                <!-- User Tracking (visible when logged in) -->
+                <div class="product-tracking" id="product-tracking" style="display: none;">
+                    <div class="tracking-buttons">
+                        <button class="track-btn" data-status="love" title="Love it">❤️</button>
+                        <button class="track-btn" data-status="bought" title="Already bought">🛒</button>
+                        <button class="track-btn" data-status="want" title="Want to buy">📌</button>
+                        <button class="track-btn" data-status="dislike" title="Not for me">👎</button>
+                    </div>
+                    <div class="tracking-rating" id="tracking-rating">
+                        <span class="star" data-rating="1">☆</span>
+                        <span class="star" data-rating="2">☆</span>
+                        <span class="star" data-rating="3">☆</span>
+                        <span class="star" data-rating="4">☆</span>
+                        <span class="star" data-rating="5">☆</span>
+                    </div>
+                </div>
+
+                <!-- Social Proof (always visible) -->
+                <div class="social-proof" id="social-proof" style="display: none;">
+                    <span class="love-count" id="love-count"></span>
+                    <span class="avg-rating" id="avg-rating"></span>
+                </div>
+            </div>
+
+            <!-- Brand Discount Banner (if available) - shown below hero -->
+            <div id="brand-discount-banner" class="brand-discount-banner" style="display: none;">
+                <span class="discount-icon">🏷️</span>
+                <span id="discount-text"></span>
+                <span id="discount-code-badge" class="discount-code-badge" style="display: none;"></span>
+            </div>
+
+            <!-- Consumer Summary Card (NEW - for hobbyists) -->
+            <div id="consumer-summary-card" class="consumer-summary-card" style="display: none;">
+                <!-- Flavor Direction -->
+                <div class="summary-row flavor-direction">
+                    <span class="row-icon" id="direction-icon"></span>
+                    <div class="row-content">
+                        <span class="row-label" id="direction-label"></span>
+                        <span class="row-desc" id="direction-desc"></span>
+                    </div>
+                </div>
+                <hr class="summary-divider">
+
+                <!-- Flavor Description -->
+                <div class="summary-row flavor-desc">
+                    <span class="row-icon">🍇</span>
+                    <div class="row-content">
+                        <span class="row-label" id="flavor-headline"></span>
+                        <span class="row-desc" id="flavor-context"></span>
+                    </div>
+                </div>
+                <hr class="summary-divider">
+
+                <!-- Best For -->
+                <div class="summary-row best-for">
+                    <span class="row-icon">💡</span>
+                    <div class="row-content">
+                        <span class="row-label">BEST FOR</span>
+                        <span class="row-desc" id="best-for-list"></span>
+                    </div>
+                </div>
+                <hr class="summary-divider">
+
+                <!-- One-liner Description -->
+                <div class="summary-row one-liner" id="one-liner-row" style="display: none;">
+                    <p id="consumer-description"></p>
+                </div>
+                <hr class="summary-divider" id="one-liner-divider" style="display: none;">
+
+                <!-- Consumer Tags -->
+                <div class="consumer-tags" id="consumer-tags"></div>
             </div>
 
             <!-- Main Content Grid -->
@@ -116,6 +196,8 @@
                                 <p class="chart-label">Coffee Character</p>
                             </div>
                         </div>
+                        <!-- Flavor Description Sentence -->
+                        <p class="flavor-description" id="flavor-description"></p>
                     </div>
 
                     <!-- Tasting Notes Card (merged with flavor profile) -->
@@ -131,6 +213,22 @@
                     <div class="detail-card" id="description-card" style="display: none;">
                         <h3 class="detail-card-title">Description</h3>
                         <div id="product-description" class="product-description"></div>
+                        <div class="description-cta">
+                            <a id="seller-url-btn-bottom" href="#" target="_blank" class="btn btn-primary">🛒 View on Seller's Website</a>
+                        </div>
+                    </div>
+
+                    <!-- Price History Card -->
+                    <div class="detail-card" id="price-history-card" style="display: none;">
+                        <h3 class="detail-card-title">Price History</h3>
+                        <div class="price-chart-container">
+                            <canvas id="priceHistoryChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Report Issue Section -->
+                    <div class="report-issue-section">
+                        <button id="request-update-btn" class="btn-text-link">Found an issue with this product? Let us know</button>
                     </div>
                 </div>
 
@@ -140,7 +238,7 @@
                     <div class="detail-card" id="map-card">
                         <h3 class="detail-card-title">
                             Origin Location
-                            <a href="/map.html" class="map-link" title="View Full Map">🗺️ Full Map</a>
+                            <a href="/map.html" id="full-map-link" class="map-link" title="View Full Map">🗺️ Full Map</a>
                         </h3>
                         <div id="product-map" class="product-mini-map"></div>
                     </div>
@@ -156,6 +254,7 @@
     </main>
 
     <script src="/js/common.js"></script>
+    <script src="/js/baristaKnowledge.js"></script>
     <script src="/js/product-detail.js"></script>
 </body>
 </html>

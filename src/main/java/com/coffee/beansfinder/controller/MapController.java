@@ -632,7 +632,7 @@ public class MapController {
 
     // Cache Management API
     @PostMapping("/rebuild-cache")
-    @Operation(summary = "Manually rebuild map cache files (map-data.json, flavors-by-country.json)")
+    @Operation(summary = "Rebuild ALL cache files (map, flavor wheel, trending, discover)")
     public ResponseEntity<Map<String, Object>> rebuildCache() {
         try {
             long startTime = System.currentTimeMillis();

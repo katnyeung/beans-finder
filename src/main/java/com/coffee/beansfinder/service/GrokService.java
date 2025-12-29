@@ -145,6 +145,58 @@ public class GrokService {
     }
 
     /**
+     * Call Grok with custom temperature (for digest - more deterministic)
+     *
+     * @param systemPrompt System instructions
+     * @param userMessage User query
+     * @param customTemperature Temperature override (0.0-1.0, lower = more deterministic)
+     * @return Grok's JSON response as String
+     */
+    public String callGrokWithTemperature(String systemPrompt, String userMessage, double customTemperature) throws Exception {
+        if (apiKey == null || apiKey.isEmpty()) {
+            throw new IllegalStateException("Grok API key not configured.");
+        }
+
+        log.info("Calling Grok API with custom temperature: {}", customTemperature);
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", systemPrompt));
+        messages.add(Map.of("role", "user", "content", userMessage));
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + apiKey);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> requestBody = Map.of(
+                "model", model,
+                "messages", messages,
+                "temperature", customTemperature,
+                "max_tokens", 2000,
+                "response_format", Map.of("type", "json_object")
+        );
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+
+        try {
+            ResponseEntity<String> response = restTemplate.postForEntity(apiUrl, request, String.class);
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new RuntimeException("Grok API returned error: " + response.getStatusCode());
+            }
+
+            JsonNode root = objectMapper.readTree(response.getBody());
+            String content = root.get("choices").get(0).get("message").get("content").asText();
+
+            log.info("Grok response received: {} chars", content.length());
+            return content;
+
+        } catch (Exception e) {
+            log.error("Failed to call Grok API: {}", e.getMessage(), e);
+            throw new RuntimeException("Grok API call failed: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Check if Grok API is configured
      */
     public boolean isConfigured() {

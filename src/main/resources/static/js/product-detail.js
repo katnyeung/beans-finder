@@ -24,6 +24,7 @@ const CHARACTER_LABELS = ['Acidity', 'Body', 'Roast', 'Complexity'];
 // Chart instances (for cleanup)
 let flavorProfileChartInstance = null;
 let characterAxesChartInstance = null;
+let priceHistoryChartInstance = null;
 
 /**
  * Render the 9-axis Flavor Profile radar chart
@@ -251,9 +252,66 @@ function loadFlavorProfileCharts(product) {
     const characterWrapper = document.getElementById('characterAxesChart')?.parentElement;
     if (hasCharacterAxes) {
         renderCharacterAxesChart(characterAxes);
+        // Generate and display barista-style flavor description
+        const descriptionEl = document.getElementById('flavor-description');
+        if (descriptionEl) {
+            descriptionEl.innerHTML = generateFlavorDescription(characterAxes, product);
+        }
     } else if (characterWrapper) {
         characterWrapper.style.display = 'none';
     }
+}
+
+/**
+ * Generate a barista-style flavor description using the knowledge base
+ * Uses origin, process, variety combined with character axes
+ */
+function generateFlavorDescription(characterAxes, product) {
+    if (!product) return '';
+
+    // Use barista knowledge base if available
+    if (window.BaristaKnowledge) {
+        const emojiSummary = window.BaristaKnowledge.generateEmojiSummary(product);
+        const baristaDesc = window.BaristaKnowledge.generateBaristaDescription(product);
+
+        let html = '<div class="barista-summary">' + emojiSummary + '</div>';
+        html += '<div class="barista-description">' + baristaDesc + '</div>';
+        return html;
+    }
+
+    // Fallback to basic description if knowledge base not loaded
+    if (!characterAxes || characterAxes.length !== 4) return '';
+    return generateBasicFlavorDescription(characterAxes);
+}
+
+/**
+ * Basic fallback flavor description (used if baristaKnowledge.js not loaded)
+ */
+function generateBasicFlavorDescription(characterAxes) {
+    const [acidity, body, roast, complexity] = characterAxes;
+    const parts = [];
+
+    // Acidity
+    if (acidity >= 0.3) parts.push('Bright');
+    else if (acidity <= -0.3) parts.push('Smooth');
+    else parts.push('Balanced acidity');
+
+    // Body
+    if (body >= 0.3) parts.push('Full body');
+    else if (body <= -0.3) parts.push('Light body');
+    else parts.push('Medium body');
+
+    // Roast
+    if (roast >= 0.3) parts.push('Dark roast');
+    else if (roast <= -0.3) parts.push('Light roast');
+    else parts.push('Medium roast');
+
+    // Complexity
+    if (complexity >= 0.3) parts.push('Complex');
+    else if (complexity <= -0.3) parts.push('Clean');
+    else parts.push('Balanced');
+
+    return '<div class="barista-summary">' + parts.join('  |  ') + '</div>';
 }
 
 // Get product ID from URL
@@ -281,6 +339,7 @@ async function loadProduct() {
         currentProduct = await response.json();
         displayProduct(currentProduct);
         loadRelatedProducts(productId);
+        loadBrandDiscount(currentProduct.brandId);
 
         // Log product view for analytics
         logProductView(currentProduct.id, currentProduct.brandId);
@@ -310,12 +369,16 @@ function displayProduct(product) {
         document.querySelectorAll('.breadcrumb-separator')[0].style.display = 'none';
     }
 
-    // Seller URL button - use redirect page for tracking
+    // Seller URL buttons - use redirect page for tracking
     const sellerBtn = document.getElementById('seller-url-btn');
+    const sellerBtnBottom = document.getElementById('seller-url-btn-bottom');
     if (product.sellerUrl) {
-        sellerBtn.href = `/redirect.html?id=${product.id}`;
+        const redirectUrl = `/redirect.html?id=${product.id}`;
+        sellerBtn.href = redirectUrl;
+        if (sellerBtnBottom) sellerBtnBottom.href = redirectUrl;
     } else {
         sellerBtn.style.display = 'none';
+        if (sellerBtnBottom) sellerBtnBottom.style.display = 'none';
     }
 
     // Product details
@@ -384,9 +447,11 @@ function displayProduct(product) {
             if (Array.isArray(tastingNotes) && tastingNotes.length > 0) {
                 tastingNotes.forEach(note => {
                     if (note && note.trim()) {
-                        const badge = document.createElement('span');
+                        const badge = document.createElement('a');
                         badge.className = 'tasting-note-item';
                         badge.textContent = note;
+                        badge.href = `/discover.html?flavor=${encodeURIComponent(note.trim())}`;
+                        badge.title = `View all coffees with "${note}" flavor`;
                         flavorBadges.appendChild(badge);
                         hasAnyFlavors = true;
                     }
@@ -401,16 +466,35 @@ function displayProduct(product) {
         document.getElementById('flavor-card').style.display = 'block';
     }
 
-    // Description - format as short list
-    if (product.rawDescription) {
-        const descDiv = document.getElementById('product-description');
-        descDiv.innerHTML = '';
+    // Description - show summary if available, fallback to rawDescription
+    const descDiv = document.getElementById('product-description');
+    descDiv.innerHTML = '';
 
-        // Split by common sentence delimiters and clean up
+    if (product.descriptionSummary) {
+        // Show condensed summary (copyright-compliant paraphrase)
+        const summaryP = document.createElement('p');
+        summaryP.className = 'description-summary';
+        summaryP.textContent = product.descriptionSummary;
+        descDiv.appendChild(summaryP);
+
+        // Add "Read more" link to seller URL
+        if (product.sellerUrl) {
+            const readMoreLink = document.createElement('a');
+            readMoreLink.href = product.sellerUrl;
+            readMoreLink.target = '_blank';
+            readMoreLink.rel = 'noopener noreferrer';
+            readMoreLink.className = 'read-more-link';
+            readMoreLink.innerHTML = `Read more on ${product.brandName || 'seller\'s website'} →`;
+            descDiv.appendChild(readMoreLink);
+        }
+
+        document.getElementById('description-card').style.display = 'block';
+    } else if (product.rawDescription) {
+        // Fallback: format rawDescription as short list
         const sentences = product.rawDescription
             .split(/[.!?]\s+/)
             .map(s => s.trim())
-            .filter(s => s.length > 10); // Filter out very short fragments
+            .filter(s => s.length > 10);
 
         if (sentences.length > 0) {
             const ul = document.createElement('ul');
@@ -434,6 +518,9 @@ function displayProduct(product) {
 
     // Initialize flavor profile radar charts
     loadFlavorProfileCharts(product);
+
+    // Load and display price history chart
+    loadPriceHistoryChart(product.id);
 
     // Chatbot button - navigate to chat page with prefilled product details
     document.getElementById('ask-chatbot-btn').onclick = () => {
@@ -464,35 +551,45 @@ function displayProduct(product) {
         window.location.href = `/chat.html?${params.toString()}`;
     };
 
-    // Request Update button (flags product for admin review)
+    // Report Issue button (flags product for admin review)
     document.getElementById('request-update-btn').onclick = async () => {
         const btn = document.getElementById('request-update-btn');
         const productId = getProductId();
 
-        // Disable button and show loading state
+        // Disable button and show submitting state
         btn.disabled = true;
-        btn.textContent = '⏳ Submitting...';
+        btn.textContent = 'Submitting...';
 
         try {
             const response = await fetch(`/api/products/${productId}/request-update`, {
                 method: 'POST'
             });
 
-            const message = await response.text();
-
             if (response.ok) {
-                btn.textContent = '✅ Update Requested';
-                btn.style.backgroundColor = '#27ae60';
+                // Show thank you message
+                btn.textContent = '✓ Well received, notified admin. Thank you!';
+                btn.style.color = '#27ae60';
+                btn.style.textDecoration = 'none';
             } else {
-                alert('❌ Failed to request update:\n' + message);
-                btn.disabled = false;
-                btn.textContent = '🔄 Request Update';
+                btn.textContent = 'Something went wrong. Please try again later.';
+                btn.style.color = '#e74c3c';
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = 'Found an issue with this product? Let us know';
+                    btn.style.color = '#888';
+                    btn.style.textDecoration = 'underline';
+                }, 3000);
             }
         } catch (error) {
-            console.error('Error requesting update:', error);
-            alert('❌ Failed to request update: ' + error.message);
-            btn.disabled = false;
-            btn.textContent = '🔄 Request Update';
+            console.error('Error reporting issue:', error);
+            btn.textContent = 'Something went wrong. Please try again later.';
+            btn.style.color = '#e74c3c';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = 'Found an issue with this product? Let us know';
+                btn.style.color = '#888';
+                btn.style.textDecoration = 'underline';
+            }, 3000);
         }
     };
 }
@@ -553,6 +650,21 @@ function initializeMap(product) {
             <strong>${product.origin}</strong><br>
             ${product.region || 'No specific region'}
         `).openPopup();
+    }
+
+    // Update Full Map link to include origin info
+    const fullMapLink = document.getElementById('full-map-link');
+    if (fullMapLink && product.origin) {
+        const params = new URLSearchParams();
+        params.set('origin', product.origin);
+        if (product.region) {
+            params.set('region', product.region);
+        }
+        if (hasCoordinates) {
+            params.set('lat', latitude);
+            params.set('lng', longitude);
+        }
+        fullMapLink.href = `/map.html?${params.toString()}`;
     }
 
     // Fix map rendering issue
@@ -659,7 +771,527 @@ async function logProductView(productId, brandId) {
     }
 }
 
+/**
+ * Load and render price history chart
+ */
+async function loadPriceHistoryChart(productId) {
+    const card = document.getElementById('price-history-card');
+    if (!card) return;
+
+    try {
+        const response = await fetch(`/api/products/${productId}/price-history`);
+        if (!response.ok) {
+            console.debug('No price history available');
+            return;
+        }
+
+        const historyBySize = await response.json();
+
+        // Check if we have enough data points (at least 2 for any bag size)
+        const hasEnoughData = Object.values(historyBySize).some(arr => arr.length >= 2);
+        if (!hasEnoughData) {
+            console.debug('Not enough price history to display chart');
+            return;
+        }
+
+        // Show the card and render chart
+        card.style.display = 'block';
+        renderPriceHistoryChart(historyBySize);
+
+    } catch (error) {
+        console.error('Error loading price history:', error);
+    }
+}
+
+/**
+ * Render price history line chart
+ */
+function renderPriceHistoryChart(historyBySize) {
+    const canvas = document.getElementById('priceHistoryChart');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Destroy existing chart if any
+    if (priceHistoryChartInstance) {
+        priceHistoryChartInstance.destroy();
+    }
+
+    // Colors for different bag sizes
+    const colors = ['#005F73', '#0A9396', '#94D2BD', '#E9D8A6', '#EE9B00', '#CA6702', '#BB3E03'];
+
+    // Build datasets
+    const datasets = [];
+    let colorIndex = 0;
+
+    for (const [size, history] of Object.entries(historyBySize)) {
+        if (history.length < 2) continue; // Need at least 2 points for a line
+
+        const color = colors[colorIndex % colors.length];
+
+        datasets.push({
+            label: size === 'default' ? 'Price' : size,
+            data: history.map(h => ({
+                x: new Date(h.recordedAt),
+                y: parseFloat(h.price)
+            })),
+            borderColor: color,
+            backgroundColor: color + '33',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: color,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2
+        });
+
+        colorIndex++;
+    }
+
+    if (datasets.length === 0) {
+        console.debug('No valid datasets for price history chart');
+        return;
+    }
+
+    priceHistoryChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'day',
+                        displayFormats: {
+                            day: 'MMM d'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Date',
+                        font: { weight: 'bold' }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Price (GBP)',
+                        font: { weight: 'bold' }
+                    },
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '£' + value.toFixed(2);
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: datasets.length > 1,
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function(context) {
+                            const date = new Date(context[0].parsed.x);
+                            return date.toLocaleDateString('en-GB', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                            });
+                        },
+                        label: function(context) {
+                            return `${context.dataset.label}: £${context.parsed.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            }
+        }
+    });
+}
+
+/**
+ * Load brand discounts and display banner if available
+ */
+async function loadBrandDiscount(brandId) {
+    if (!brandId) return;
+
+    try {
+        const response = await fetch(`/api/discounts/brand/${brandId}`);
+        if (!response.ok) return;
+
+        const discounts = await response.json();
+        if (!discounts || discounts.length === 0) return;
+
+        const banner = document.getElementById('brand-discount-banner');
+        const textEl = document.getElementById('discount-text');
+        const codeEl = document.getElementById('discount-code-badge');
+
+        // Build HTML for all discounts with full description
+        const discountHtml = discounts.map(discount => {
+            const hasCode = discount.discountCode && discount.discountCode.trim() && discount.discountCode !== 'null';
+            const hasDesc = discount.description && discount.description !== discount.title && discount.description !== 'null';
+
+            let html = `<div class="discount-item-inline">
+                <strong>${escapeHtml(discount.title)}</strong>`;
+
+            if (hasDesc) {
+                html += `<span class="discount-desc-inline"> - ${escapeHtml(discount.description)}</span>`;
+            }
+
+            if (hasCode) {
+                html += ` <code class="discount-code-inline" onclick="copyDiscountCode(this, '${escapeHtml(discount.discountCode)}')">${escapeHtml(discount.discountCode)}</code>`;
+            }
+
+            html += `</div>`;
+            return html;
+        }).join('');
+
+        textEl.innerHTML = discountHtml;
+        codeEl.style.display = 'none'; // Hide the old single code badge
+
+        banner.style.display = 'block';
+
+    } catch (error) {
+        console.debug('No discounts for brand:', error);
+    }
+}
+
+// Copy discount code helper
+function copyDiscountCode(el, code) {
+    navigator.clipboard.writeText(code).then(() => {
+        const original = el.textContent;
+        el.textContent = 'Copied!';
+        setTimeout(() => { el.textContent = original; }, 1500);
+    });
+}
+
+// Escape HTML helper
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ========== USER TRACKING ==========
+
+let userTracking = null;  // Current user's tracking for this product
+
+/**
+ * Initialize tracking UI if user is logged in
+ */
+async function initTrackingUI() {
+    // Wait for auth check to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
+    const trackingDiv = document.getElementById('product-tracking');
+
+    if (user && trackingDiv) {
+        trackingDiv.style.display = 'flex';
+        loadUserTracking();
+        setupTrackingListeners();
+    }
+
+    // Always load social proof
+    loadSocialProof();
+}
+
+/**
+ * Load user's current tracking for this product
+ */
+async function loadUserTracking() {
+    const productId = getProductId();
+    if (!productId) return;
+
+    try {
+        const response = await fetch(`/api/user/tracking/${productId}`);
+        if (response.ok) {
+            userTracking = await response.json();
+            updateTrackingUI();
+        }
+    } catch (e) {
+        console.debug('Failed to load tracking:', e);
+    }
+}
+
+/**
+ * Update tracking buttons and stars based on current state
+ */
+function updateTrackingUI() {
+    // Update status buttons
+    document.querySelectorAll('.track-btn').forEach(btn => {
+        const status = btn.dataset.status.toUpperCase();
+        btn.classList.toggle('active', userTracking?.status === status);
+    });
+
+    // Update star rating
+    const rating = userTracking?.rating || 0;
+    document.querySelectorAll('.tracking-rating .star').forEach(star => {
+        const starRating = parseInt(star.dataset.rating);
+        star.textContent = starRating <= rating ? '★' : '☆';
+        star.classList.toggle('filled', starRating <= rating);
+    });
+}
+
+/**
+ * Setup click listeners for tracking buttons
+ */
+function setupTrackingListeners() {
+    // Status buttons - toggle off if clicking same status
+    document.querySelectorAll('.track-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const status = btn.dataset.status.toUpperCase();
+            // If clicking the same status, remove tracking
+            if (userTracking?.status === status) {
+                await removeTracking();
+            } else {
+                await saveTracking(btn.dataset.status, userTracking?.rating);
+            }
+        });
+    });
+
+    // Star rating
+    document.querySelectorAll('.tracking-rating .star').forEach(star => {
+        star.addEventListener('click', async () => {
+            const rating = parseInt(star.dataset.rating);
+            await saveTracking(userTracking?.status || 'love', rating);
+        });
+
+        // Hover preview
+        star.addEventListener('mouseenter', () => {
+            const rating = parseInt(star.dataset.rating);
+            document.querySelectorAll('.tracking-rating .star').forEach(s => {
+                const r = parseInt(s.dataset.rating);
+                s.textContent = r <= rating ? '★' : '☆';
+            });
+        });
+
+        star.addEventListener('mouseleave', () => {
+            updateTrackingUI();  // Restore actual state
+        });
+    });
+}
+
+/**
+ * Save tracking to server
+ */
+async function saveTracking(status, rating) {
+    const productId = getProductId();
+    if (!productId) return;
+
+    try {
+        const response = await fetch(`/api/user/tracking/${productId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status, rating })
+        });
+
+        if (response.ok) {
+            userTracking = await response.json();
+            updateTrackingUI();
+            loadSocialProof();  // Refresh social proof
+        } else if (response.status === 401) {
+            // Not logged in - redirect to login
+            window.location.href = '/oauth2/authorization/google';
+        }
+    } catch (e) {
+        console.error('Failed to save tracking:', e);
+    }
+}
+
+/**
+ * Remove tracking from server
+ */
+async function removeTracking() {
+    const productId = getProductId();
+    if (!productId) return;
+
+    try {
+        const response = await fetch(`/api/user/tracking/${productId}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            userTracking = null;
+            updateTrackingUI();
+            loadSocialProof();  // Refresh social proof
+        }
+    } catch (e) {
+        console.error('Failed to remove tracking:', e);
+    }
+}
+
+/**
+ * Load social proof stats (love count, avg rating)
+ */
+async function loadSocialProof() {
+    const productId = getProductId();
+    if (!productId) return;
+
+    try {
+        const response = await fetch(`/api/products/${productId}/stats`);
+        if (!response.ok) return;
+
+        const stats = await response.json();
+        const socialDiv = document.getElementById('social-proof');
+
+        if (stats.loveCount > 0 || stats.ratingCount > 0) {
+            socialDiv.style.display = 'flex';
+
+            const loveEl = document.getElementById('love-count');
+            const ratingEl = document.getElementById('avg-rating');
+
+            if (stats.loveCount > 0) {
+                loveEl.textContent = `❤️ ${stats.loveCount} ${stats.loveCount === 1 ? 'person loves' : 'people love'} this`;
+                loveEl.style.display = 'inline';
+            } else {
+                loveEl.style.display = 'none';
+            }
+
+            if (stats.ratingCount > 0 && stats.avgRating) {
+                ratingEl.textContent = `⭐ ${stats.avgRating.toFixed(1)} (${stats.ratingCount} ${stats.ratingCount === 1 ? 'rating' : 'ratings'})`;
+                ratingEl.style.display = 'inline';
+            } else {
+                ratingEl.style.display = 'none';
+            }
+        }
+    } catch (e) {
+        console.debug('Failed to load social proof:', e);
+    }
+}
+
+/**
+ * Render consumer summary card (LLM-generated hobbyist-friendly description)
+ */
+function renderConsumerSummary(product) {
+    const card = document.getElementById('consumer-summary-card');
+    if (!card) return;
+
+    // Parse consumer summary JSON
+    let summary = null;
+    if (product.consumerSummaryJson) {
+        try {
+            summary = typeof product.consumerSummaryJson === 'string'
+                ? JSON.parse(product.consumerSummaryJson)
+                : product.consumerSummaryJson;
+        } catch (e) {
+            console.error('Error parsing consumer summary:', e);
+            return;
+        }
+    }
+
+    // Hide card if no summary
+    if (!summary) {
+        card.style.display = 'none';
+        return;
+    }
+
+    // Show card
+    card.style.display = 'block';
+
+    // Flavor Direction
+    if (summary.flavor_direction) {
+        document.getElementById('direction-icon').textContent = summary.flavor_direction.icon || '☕';
+        document.getElementById('direction-label').textContent = summary.flavor_direction.label || 'Coffee';
+        document.getElementById('direction-desc').textContent = summary.flavor_direction.description || '';
+    }
+
+    // Flavor Headline and Context
+    if (summary.flavor_headline) {
+        document.getElementById('flavor-headline').textContent = summary.flavor_headline;
+    }
+    if (summary.flavor_context) {
+        document.getElementById('flavor-context').textContent = summary.flavor_context;
+    }
+
+    // Best For
+    if (summary.best_for && Array.isArray(summary.best_for)) {
+        document.getElementById('best-for-list').textContent = summary.best_for.join('  •  ');
+    }
+
+    // One-liner Description
+    const oneLinerRow = document.getElementById('one-liner-row');
+    const oneLinerDivider = document.getElementById('one-liner-divider');
+    if (summary.consumer_description) {
+        document.getElementById('consumer-description').textContent = `"${summary.consumer_description}"`;
+        oneLinerRow.style.display = 'block';
+        oneLinerDivider.style.display = 'block';
+    } else {
+        oneLinerRow.style.display = 'none';
+        oneLinerDivider.style.display = 'none';
+    }
+
+    // Consumer Tags
+    const tagsContainer = document.getElementById('consumer-tags');
+    tagsContainer.innerHTML = '';
+    if (summary.tags && Array.isArray(summary.tags)) {
+        summary.tags.forEach(tag => {
+            const tagEl = document.createElement('span');
+            tagEl.className = 'consumer-tag';
+            tagEl.textContent = `${tag.icon} ${tag.label}`;
+            tagsContainer.appendChild(tagEl);
+        });
+    }
+}
+
+/**
+ * Render character bars (horizontal progress bars for acidity, body, roast, complexity)
+ * Character axes use -1.0 to +1.0 scale, normalized to 0-100% for display
+ */
+function renderCharacterBars(characterAxes) {
+    if (!characterAxes || characterAxes.length !== 4) return;
+
+    const [acidity, body, roast, complexity] = characterAxes;
+
+    // Normalize -1 to +1 → 0% to 100%
+    const normalize = (v) => Math.round(((v + 1) / 2) * 100);
+
+    // Get descriptive label based on value
+    const getLabel = (value, axis) => {
+        if (axis === 'acidity') {
+            return value > 0.3 ? 'Bright' : value < -0.3 ? 'Smooth' : 'Balanced';
+        } else if (axis === 'body') {
+            return value > 0.3 ? 'Full' : value < -0.3 ? 'Light' : 'Medium';
+        } else if (axis === 'roast') {
+            return value > 0.3 ? 'Dark' : value < -0.3 ? 'Light' : 'Medium';
+        } else if (axis === 'complexity') {
+            return value > 0.3 ? 'Complex' : value < -0.3 ? 'Clean' : 'Balanced';
+        }
+        return '-';
+    };
+
+    // Update bars
+    document.getElementById('bar-acidity').style.width = normalize(acidity) + '%';
+    document.getElementById('value-acidity').textContent = getLabel(acidity, 'acidity');
+
+    document.getElementById('bar-body').style.width = normalize(body) + '%';
+    document.getElementById('value-body').textContent = getLabel(body, 'body');
+
+    document.getElementById('bar-roast').style.width = normalize(roast) + '%';
+    document.getElementById('value-roast').textContent = getLabel(roast, 'roast');
+
+    document.getElementById('bar-complexity').style.width = normalize(complexity) + '%';
+    document.getElementById('value-complexity').textContent = getLabel(complexity, 'complexity');
+}
+
 // Initialize page
 document.addEventListener('DOMContentLoaded', () => {
     loadProduct();
+    initTrackingUI();
 });

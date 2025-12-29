@@ -1,31 +1,187 @@
-Extract structured coffee product information from the following content.
+Extract coffee product data from this product page text.
 
 Brand: {BRAND_NAME}
 URL: {PRODUCT_URL}
-Content: {RAW_CONTENT}
 
-Extract and return ONLY a valid JSON object with the following schema:
+Page Text:
+{PRODUCT_TEXT}
+
+Extract and return a JSON object with these fields:
 {
-  "product_name": "string (required)",
-  "origin": "string (country)",
-  "region": "string (specific region or farm)",
-  "process": "string (e.g., Washed, Natural, Honey, Anaerobic)",
-  "producer": "string (farm or producer name)",
-  "variety": "string (coffee variety/cultivar)",
-  "altitude": "string (elevation)",
-  "tasting_notes": ["array", "of", "strings"],
-  "price": number,
-  "in_stock": boolean
+  "product_name": "Full product name (required)",
+  "origin": "Country/countries of origin - look for 'Country:', geographic names like Ethiopia, Colombia, Brazil, El Salvador, Kenya, etc. For blends with multiple origins, combine with ' / ' (e.g., 'Ethiopia / El Salvador') or null",
+  "region": "Farm/Region/Growing area (e.g., Sidama, Huehuetenango, Yirgacheffe) or null",
+  "process": "Processing method - capture ALL details including variations. Look for: Natural, Washed, Honey (White/Yellow/Red/Black Honey), Anaerobic, Carbonic Maceration, Lactic, Pulped Natural, Semi-Washed, Wet-Hulled (Giling Basah), Extended Fermentation, Double Anaerobic, etc. IMPORTANT: Include color prefix for Honey (e.g., 'Black Honey' not just 'Honey'). For combined processes use format like 'Anaerobic Natural'. Multiple distinct processes combine with '/' or null",
+  "producer": "Farm name, producer name, or cooperative - look for 'Producer:', farmer names, estate names, or 'Various Smallholders'. Combine multiple with 'and' (e.g., 'José Arnulfo Montiel and Various Smallholders') or null",
+  "variety": "Coffee variety/cultivar - look for: Bourbon, Geisha, Caturra, Typica, Pacamara, Catuai, SL28, SL34, Heirloom, etc. Combine multiple with ', ' (e.g., 'Pacamara, Gibirinna 74110') or null",
+  "altitude": "Altitude/elevation (e.g., '1,800 MASL', '2000-2200m', '1600m') or null",
+  "tasting_notes": ["chocolate", "caramel", "berry"] - ONLY actual coffee flavor/aroma descriptors in lowercase. See TASTING NOTES EXTRACTION rules below,
+  "price": 12.50 (number) - The SMALLEST/cheapest price option, remove currency symbols. IMPORTANT: Keep full number for JPY/KRW (e.g., "¥5200" → 5200, NOT 52.00). For GBP/USD/EUR use decimal (e.g., "£10.00" → 10.00),
+  "currency": "GBP" (string) - ISO 4217 currency code detected from price symbols: £/GBP, $/USD, €/EUR, ¥/JPY, A$/AUD, C$/CAD, etc. Default "GBP" if unclear,
+  "price_variants": [{"size": "250g", "price": 10.00}, {"size": "1kg", "price": 35.00}] - ALL available size/price combinations (keep full numbers for JPY/KRW), or null if only one price,
+  "in_stock": true (default) or false ONLY if page explicitly says "out of stock", "sold out", "unavailable", or "currently unavailable",
+  "raw_description": "Main product description text - capture the coffee's story, tasting profile, and key details",
+  "description_summary": "Condense raw_description by grouping related content into clean sentences. Keep original wording - do not rewrite or change words, just remove redundancy and reorganize. Capture as much content as possible. Exclude origin, producer, process, variety, tasting notes (extracted separately). Focus on: project history, sustainability, farm story, processing philosophy. Return null if no story exists.",
+
+  "flavor_profile": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+  "character_axes": [0.0, 0.0, 0.0, 0.0]
 }
 
-Important rules:
-1. Return ONLY the JSON object, no other text
-2. If information is not found, use null
-3. Normalize process names (e.g., "Honey Anaerobic" not "honey-anaerobic")
-4. Extract ALL tasting notes from the content, including:
-   - Notes in simple lists (e.g., "blackcurrant, mango, honey")
-   - Notes embedded in prose descriptions (e.g., "We're tasting: blackcurrant, blackberry and tomato leaf. In the cup it's unctuous and syrupy - blackcurrant, mango, honey...")
-   - Look for sections labeled "Tasting Notes", "We're tasting", "Flavour", "Notes", etc.
-   - Extract individual flavor words from descriptive sentences (e.g., from "blackcurrant, blackberry and a hint of tomato leaf" extract ["blackcurrant", "blackberry", "tomato leaf"])
-5. Ensure product_name is always populated
-6. Clean and standardize values (proper capitalization, no extra whitespace)
+=== FLAVOR PROFILE (9 dimensions, 0.0 to 1.0) ===
+A 9-dimensional intensity vector for flavor presence.
+
+INDEX MAPPING:
+[0] fruity   - berry, citrus, tropical, stone fruit, apple, grape
+[1] floral   - jasmine, rose, lavender, chamomile, hibiscus
+[2] sweet    - honey, caramel, chocolate, vanilla, maple, brown sugar
+[3] nutty    - almond, hazelnut, walnut, peanut, pecan
+[4] spices   - cinnamon, clove, pepper, cardamom, ginger
+[5] roasted  - dark chocolate, tobacco, smoky, burnt, bitter
+[6] green    - vegetative, herbal, grassy, tea-like, fresh
+[7] sour     - citric acid, bright acidity, tangy, fermented
+[8] other    - earthy, woody, leather, mushroom
+
+INTENSITY SCALE (use continuous values, not just 0.2/0.4/0.6/0.8):
+0.0 = not detected
+0.1-0.25 = subtle hint ("hints of", "slight", "delicate")
+0.3-0.45 = noticeable ("notes of", "with", "touch of")
+0.5-0.65 = prominent ("bright", "vibrant", "juicy")
+0.7-0.85 = defining ("pronounced", "bold", "rich")
+0.9-1.0 = dominant ("overwhelming", "intense", "explosive")
+
+IMPORTANT: Use the FULL continuous scale (e.g., 0.35, 0.55, 0.72) based on descriptive intensity. Do NOT round to 0.2/0.4/0.6/0.8.
+
+=== CHARACTER AXES (4 dimensions, -1.0 to +1.0) ===
+A 4-dimensional bipolar vector for coffee character.
+
+INDEX MAPPING:
+[0] acidity:    -1.0=flat/smooth/mellow    to  +1.0=bright/tangy/citric
+[1] body:       -1.0=light/tea-like/thin   to  +1.0=heavy/syrupy/full
+[2] roast:      -1.0=light/origin-forward  to  +1.0=dark/roast-forward
+[3] complexity: -1.0=clean/simple          to  +1.0=complex/funky/winey
+
+ORIGIN-BASED INFERENCE (when tasting notes are sparse):
+- Ethiopian/Kenyan + washed → acidity +0.35 to +0.5 (classic bright African)
+- Brazilian/Sumatran/Indonesian → acidity -0.15 to -0.3 (typically low acid)
+- Colombian/Central American → acidity +0.1 to +0.3 (balanced)
+
+PROCESS-BASED INFERENCE:
+- Natural/Dry process → body +0.25 to +0.4, complexity +0.2 to +0.4
+- Washed process → body -0.1 to -0.25, complexity -0.1 to -0.2
+- White/Yellow Honey → body +0.05 to +0.15, complexity +0.05 to +0.15
+- Red/Black Honey → body +0.2 to +0.35, complexity +0.25 to +0.45
+- Anaerobic/Carbonic Maceration → complexity +0.3 to +0.5
+- Lactic Fermentation → complexity +0.2 to +0.4, acidity +0.1 to +0.2
+
+NOTE: See "TASTING NOTE → CHARACTER INFERENCE" section below for detailed fruit/texture/roast inference rules.
+
+=== COMPLETE EXAMPLES ===
+
+1. "Light roast Ethiopian Yirgacheffe. Bright citrus acidity, tea-like body. Blueberry, jasmine, lemon."
+   flavor_profile: [0.75, 0.55, 0.0, 0.0, 0.0, 0.0, 0.0, 0.45, 0.0]
+   character_axes: [0.65, -0.45, -0.55, 0.1]
+
+2. "Dark roast Brazilian. Full body, low acidity, chocolate, nutty, caramel."
+   flavor_profile: [0.0, 0.0, 0.52, 0.58, 0.0, 0.65, 0.0, 0.0, 0.0]
+   character_axes: [-0.55, 0.58, 0.68, -0.25]
+
+3. "Natural process Geisha. Explosive tropical fruit, syrupy, winey, funky ferment."
+   flavor_profile: [0.92, 0.35, 0.38, 0.0, 0.0, 0.0, 0.0, 0.42, 0.0]
+   character_axes: [0.28, 0.72, -0.38, 0.78]
+
+4. "Medium roast Colombia. Balanced, clean cup, chocolate, caramel, hint of citrus."
+   flavor_profile: [0.18, 0.0, 0.58, 0.0, 0.0, 0.42, 0.0, 0.0, 0.0]
+   character_axes: [0.12, 0.05, 0.0, -0.35]
+
+5. "Sumatra Mandheling. Earthy, cedar, herbal, full body, low acid."
+   flavor_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.38, 0.0, 0.72]
+   character_axes: [-0.62, 0.55, 0.32, 0.18]
+
+=== TASTING NOTE → CHARACTER INFERENCE (James Hoffmann Framework) ===
+
+FRUIT WORDS → ACIDITY:
+Fresh fruit words indicate acidity level. No fruit words = low acidity.
+- Berry fruits (blueberry, raspberry, blackberry, strawberry) → acidity +0.4 to +0.6
+- Citrus fruits (lemon, lime, grapefruit, orange, zesty, tangy) → acidity +0.5 to +0.7
+- Stone fruits (peach, apricot, cherry, plum) → acidity +0.2 to +0.4
+- Apple/pear/grape → acidity +0.2 to +0.4
+- Cooked/candied fruit (jammy, candied, compote, dried fruit, raisin) → acidity 0.0 to +0.2
+- NO fruit words (only chocolate, nuts, caramel, toffee) → acidity -0.3 to -0.5
+
+TEXTURE WORDS → BODY:
+Look for explicit body/texture descriptors. Default to medium if none.
+- "Delicate", "elegant", "tea-like", "light", "thin", "crisp" → body -0.4 to -0.6
+- "Creamy", "rich", "full", "syrupy", "heavy", "velvety", "thick" → body +0.4 to +0.6
+- "Smooth", "balanced", "round" → body 0.0 to +0.2
+- No body descriptors → body 0.0 (medium, default)
+
+FERMENTED/FUNKY DETECTION (Natural Process Indicator):
+Tropical fruits + Natural process often indicates fermented flavors (~40% of people dislike these).
+- Tropical fruits (pineapple, mango, papaya, passion fruit, lychee) → complexity +0.3 to +0.5
+- Tropical fruits + Natural/Dry process → complexity +0.5 to +0.7
+- "Winey", "boozy", "fermented", "funky", "wild" → complexity +0.6 to +0.8
+- "Clean", "classic", "traditional" → complexity -0.3 to -0.5
+
+ROAST LEVEL INDICATORS:
+- Strength 3 (supermarket) / "Light roast" / "Filter roast" → roast -0.4 to -0.6
+- Strength 4 / "Medium roast" / "Omni roast" → roast -0.1 to +0.1
+- Strength 5 / "Dark roast" / "Espresso roast" → roast +0.4 to +0.7
+- Dark roast also implies: acidity -0.2 to -0.4, body +0.2 to +0.3
+
+=== IMPORTANT EXTRACTION RULES ===
+
+ORIGIN EXTRACTION:
+- Look for field labels: "Country:", "Origin:", "Region:"
+- Look for geographic names: Ethiopia, Colombia, Brazil, Kenya, Costa Rica, Guatemala, Honduras, Peru, Indonesia, Rwanda, El Salvador, Panama, Nicaragua, Mexico, etc.
+- For blends: combine all origin countries with ' / ' (e.g., "Ethiopia / El Salvador")
+- Check product title and description for country names
+
+PROCESS EXTRACTION:
+- Look for: "Process:", "Processing:", "Method:", "Fermentation:"
+- TRADITIONAL: Natural (Dry), Washed (Wet), Pulped Natural, Semi-Washed, Wet-Hulled (Giling Basah)
+- HONEY VARIATIONS: White Honey, Yellow Honey, Red Honey, Black Honey (capture the color prefix!)
+- FERMENTATION: Anaerobic, Carbonic Maceration, Lactic, Double Anaerobic, Extended Fermentation, Yeast-Inoculated, Thermal Shock
+- COMBINED: Anaerobic Natural, Anaerobic Washed, Anaerobic Honey, Double Fermented
+- IMPORTANT: Capture the FULL process name (e.g., "Black Honey" not just "Honey", "Anaerobic Natural" not just "Anaerobic")
+- For multiple processes, combine with '/' (e.g., "Anaerobic Natural / Carbonic Maceration")
+
+TASTING NOTES EXTRACTION:
+- ONLY extract actual coffee FLAVOR and AROMA descriptors
+- ALL notes must be lowercase (e.g., "chocolate" not "Chocolate")
+- VALID flavors (examples):
+  * Fruits: blueberry, strawberry, cherry, citrus, lemon, orange, peach, apricot, apple, grape, mango, pineapple, passion fruit, plum, raspberry, blackberry, fig, date, raisin
+  * Sweet: chocolate, dark chocolate, milk chocolate, caramel, honey, maple, brown sugar, molasses, toffee, butterscotch, vanilla, cocoa
+  * Nuts: almond, hazelnut, walnut, peanut, pecan, cashew, macadamia
+  * Floral: jasmine, rose, lavender, hibiscus, bergamot, orange blossom, chamomile
+  * Spices: cinnamon, clove, cardamom, nutmeg, ginger, pepper, anise
+  * Other: tobacco, leather, cedar, oak, earthy, smoky, winey, boozy, tea-like, herbal, grassy
+  * Texture descriptors: creamy, syrupy, silky, velvety, juicy, crisp
+- INVALID (NEVER include these):
+  * Marketing words: fresh, delivered, fast, free, letterbox-friendly, sustainable, ethical, organic, specialty, artisan, craft, premium, quality
+  * Shipping/packaging: letterbox, packaging, bag, pouch, box, subscription
+  * Generic adjectives: good, nice, great, amazing, best, perfect, delicious, tasty
+  * Non-flavor terms: roasted (unless "roasted nuts"), ground, whole bean, filter, espresso
+- If NO valid tasting notes found, return empty array []
+- Maximum 10 tasting notes per product
+
+VARIETY EXTRACTION:
+- Look for: "Variety:", "Varietal:", "Cultivar:"
+- Common varieties: Bourbon, Geisha/Gesha, Caturra, Typica, Pacamara, Catuai, SL28, SL34, Heirloom, Castillo, Colombia, Pink Bourbon, Yellow Bourbon, Red Bourbon, Ethiopian Heirloom, Pacas
+- Combine multiple varieties with ', ' (e.g., "Bourbon, Caturra")
+
+PRODUCER EXTRACTION:
+- Look for: "Producer:", "Farm:", "Estate:", "Cooperative:", "Farmer:"
+- Extract farm names, estate names, farmer names, or cooperative names
+- "Various Smallholders" is valid if multiple small farmers
+
+OTHER RULES:
+- tasting_notes: See TASTING NOTES EXTRACTION section - only valid flavors, all lowercase, no marketing words
+- in_stock: DEFAULT TO TRUE. Only set to false if CLEARLY unavailable. Ignore hidden HTML. If you see "Add to Cart" or prices, it's in stock.
+- price: Extract the SMALLEST price (usually smallest bag size like 200g or 250g)
+- price_variants: If multiple sizes exist, extract ALL as array
+- flavor_profile: Sum does NOT need to equal 1.0. Always output exactly 9 values.
+- character_axes: Use inference rules when descriptors missing. Always output exactly 4 values.
+- Use null for truly missing fields, not empty strings
+- Return ONLY valid JSON, no markdown code blocks
+
+Return the JSON object:

@@ -845,6 +845,123 @@ public class PerplexityApiService {
     }
 
     /**
+     * Extract brand details from website with a known brand name.
+     * Used for user suggestions where we already know the brand name and URL.
+     * Only extracts location, sitemap, and description - name is fixed.
+     */
+    public BrandDetails discoverBrandDetailsFromWebsite(String brandName, String inputUrl) {
+        if (apiKey == null || apiKey.isEmpty()) {
+            log.warn("Perplexity API key not configured");
+            return null;
+        }
+
+        // Extract base website URL from sitemap URL if needed
+        String websiteUrl = inputUrl;
+        String sitemapUrl = null;
+
+        if (inputUrl.contains("sitemap")) {
+            try {
+                java.net.URL url = new java.net.URL(inputUrl);
+                websiteUrl = url.getProtocol() + "://" + url.getHost();
+                sitemapUrl = inputUrl;
+                log.info("Detected sitemap URL, extracted base website: {} (sitemap: {})", websiteUrl, sitemapUrl);
+            } catch (Exception e) {
+                log.warn("Could not parse URL: {}", inputUrl);
+            }
+        }
+
+        String prompt = String.format("""
+                Analyze this coffee roaster website: %s
+                Brand Name: %s
+                %s
+
+                Extract and return a JSON object with the following fields:
+                {
+                  "name": "%s",
+                  "website": "%s",
+                  "sitemapUrl": "Find the product sitemap URL (e.g., sitemap_products.xml or products-sitemap.xml) - check /sitemap.xml first",
+                  "country": "Country code where the roaster is based (e.g., UK, US, DE)",
+                  "city": "City/town where the roaster is located",
+                  "address": "Full street address of the shop/roastery if publicly available",
+                  "postcode": "Postcode/postal code",
+                  "description": "Brief description of the roaster (1-2 sentences about what makes them special)"
+                }
+
+                Important:
+                - The brand name is ALREADY PROVIDED as "%s" - use this exact name
+                - Focus on finding: sitemap URL, location details, and description
+                - Look for address in: Contact page, About page, footer, "Visit Us" section
+                - For sitemap: Check %s/sitemap.xml and look for product-specific sitemaps
+
+                CRITICAL: Return ONLY valid JSON. No explanations, no markdown, just the JSON object.
+                """,
+                websiteUrl,
+                brandName,
+                sitemapUrl != null ? "Sitemap URL for reference: " + sitemapUrl : "",
+                brandName,
+                websiteUrl,
+                brandName,
+                websiteUrl
+        );
+
+        try {
+            String response = callPerplexityApi(prompt);
+            log.info("Perplexity raw response for {} ({}): {}", brandName, inputUrl,
+                    response.length() > 500 ? response.substring(0, 500) + "..." : response);
+
+            String cleanedResponse = response.trim();
+
+            // Clean markdown code blocks if present
+            if (cleanedResponse.startsWith("```json")) {
+                cleanedResponse = cleanedResponse.substring(7);
+            }
+            if (cleanedResponse.startsWith("```")) {
+                cleanedResponse = cleanedResponse.substring(3);
+            }
+            if (cleanedResponse.endsWith("```")) {
+                cleanedResponse = cleanedResponse.substring(0, cleanedResponse.length() - 3);
+            }
+            cleanedResponse = cleanedResponse.trim();
+
+            // Try to extract JSON if there's extra text
+            int jsonStart = cleanedResponse.indexOf('{');
+            int jsonEnd = cleanedResponse.lastIndexOf('}');
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                cleanedResponse = cleanedResponse.substring(jsonStart, jsonEnd + 1);
+            } else {
+                log.warn("No JSON found in Perplexity response for {}: {}", brandName,
+                        cleanedResponse.length() > 200 ? cleanedResponse.substring(0, 200) : cleanedResponse);
+                return null;
+            }
+
+            log.debug("Cleaned response for parsing: {}", cleanedResponse);
+
+            BrandDetails details = objectMapper.readValue(cleanedResponse, BrandDetails.class);
+
+            // Force the provided brand name (don't let AI override)
+            details.name = brandName;
+
+            // Ensure website is set correctly
+            if (details.website == null || details.website.isBlank() || details.website.contains("sitemap")) {
+                details.website = websiteUrl;
+            }
+
+            // Use provided sitemap if we detected one
+            if (sitemapUrl != null && (details.sitemapUrl == null || details.sitemapUrl.equals("null"))) {
+                details.sitemapUrl = sitemapUrl;
+            }
+
+            log.info("Discovered brand details for {}: country={}, city={}, sitemap={}",
+                    brandName, details.country, details.city, details.sitemapUrl);
+            return details;
+
+        } catch (Exception e) {
+            log.error("Failed to discover brand details for {} ({}): {}", brandName, inputUrl, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Search for product URL using Perplexity
      */
     public String searchProductUrl(String brandName, String productName) {

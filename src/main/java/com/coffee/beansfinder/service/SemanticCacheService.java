@@ -155,6 +155,12 @@ public class SemanticCacheService {
                 float[] cachedEmbedding = objectMapper.readValue(embeddingJson, float[].class);
                 double similarity = cosineSimilarity(queryEmbedding, cachedEmbedding);
 
+                // Log similarity scores for debugging (only high scores)
+                if (similarity > 0.7) {
+                    log.debug("Semantic similarity: {} (threshold: {})",
+                            String.format("%.4f", similarity), similarityThreshold);
+                }
+
                 if (similarity > bestSimilarity && similarity >= similarityThreshold) {
                     bestSimilarity = similarity;
                     // Convert embedding key to cache key
@@ -165,6 +171,14 @@ public class SemanticCacheService {
             } catch (Exception e) {
                 log.warn("Error comparing embedding: {}", e.getMessage());
             }
+        }
+
+        // Log best match result
+        if (bestMatchKey != null) {
+            log.info("Semantic cache: best match found with similarity {}", String.format("%.4f", bestSimilarity));
+        } else if (bestSimilarity > 0) {
+            log.info("Semantic cache: best similarity {} below threshold {}",
+                    String.format("%.4f", bestSimilarity), similarityThreshold);
         }
 
         return bestMatchKey;

@@ -1,18 +1,24 @@
 package com.coffee.beansfinder.service;
 
+import com.coffee.beansfinder.dto.ConsumerSummaryDTO;
 import com.coffee.beansfinder.dto.ExtractedProductData;
+import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -42,8 +48,29 @@ public class OpenAIService {
     @Value("${openai.max.tokens:1500}")
     private int maxTokens;
 
+    @Value("${openai.extraction.prompt.path:prompts/product_extraction_prompt.txt}")
+    private String extractionPromptPath;
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+
+    // Cached prompt template loaded from file
+    private String extractionPromptTemplate;
+
+    /**
+     * Load the extraction prompt template from file on startup
+     */
+    @PostConstruct
+    public void loadPromptTemplate() {
+        try {
+            ClassPathResource resource = new ClassPathResource(extractionPromptPath);
+            extractionPromptTemplate = StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+            log.info("Loaded extraction prompt template from: {} ({} chars)", extractionPromptPath, extractionPromptTemplate.length());
+        } catch (Exception e) {
+            log.warn("Failed to load extraction prompt from file: {}. Using inline prompt.", e.getMessage());
+            extractionPromptTemplate = null;
+        }
+    }
 
     /**
      * Extract product data from text content using GPT-4o-mini
@@ -111,8 +138,19 @@ public class OpenAIService {
 
     /**
      * Build extraction prompt for OpenAI
+     * Uses external template file for easy editing without code changes
      */
     private String buildExtractionPrompt(String productText, String brandName, String productUrl) {
+        // Use external template if loaded
+        if (extractionPromptTemplate != null) {
+            return extractionPromptTemplate
+                    .replace("{BRAND_NAME}", brandName)
+                    .replace("{PRODUCT_URL}", productUrl)
+                    .replace("{PRODUCT_TEXT}", productText);
+        }
+
+        // Fallback to inline prompt if file not loaded
+        log.warn("Using fallback inline prompt - external template not loaded");
         return String.format("""
                 Extract coffee product data from this product page text.
 
@@ -128,22 +166,19 @@ public class OpenAIService {
                   "origin": "Country/countries of origin - look for 'Country:', geographic names like Ethiopia, Colombia, Brazil, El Salvador, Kenya, etc. For blends with multiple origins, combine with ' / ' (e.g., 'Ethiopia / El Salvador') or null",
                   "region": "Farm/Region/Growing area (e.g., Sidama, Huehuetenango, Yirgacheffe) or null",
                   "process": "Processing method - look for: Natural, Washed, Honey, Anaerobic, Wet, Dry, Pulped Natural, Semi-Washed, etc. For multiple processes combine with '/' (e.g., 'Natural/Honey') or null",
-                  "producer": "Farm name, producer name, or cooperative - look for 'Producer:', farmer names, estate names, or 'Various Smallholders'. Combine multiple with 'and' (e.g., 'José Arnulfo Montiel and Various Smallholders') or null",
-                  "variety": "Coffee variety/cultivar - look for: Bourbon, Geisha, Caturra, Typica, Pacamara, Catuai, SL28, SL34, Heirloom, etc. Combine multiple with ', ' (e.g., 'Pacamara, Gibirinna 74110') or null",
+                  "producer": "Farm name, producer name, or cooperative - look for 'Producer:', farmer names, estate names, or 'Various Smallholders'. Combine multiple with 'and' or null",
+                  "variety": "Coffee variety/cultivar - look for: Bourbon, Geisha, Caturra, Typica, Pacamara, Catuai, SL28, SL34, Heirloom, etc. Combine multiple with ', ' or null",
                   "altitude": "Altitude/elevation (e.g., '1,800 MASL', '2000-2200m', '1600m') or null",
                   "tasting_notes": ["flavor1", "flavor2", "flavor3"] - Extract ALL flavors, descriptors, and cupping notes mentioned,
-                  "price": 12.50 (number) - The SMALLEST/cheapest price option as decimal, remove currency symbols (e.g., "£10.00" → 10.00) or null,
-                  "price_variants": [{"size": "250g", "price": 10.00}, {"size": "1kg", "price": 35.00}] - ALL available size/price combinations, or null if only one price,
-                  "in_stock": true (default) or false ONLY if page explicitly says "out of stock", "sold out", "unavailable", or "currently unavailable",
-                  "raw_description": "Main product description text - capture the coffee's story, tasting profile, and key details",
-
+                  "price": 12.50 (number) - The SMALLEST/cheapest price option as decimal or null,
+                  "price_variants": [{"size": "250g", "price": 10.00}, {"size": "1kg", "price": 35.00}] - ALL available size/price combinations, or null,
+                  "in_stock": true (default) or false ONLY if page explicitly says "out of stock", "sold out",
+                  "raw_description": "Main product description text",
                   "flavor_profile": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
                   "character_axes": [0.0, 0.0, 0.0, 0.0]
                 }
 
                 === FLAVOR PROFILE (9 dimensions, 0.0 to 1.0) ===
-                A 9-dimensional intensity vector for flavor presence.
-
                 INDEX MAPPING:
                 [0] fruity   - berry, citrus, tropical, stone fruit, apple, grape
                 [1] floral   - jasmine, rose, lavender, chamomile, hibiscus
@@ -155,69 +190,29 @@ public class OpenAIService {
                 [7] sour     - citric acid, bright acidity, tangy, fermented
                 [8] other    - earthy, woody, leather, mushroom
 
-                INTENSITY SCALE (use continuous values, not just 0.2/0.4/0.6/0.8):
-                0.0 = not detected
-                0.1-0.25 = subtle hint ("hints of", "slight", "delicate")
-                0.3-0.45 = noticeable ("notes of", "with", "touch of")
-                0.5-0.65 = prominent ("bright", "vibrant", "juicy")
-                0.7-0.85 = defining ("pronounced", "bold", "rich")
-                0.9-1.0 = dominant ("overwhelming", "intense", "explosive")
-
-                IMPORTANT: Use the FULL continuous scale (e.g., 0.35, 0.55, 0.72) based on descriptive intensity. Do NOT round to 0.2/0.4/0.6/0.8.
+                INTENSITY SCALE (use continuous values 0.0-1.0):
+                0.0 = not detected, 0.1-0.25 = subtle hint, 0.3-0.45 = noticeable,
+                0.5-0.65 = prominent, 0.7-0.85 = defining, 0.9-1.0 = dominant
 
                 === CHARACTER AXES (4 dimensions, -1.0 to +1.0) ===
-                A 4-dimensional bipolar vector for coffee character.
-
                 INDEX MAPPING:
                 [0] acidity:    -1.0=flat/smooth/mellow    to  +1.0=bright/tangy/citric
                 [1] body:       -1.0=light/tea-like/thin   to  +1.0=heavy/syrupy/full
                 [2] roast:      -1.0=light/origin-forward  to  +1.0=dark/roast-forward
                 [3] complexity: -1.0=clean/simple          to  +1.0=complex/funky/winey
 
-                INFERENCE RULES (when not explicitly stated):
+                INFERENCE RULES:
                 - Ethiopian/Kenyan + washed -> acidity +0.35 to +0.5
                 - Brazilian/Indonesian -> acidity -0.15 to -0.3
                 - Natural/honey process -> body +0.25 to +0.4, complexity +0.2 to +0.4
                 - Washed process -> body -0.1 to -0.25, complexity -0.1 to -0.2
                 - Dark roast -> acidity -0.2 to -0.4, body +0.15 to +0.3, roast +0.5 to +0.7
                 - Light roast -> roast -0.5 to -0.7
-                - Prominent fruit/floral -> roast -0.2 to -0.4
                 - "funky", "winey", "fermented" -> complexity +0.5 to +0.7
 
-                === COMPLETE EXAMPLES ===
-
-                1. "Light roast Ethiopian Yirgacheffe. Bright citrus acidity, tea-like body. Blueberry, jasmine, lemon."
-                   flavor_profile: [0.75, 0.55, 0.0, 0.0, 0.0, 0.0, 0.0, 0.45, 0.0]
-                   character_axes: [0.65, -0.45, -0.55, 0.1]
-
-                2. "Dark roast Brazilian. Full body, low acidity, chocolate, nutty, caramel."
-                   flavor_profile: [0.0, 0.0, 0.52, 0.58, 0.0, 0.65, 0.0, 0.0, 0.0]
-                   character_axes: [-0.55, 0.58, 0.68, -0.25]
-
-                3. "Natural process Geisha. Explosive tropical fruit, syrupy, winey, funky ferment."
-                   flavor_profile: [0.92, 0.35, 0.38, 0.0, 0.0, 0.0, 0.0, 0.42, 0.0]
-                   character_axes: [0.28, 0.72, -0.38, 0.78]
-
-                4. "Medium roast Colombia. Balanced, clean cup, chocolate, caramel, hint of citrus."
-                   flavor_profile: [0.18, 0.0, 0.58, 0.0, 0.0, 0.42, 0.0, 0.0, 0.0]
-                   character_axes: [0.12, 0.05, 0.0, -0.35]
-
-                5. "Sumatra Mandheling. Earthy, cedar, herbal, full body, low acid."
-                   flavor_profile: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.38, 0.0, 0.72]
-                   character_axes: [-0.62, 0.55, 0.32, 0.18]
-
-                IMPORTANT extraction rules:
-                - origin: Look for field labels like "Country:", or geographic names in product details
-                - For blends, combine all origin countries (e.g., "Ethiopia / El Salvador" from "Ethiopia" and "El Salvador")
-                - process: Look for "Process:", "Processing:", or method names (Natural/Washed/Honey)
-                - producer: Look for "Producer:", farmer/farm names, or "Various Smallholders"
-                - variety: Look for "Variety:", cultivar names (Bourbon, Geisha, Pacamara, etc.)
-                - tasting_notes: Extract ALL flavor descriptors, not just the obvious ones
-                - in_stock: DEFAULT TO TRUE. Only set to false if the product is CLEARLY unavailable for purchase. Ignore hidden HTML elements or template text like "Unavailable" in hidden divs. If you see "Add to Cart", "Buy Now", "Add to Bag", or price options visible, the product IS in stock (true). Only set false if you see prominent "SOLD OUT", "OUT OF STOCK", or disabled purchase buttons as the main call-to-action.
-                - price: Extract the SMALLEST price (usually the smallest bag size like 200g or 250g)
-                - price_variants: If multiple sizes exist (e.g., "200g £10 | 1kg £35"), extract ALL as array. Look for size selectors, dropdown options, or multiple price listings.
-                - flavor_profile: Sum does NOT need to equal 1.0 (independent categories). Always output exactly 9 values.
-                - character_axes: Use inference rules when descriptors are missing. Always output exactly 4 values.
+                IMPORTANT:
+                - flavor_profile: Always output exactly 9 values. Sum does NOT need to equal 1.0.
+                - character_axes: Always output exactly 4 values. Use inference rules when descriptors missing.
                 - Use null for truly missing fields, not empty strings
                 - Return ONLY valid JSON, no markdown code blocks
 

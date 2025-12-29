@@ -20,56 +20,74 @@
             <div class="nav-links">
                 <a href="/" class="active">Home</a>
                 <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">🎨 By Flavor</a>
+                        <a href="/filter-products.html">🔍 By Product</a>
+                        <a href="/discover.html">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
                 <a href="/brands.html">Brands</a>
-                <a href="/flavor-wheel.html">Flavor Wheel</a>
-                <a href="/map.html">Map</a>
+                <a href="/insights.html">Insights</a>
             </div>
         </div>
     </nav>
 
     <main class="container">
-        <section class="hero">
+        <!-- Warm Welcome Hero -->
+        <section class="hero welcome-hero">
             <h2>Welcome to Graphee.link</h2>
-            <p>Your centralized database for specialty coffee brands and products</p>
+            <p class="welcome-subtitle">Your guide to discovering specialty coffee.</p>
+            <p class="welcome-tagline">Whether you're just starting your coffee journey or you're a seasoned enthusiast, we're here to help you find something you'll love.</p>
         </section>
 
-        <section class="features">
-            <div class="feature-card">
-                <h3>🏢 Browse Brands</h3>
-                <p>Explore approved specialty coffee roasters from around the world</p>
-                <a href="/brands.html" class="btn btn-primary">View Brands</a>
-            </div>
+        <!-- 3-Tier Entry Section -->
+        <section class="entry-chooser">
+            <div class="entry-cards">
+                <!-- Left: Beginner -->
+                <a href="/quiz.html" class="entry-card entry-beginner">
+                    <span class="entry-icon">🌱</span>
+                    <h3>Help me choose</h3>
+                    <p>No worries - we'll guide you. Answer a few simple questions and we'll suggest coffees you might enjoy.</p>
+                    <span class="entry-cta">Start →</span>
+                </a>
 
-            <div class="feature-card">
-                <h3>🎨 Flavor Wheel</h3>
-                <p>Explore the SCA flavor wheel and discover products by taste profile</p>
-                <a href="/flavor-wheel.html" class="btn btn-primary">Explore Flavors</a>
-            </div>
+                <!-- Middle: Casual -->
+                <a href="/guide.html" class="entry-card entry-casual">
+                    <span class="entry-icon">☕</span>
+                    <h3>I know what I like</h3>
+                    <p>Tell us your preferences and we'll find coffees you'll love.</p>
+                    <span class="entry-cta">Get Started →</span>
+                </a>
 
-            <div class="feature-card">
-                <h3>☕ Discover Products</h3>
-                <p>Find detailed information about coffee products, origins, and flavor profiles</p>
-                <a href="/brands.html" class="btn btn-primary">Explore Products</a>
-            </div>
-
-            <div class="feature-card">
-                <h3>🗺️ Origins Map</h3>
-                <p>Visualize coffee supply chains from roasters to origin countries and producers</p>
-                <a href="/map.html" class="btn btn-primary">View Map</a>
+                <!-- Right: Professional -->
+                <a href="/brands.html" class="entry-card entry-professional">
+                    <span class="entry-icon">📊</span>
+                    <h3>Professional</h3>
+                    <p>Full access to all brands, products, and data.</p>
+                    <span class="entry-cta">View all →</span>
+                </a>
             </div>
         </section>
 
-        <section class="info">
-            <h3>About Graphee.link</h3>
-            <p>
-                Graphee.link aggregates and standardizes coffee product data from multiple roasters,
-                providing a centralized database with SCA (Specialty Coffee Association) flavor wheel
-                integration. Our knowledge graph enables complex queries like finding
-                "honey-processed Geishas with pear-like sweetness."
-            </p>
+        <!-- Quick Links (simplified) -->
+        <section class="quick-links">
+            <a href="/chat.html" class="quick-link">💬 Chat with AI</a>
+            <a href="/flavor-wheel.html" class="quick-link">🎨 Flavor Wheel</a>
+            <a href="/map.html" class="quick-link">🗺️ Origins Map</a>
+            <a href="/discounts.html" class="quick-link">🏷️ Deals</a>
+        </section>
+
+        <!-- Market Pulse Widget -->
+        <section class="market-pulse" id="market-pulse-container">
+            <h2>Market Pulse</h2>
+            <p>Loading market data...</p>
         </section>
     </main>
 
     <script src="/js/common.js"></script>
+    <script src="/js/index.js"></script>
 </body>
 </html>

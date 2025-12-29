@@ -1,0 +1,37 @@
+# Graphee Coffee Finder - robots.txt
+# https://graphee.link
+
+User-agent: *
+
+# Allow main pages
+Allow: /
+Allow: /index.html
+Allow: /products.html
+Allow: /brands.html
+Allow: /product-detail.html
+Allow: /flavor-wheel.html
+Allow: /map.html
+Allow: /chat.html
+Allow: /discover.html
+Allow: /discounts.html
+
+# Block API endpoints (not for indexing)
+Disallow: /api/
+
+# Block admin and internal pages
+Disallow: /admin
+Disallow: /redirect.html
+
+# Block static cache files
+Disallow: /cache/
+
+# Block JavaScript and CSS from being indexed as pages
+# (but allow crawling for rendering)
+Allow: /js/
+Allow: /css/
+
+# Crawl delay to be polite
+Crawl-delay: 1
+
+# Sitemap location
+Sitemap: https://graphee.link/sitemap.xml

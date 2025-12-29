@@ -6,6 +6,7 @@ import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.graph.node.OriginNode;
 import com.coffee.beansfinder.graph.node.ProducerNode;
+import com.coffee.beansfinder.graph.repository.AttributeNodeRepository;
 import com.coffee.beansfinder.graph.repository.OriginNodeRepository;
 import com.coffee.beansfinder.graph.repository.ProducerNodeRepository;
 import com.coffee.beansfinder.graph.repository.TastingNoteNodeRepository;
@@ -21,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -36,6 +39,8 @@ public class MapCacheService {
     private final OriginNodeRepository originNodeRepository;
     private final ProducerNodeRepository producerNodeRepository;
     private final TastingNoteNodeRepository tastingNoteNodeRepository;
+    private final AttributeNodeRepository attributeNodeRepository;
+    private final DiscoverCacheService discoverCacheService;
 
     // External cache directory (production) - set via application-prod.properties
     @Value("${cache.external.dir:#{null}}")
@@ -49,12 +54,16 @@ public class MapCacheService {
                            CoffeeProductRepository productRepository,
                            OriginNodeRepository originNodeRepository,
                            ProducerNodeRepository producerNodeRepository,
-                           TastingNoteNodeRepository tastingNoteNodeRepository) {
+                           TastingNoteNodeRepository tastingNoteNodeRepository,
+                           AttributeNodeRepository attributeNodeRepository,
+                           DiscoverCacheService discoverCacheService) {
         this.brandRepository = brandRepository;
         this.productRepository = productRepository;
         this.originNodeRepository = originNodeRepository;
         this.producerNodeRepository = producerNodeRepository;
         this.tastingNoteNodeRepository = tastingNoteNodeRepository;
+        this.attributeNodeRepository = attributeNodeRepository;
+        this.discoverCacheService = discoverCacheService;
     }
 
     // Cache for product counts by origin (loaded once per rebuild)
@@ -75,6 +84,11 @@ public class MapCacheService {
             rebuildMapDataCache();
             rebuildFlavorDataCache();
             rebuildFlavorWheelCache();
+            rebuildTrendingCache();
+            rebuildBrandsEnrichmentCache();
+
+            // Rebuild Discover page caches
+            discoverCacheService.rebuildAllDiscoverCaches();
 
             // Clear the cache after rebuild
             productCountsByOriginCache = null;
@@ -201,6 +215,408 @@ public class MapCacheService {
         } catch (Exception e) {
             log.error("Failed to rebuild flavor-wheel-data.json", e);
             throw new RuntimeException("Failed to rebuild flavor wheel data cache", e);
+        }
+    }
+
+    /**
+     * Rebuild trending-data.json cache file
+     * Contains new products, top origins, and top flavors for week/month/all periods
+     */
+    public void rebuildTrendingCache() {
+        log.info("Rebuilding trending-data.json...");
+
+        try {
+            Map<String, Object> trendingData = buildTrendingData();
+
+            // Write to appropriate directories based on environment
+            writeCacheFile(trendingData, "trending-data.json");
+
+            log.info("Successfully rebuilt trending-data.json");
+        } catch (Exception e) {
+            log.error("Failed to rebuild trending-data.json", e);
+            throw new RuntimeException("Failed to rebuild trending data cache", e);
+        }
+    }
+
+    /**
+     * Rebuild brands-enrichment.json cache file
+     * Contains top tasting notes, top origin, and origin count per brand
+     */
+    public void rebuildBrandsEnrichmentCache() {
+        log.info("Rebuilding brands-enrichment.json...");
+
+        try {
+            Map<String, Object> enrichmentData = buildBrandsEnrichmentData();
+
+            // Write to appropriate directories based on environment
+            writeCacheFile(enrichmentData, "brands-enrichment.json");
+
+            log.info("Successfully rebuilt brands-enrichment.json");
+        } catch (Exception e) {
+            log.error("Failed to rebuild brands-enrichment.json", e);
+            throw new RuntimeException("Failed to rebuild brands enrichment cache", e);
+        }
+    }
+
+    /**
+     * Build brands enrichment data: top tasting notes, top origin, origin count per brand
+     */
+    private Map<String, Object> buildBrandsEnrichmentData() {
+        log.info("Building brands enrichment data...");
+
+        // Load all products with brand
+        List<CoffeeProduct> allProducts = productRepository.findAllWithBrand();
+
+        // Group products by brand ID
+        Map<Long, List<CoffeeProduct>> productsByBrand = allProducts.stream()
+                .filter(p -> p.getBrand() != null)
+                .collect(Collectors.groupingBy(p -> p.getBrand().getId()));
+
+        Map<String, Object> brandsMap = new HashMap<>();
+
+        for (Map.Entry<Long, List<CoffeeProduct>> entry : productsByBrand.entrySet()) {
+            Long brandId = entry.getKey();
+            List<CoffeeProduct> products = entry.getValue();
+
+            Map<String, Object> brandData = new HashMap<>();
+
+            // Top 3 tasting notes
+            Map<String, Long> tastingNoteCounts = new HashMap<>();
+            for (CoffeeProduct product : products) {
+                extractFlavorsFromProduct(product, tastingNoteCounts);
+            }
+            List<String> topTastingNotes = tastingNoteCounts.entrySet().stream()
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                    .limit(3)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toList());
+            brandData.put("topTastingNotes", topTastingNotes);
+
+            // Origin stats
+            Map<String, Long> originCounts = products.stream()
+                    .filter(p -> p.getOrigin() != null && !p.getOrigin().isEmpty())
+                    .collect(Collectors.groupingBy(CoffeeProduct::getOrigin, Collectors.counting()));
+
+            // Top 3 origins with counts: [{origin: "Colombia", count: 8}, ...]
+            List<Map<String, Object>> topOrigins = originCounts.entrySet().stream()
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                    .limit(3)
+                    .map(e -> {
+                        Map<String, Object> originData = new HashMap<>();
+                        originData.put("origin", e.getKey());
+                        originData.put("count", e.getValue());
+                        return originData;
+                    })
+                    .collect(Collectors.toList());
+            brandData.put("topOrigins", topOrigins);
+
+            // Origin count (distinct origins)
+            brandData.put("originCount", originCounts.size());
+
+            brandsMap.put(brandId.toString(), brandData);
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("generatedAt", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        result.put("brands", brandsMap);
+
+        log.info("Built enrichment data for {} brands", brandsMap.size());
+        return result;
+    }
+
+    /**
+     * Build trending data for week, month, and all-time periods
+     */
+    private Map<String, Object> buildTrendingData() {
+        log.info("Building trending data for all periods...");
+
+        // Use findAllWithBrand() to eagerly fetch brand and avoid LazyInitializationException in async context
+        List<CoffeeProduct> allProducts = productRepository.findAllWithBrand();
+
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime weekAgo = now.minusDays(7);
+        LocalDateTime twoWeeksAgo = now.minusDays(14);
+        LocalDateTime monthAgo = now.minusDays(30);
+        LocalDateTime twoMonthsAgo = now.minusDays(60);
+
+        // Build period data with rank comparisons
+        // Week: compare to previous week (7-14 days ago)
+        // Month: compare to previous month (30-60 days ago)
+        // All: no comparison (null)
+
+        Map<String, Object> trendingData = new HashMap<>();
+        trendingData.put("generatedAt", now.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        trendingData.put("week", buildTrendingPeriodDataWithRanks(allProducts, weekAgo, null, twoWeeksAgo, weekAgo, "week"));
+        trendingData.put("month", buildTrendingPeriodDataWithRanks(allProducts, monthAgo, null, twoMonthsAgo, monthAgo, "month"));
+        trendingData.put("all", buildTrendingPeriodData(allProducts, null, "all"));
+
+        return trendingData;
+    }
+
+    /**
+     * Build trending data with rank change comparisons
+     * @param currentStart Start of current period
+     * @param currentEnd End of current period (null = now)
+     * @param previousStart Start of previous period (for comparison)
+     * @param previousEnd End of previous period
+     */
+    private Map<String, Object> buildTrendingPeriodDataWithRanks(
+            List<CoffeeProduct> allProducts,
+            LocalDateTime currentStart, LocalDateTime currentEnd,
+            LocalDateTime previousStart, LocalDateTime previousEnd,
+            String period) {
+
+        // Get current period products
+        List<CoffeeProduct> currentProducts = filterProductsByDateRange(allProducts, currentStart, currentEnd);
+
+        // Get previous period products for comparison
+        List<CoffeeProduct> previousProducts = filterProductsByDateRange(allProducts, previousStart, previousEnd);
+
+        // Calculate origin rankings for both periods
+        Map<String, Integer> currentOriginRanks = calculateOriginRanks(currentProducts);
+        Map<String, Integer> previousOriginRanks = calculateOriginRanks(previousProducts);
+
+        // Calculate flavor rankings for both periods
+        Map<String, Integer> currentFlavorRanks = calculateFlavorRanks(currentProducts);
+        Map<String, Integer> previousFlavorRanks = calculateFlavorRanks(previousProducts);
+
+        // Build origin list with rank changes
+        Map<String, Long> originCounts = currentProducts.stream()
+                .filter(p -> p.getOrigin() != null && !p.getOrigin().isEmpty())
+                .collect(Collectors.groupingBy(CoffeeProduct::getOrigin, Collectors.counting()));
+
+        List<Map<String, Object>> topOrigins = originCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(5)
+                .map(e -> {
+                    Map<String, Object> origin = new HashMap<>();
+                    origin.put("origin", e.getKey());
+                    origin.put("productCount", e.getValue());
+                    origin.put("rankChange", calculateRankChange(e.getKey(), currentOriginRanks, previousOriginRanks));
+                    return origin;
+                })
+                .collect(Collectors.toList());
+
+        // Build flavor list with rank changes
+        Map<String, Long> flavorCounts = new HashMap<>();
+        for (CoffeeProduct product : currentProducts) {
+            extractFlavorsFromProduct(product, flavorCounts);
+        }
+
+        List<Map<String, Object>> topFlavors = flavorCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(10)
+                .map(e -> {
+                    Map<String, Object> flavor = new HashMap<>();
+                    flavor.put("flavor", e.getKey());
+                    flavor.put("productCount", e.getValue());
+                    flavor.put("rankChange", calculateRankChange(e.getKey(), currentFlavorRanks, previousFlavorRanks));
+                    return flavor;
+                })
+                .collect(Collectors.toList());
+
+        // New products (sorted by newest first)
+        List<Map<String, Object>> newProducts = currentProducts.stream()
+                .sorted((a, b) -> {
+                    if (a.getCreatedDate() == null && b.getCreatedDate() == null) return 0;
+                    if (a.getCreatedDate() == null) return 1;
+                    if (b.getCreatedDate() == null) return -1;
+                    return b.getCreatedDate().compareTo(a.getCreatedDate());
+                })
+                .limit(10)
+                .map(this::productToSummary)
+                .collect(Collectors.toList());
+
+        Map<String, Object> periodData = new HashMap<>();
+        periodData.put("period", period);
+        periodData.put("newProductsCount", currentProducts.size());
+        periodData.put("newProducts", newProducts);
+        periodData.put("topOrigins", topOrigins);
+        periodData.put("topFlavors", topFlavors);
+
+        log.debug("Built trending data with ranks for {}: {} products", period, currentProducts.size());
+        return periodData;
+    }
+
+    /**
+     * Filter products by date range
+     */
+    private List<CoffeeProduct> filterProductsByDateRange(List<CoffeeProduct> products, LocalDateTime start, LocalDateTime end) {
+        return products.stream()
+                .filter(p -> p.getCreatedDate() != null)
+                .filter(p -> start == null || p.getCreatedDate().isAfter(start))
+                .filter(p -> end == null || p.getCreatedDate().isBefore(end))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Calculate origin rankings (1 = most products)
+     */
+    private Map<String, Integer> calculateOriginRanks(List<CoffeeProduct> products) {
+        Map<String, Long> counts = products.stream()
+                .filter(p -> p.getOrigin() != null && !p.getOrigin().isEmpty())
+                .collect(Collectors.groupingBy(CoffeeProduct::getOrigin, Collectors.counting()));
+
+        List<String> sortedOrigins = counts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        Map<String, Integer> ranks = new HashMap<>();
+        for (int i = 0; i < sortedOrigins.size(); i++) {
+            ranks.put(sortedOrigins.get(i), i + 1);
+        }
+        return ranks;
+    }
+
+    /**
+     * Calculate flavor rankings (1 = most occurrences)
+     */
+    private Map<String, Integer> calculateFlavorRanks(List<CoffeeProduct> products) {
+        Map<String, Long> counts = new HashMap<>();
+        for (CoffeeProduct product : products) {
+            extractFlavorsFromProduct(product, counts);
+        }
+
+        List<String> sortedFlavors = counts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        Map<String, Integer> ranks = new HashMap<>();
+        for (int i = 0; i < sortedFlavors.size(); i++) {
+            ranks.put(sortedFlavors.get(i), i + 1);
+        }
+        return ranks;
+    }
+
+    /**
+     * Calculate rank change: positive = moved up, negative = moved down, null = new entry
+     */
+    private Integer calculateRankChange(String name, Map<String, Integer> currentRanks, Map<String, Integer> previousRanks) {
+        Integer currentRank = currentRanks.get(name);
+        Integer previousRank = previousRanks.get(name);
+
+        if (previousRank == null) {
+            // New entry - didn't exist in previous period
+            return null;
+        }
+        if (currentRank == null) {
+            return null;
+        }
+        // Positive means moved UP (lower rank number is better)
+        return previousRank - currentRank;
+    }
+
+    /**
+     * Build trending data for a specific time period (no rank comparison - for "all" period)
+     */
+    private Map<String, Object> buildTrendingPeriodData(List<CoffeeProduct> allProducts, LocalDateTime cutoffDate, String period) {
+        // Filter products by created date
+        List<CoffeeProduct> filteredProducts = allProducts.stream()
+                .filter(p -> cutoffDate == null || (p.getCreatedDate() != null && p.getCreatedDate().isAfter(cutoffDate)))
+                .sorted((a, b) -> {
+                    if (a.getCreatedDate() == null && b.getCreatedDate() == null) return 0;
+                    if (a.getCreatedDate() == null) return 1;
+                    if (b.getCreatedDate() == null) return -1;
+                    return b.getCreatedDate().compareTo(a.getCreatedDate()); // Newest first
+                })
+                .collect(Collectors.toList());
+
+        // New products count and top 10
+        List<Map<String, Object>> newProducts = filteredProducts.stream()
+                .limit(10)
+                .map(this::productToSummary)
+                .collect(Collectors.toList());
+
+        // Top origins
+        Map<String, Long> originCounts = filteredProducts.stream()
+                .filter(p -> p.getOrigin() != null && !p.getOrigin().isEmpty())
+                .collect(Collectors.groupingBy(
+                        CoffeeProduct::getOrigin,
+                        Collectors.counting()
+                ));
+
+        List<Map<String, Object>> topOrigins = originCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(5)
+                .map(e -> {
+                    Map<String, Object> origin = new HashMap<>();
+                    origin.put("origin", e.getKey());
+                    origin.put("productCount", e.getValue());
+                    return origin;
+                })
+                .collect(Collectors.toList());
+
+        // Top flavors (from tasting notes)
+        Map<String, Long> flavorCounts = new HashMap<>();
+        for (CoffeeProduct product : filteredProducts) {
+            extractFlavorsFromProduct(product, flavorCounts);
+        }
+
+        List<Map<String, Object>> topFlavors = flavorCounts.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(10)
+                .map(e -> {
+                    Map<String, Object> flavor = new HashMap<>();
+                    flavor.put("flavor", e.getKey());
+                    flavor.put("productCount", e.getValue());
+                    return flavor;
+                })
+                .collect(Collectors.toList());
+
+        Map<String, Object> periodData = new HashMap<>();
+        periodData.put("period", period);
+        periodData.put("newProductsCount", filteredProducts.size());
+        periodData.put("newProducts", newProducts);
+        periodData.put("topOrigins", topOrigins);
+        periodData.put("topFlavors", topFlavors);
+
+        log.debug("Built trending data for {}: {} products, {} origins, {} flavors",
+                period, filteredProducts.size(), topOrigins.size(), topFlavors.size());
+
+        return periodData;
+    }
+
+    /**
+     * Convert product to summary map for trending display
+     */
+    private Map<String, Object> productToSummary(CoffeeProduct product) {
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("id", product.getId());
+        summary.put("productName", product.getProductName());
+        summary.put("brandName", product.getBrand() != null ? product.getBrand().getName() : null);
+        summary.put("brandId", product.getBrand() != null ? product.getBrand().getId() : null);
+        summary.put("origin", product.getOrigin());
+        summary.put("price", product.getPrice());
+        summary.put("currency", product.getCurrency());
+        summary.put("createdDate", product.getCreatedDate() != null ?
+                product.getCreatedDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null);
+        return summary;
+    }
+
+    /**
+     * Extract flavor names from product's tasting notes JSON
+     */
+    private void extractFlavorsFromProduct(CoffeeProduct product, Map<String, Long> flavorCounts) {
+        if (product.getTastingNotesJson() == null || product.getTastingNotesJson().isEmpty()) {
+            return;
+        }
+
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            List<String> notes = mapper.readValue(
+                    product.getTastingNotesJson(),
+                    mapper.getTypeFactory().constructCollectionType(List.class, String.class)
+            );
+
+            for (String note : notes) {
+                if (note != null && !note.trim().isEmpty()) {
+                    flavorCounts.merge(note.toLowerCase().trim(), 1L, Long::sum);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Failed to parse tasting notes for product {}", product.getId());
         }
     }
 
@@ -600,22 +1016,23 @@ public class MapCacheService {
      * - moreCount: Number of hidden flavors
      */
     private Map<String, Object> buildFlavorWheelData() {
-        log.info("Building flavor wheel data with top/more split...");
+        log.info("Building flavor wheel data using Attributes (~110) instead of TastingNotes (~3000+)...");
 
         // Threshold for "rare" flavors that go to "More..."
         final int RARE_THRESHOLD = 10;
         final int MAX_TOP_FLAVORS = 10;
 
-        // Single efficient query - returns raw map data from TastingNoteNode hierarchy
-        List<Map<String, Object>> allFlavorData = tastingNoteNodeRepository.findAllTastingNotesWithProductCountsAsMap();
+        // Query Attributes with product counts grouped by category (much smaller dataset)
+        List<Map<String, Object>> allAttributeData = attributeNodeRepository.findAllAttributesWithProductCountsByCategory();
 
         // Group by category
         Map<String, List<Map<String, Object>>> categoryMap = new HashMap<>();
         Map<String, Integer> categoryCounts = new HashMap<>();
 
-        for (Map<String, Object> row : allFlavorData) {
+        for (Map<String, Object> row : allAttributeData) {
             String category = (String) row.get("category");
-            String flavorName = (String) row.get("flavorName");
+            String attributeId = (String) row.get("attributeId");
+            String attributeName = (String) row.get("attributeName");
             Object productCountObj = row.get("productCount");
 
             // Handle both Long and Integer types
@@ -627,7 +1044,7 @@ public class MapCacheService {
             }
 
             // Skip if missing data
-            if (flavorName == null || productCount == null || productCount == 0) {
+            if (attributeName == null || productCount == null || productCount == 0) {
                 continue;
             }
 
@@ -639,7 +1056,8 @@ public class MapCacheService {
             categoryMap.putIfAbsent(category, new ArrayList<>());
 
             Map<String, Object> flavor = new HashMap<>();
-            flavor.put("name", flavorName);
+            flavor.put("id", attributeId);  // Attribute ID for click handling
+            flavor.put("name", attributeName);  // Display name
             flavor.put("productCount", productCount.intValue());
 
             categoryMap.get(category).add(flavor);

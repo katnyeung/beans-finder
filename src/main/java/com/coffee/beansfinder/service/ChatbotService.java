@@ -48,6 +48,9 @@ public class ChatbotService {
     private GrokService grokService;
 
     @Autowired
+    private BaristaKnowledgeService baristaKnowledgeService;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @Autowired
@@ -141,14 +144,40 @@ public class ChatbotService {
                 referenceProduct = productNodeRepository.findByProductId(request.getReferenceProductId()).orElse(null);
             }
 
+            // 3b. If no reference product but has loved products, use first loved as reference
+            if (referenceProduct == null && request.getLovedProductIds() != null && !request.getLovedProductIds().isEmpty()) {
+                Long firstLovedId = request.getLovedProductIds().get(0);
+                referenceProduct = productNodeRepository.findByProductId(firstLovedId).orElse(null);
+                log.info("Using first loved product as reference: {}", firstLovedId);
+            }
+
             // 4. Build graph context if we have a reference product
             GraphContext graphContext = null;
             if (referenceProduct != null) {
                 graphContext = buildGraphContext(referenceProduct);
             }
 
+            // 4b. Add user preferences to graph context (if provided)
+            if (graphContext != null && hasUserPreferences(request)) {
+                enrichGraphContextWithUserPreferences(graphContext, request);
+            } else if (graphContext == null && hasUserPreferences(request)) {
+                // Create minimal graph context just for user preferences
+                graphContext = GraphContext.builder()
+                        .availableOrigins(productNodeRepository.findAvailableOrigins())
+                        .availableRoastLevels(Arrays.asList("Light", "Medium", "Dark", "Omni"))
+                        .availableProcesses(productNodeRepository.findAvailableProcesses())
+                        .scaCategories(Arrays.asList("fruity", "floral", "sweet", "nutty", "roasted", "spicy", "sour", "vegetal", "other"))
+                        .build();
+                enrichGraphContextWithUserPreferences(graphContext, request);
+            }
+
             // 5. Call Grok to decide what graph query to execute (Grok is the brain!)
             GrokDecision decision = callGrokForDecision(request.getQuery(), referenceProduct, graphContext, messages);
+
+            // 5b. Handle non-search intents (EXPLAIN, COMPARE, BREWING, CLARIFY)
+            if (!decision.requiresGraphQuery()) {
+                return handleNonSearchIntent(decision, referenceProduct, request);
+            }
 
             // 6. Execute graph query based on Grok's decision
             List<ProductNode> candidateProducts = executeGraphQuery(decision, referenceProduct);
@@ -160,13 +189,33 @@ public class ChatbotService {
                         .collect(Collectors.toList());
             }
 
+            // 7b. Filter out products matching user's disliked patterns
+            if (graphContext != null && graphContext.hasUserPreferences()) {
+                candidateProducts = filterOutDislikedProducts(candidateProducts, graphContext);
+            }
+
+            // 7c. Exclude the user's own loved/disliked products from results
+            if (request.getLovedProductIds() != null) {
+                Set<Long> lovedIds = new HashSet<>(request.getLovedProductIds());
+                candidateProducts = candidateProducts.stream()
+                        .filter(p -> !lovedIds.contains(p.getProductId()))
+                        .collect(Collectors.toList());
+            }
+            if (request.getDislikedProductIds() != null) {
+                Set<Long> dislikedIds = new HashSet<>(request.getDislikedProductIds());
+                candidateProducts = candidateProducts.stream()
+                        .filter(p -> !dislikedIds.contains(p.getProductId()))
+                        .collect(Collectors.toList());
+            }
+
             // 8. Call Grok to rank and explain results
             List<ProductRecommendation> recommendations = callGrokForRanking(
                     candidateProducts,
                     request.getQuery(),
                     referenceProduct,
                     decision,
-                    messages
+                    messages,
+                    graphContext
             );
 
             // 9. Build response (client will manage state)
@@ -237,6 +286,240 @@ public class ChatbotService {
     }
 
     /**
+     * Check if request has user preferences
+     */
+    private boolean hasUserPreferences(ChatbotRequest request) {
+        return (request.getLovedProductIds() != null && !request.getLovedProductIds().isEmpty()) ||
+               (request.getDislikedProductIds() != null && !request.getDislikedProductIds().isEmpty());
+    }
+
+    /**
+     * Enrich graph context with user preferences using SCA flavor profile vectors
+     * Much simpler than string matching - uses 9-dimensional vectors for similarity
+     */
+    private void enrichGraphContextWithUserPreferences(GraphContext graphContext, ChatbotRequest request) {
+        Set<String> preferredOrigins = new HashSet<>();
+        Set<String> avoidOrigins = new HashSet<>();
+        List<List<Double>> lovedVectors = new ArrayList<>();
+        List<List<Double>> dislikedVectors = new ArrayList<>();
+
+        // Process loved products - collect flavor vectors and origins
+        if (request.getLovedProductIds() != null && !request.getLovedProductIds().isEmpty()) {
+            List<CoffeeProduct> lovedProducts = coffeeProductRepository.findAllById(request.getLovedProductIds());
+            for (CoffeeProduct product : lovedProducts) {
+                // Extract flavor profile vector
+                List<Double> vector = parseFlavorProfileVector(product.getFlavorProfileJson());
+                if (vector != null) {
+                    lovedVectors.add(vector);
+                }
+                // Extract origin
+                if (product.getOrigin() != null && !product.getOrigin().isEmpty()) {
+                    preferredOrigins.add(product.getOrigin());
+                }
+            }
+        }
+
+        // Process disliked products - collect flavor vectors and origins
+        if (request.getDislikedProductIds() != null && !request.getDislikedProductIds().isEmpty()) {
+            List<CoffeeProduct> dislikedProducts = coffeeProductRepository.findAllById(request.getDislikedProductIds());
+            for (CoffeeProduct product : dislikedProducts) {
+                // Extract flavor profile vector
+                List<Double> vector = parseFlavorProfileVector(product.getFlavorProfileJson());
+                if (vector != null) {
+                    dislikedVectors.add(vector);
+                }
+                // Extract origin
+                if (product.getOrigin() != null && !product.getOrigin().isEmpty()) {
+                    avoidOrigins.add(product.getOrigin());
+                }
+            }
+        }
+
+        // Calculate average vectors
+        List<Double> preferredVector = calculateAverageVector(lovedVectors);
+        List<Double> avoidVector = calculateAverageVector(dislikedVectors);
+
+        // Log the vectors for debugging
+        if (preferredVector != null) {
+            log.info("User preferred flavor vector: {} (from {} products)", formatVector(preferredVector), lovedVectors.size());
+        }
+        if (avoidVector != null) {
+            log.info("User avoid flavor vector: {} (from {} products)", formatVector(avoidVector), dislikedVectors.size());
+        }
+        log.info("User preferred origins: {}, avoid origins: {}", preferredOrigins, avoidOrigins);
+
+        // Set on graph context
+        graphContext.setPreferredFlavorVector(preferredVector);
+        graphContext.setAvoidFlavorVector(avoidVector);
+        graphContext.setPreferredOrigins(new ArrayList<>(preferredOrigins));
+        graphContext.setAvoidOrigins(new ArrayList<>(avoidOrigins));
+        graphContext.setLovedProductCount(lovedVectors.size());
+        graphContext.setDislikedProductCount(dislikedVectors.size());
+    }
+
+    /**
+     * Parse flavor profile JSON string into vector
+     */
+    private List<Double> parseFlavorProfileVector(String flavorProfileJson) {
+        if (flavorProfileJson == null || flavorProfileJson.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(flavorProfileJson, new TypeReference<List<Double>>() {});
+        } catch (Exception e) {
+            log.debug("Failed to parse flavor profile: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Calculate average vector from list of vectors
+     */
+    private List<Double> calculateAverageVector(List<List<Double>> vectors) {
+        if (vectors.isEmpty()) {
+            return null;
+        }
+
+        int dimensions = 9; // SCA flavor profile has 9 dimensions
+        double[] sum = new double[dimensions];
+        int count = 0;
+
+        for (List<Double> vector : vectors) {
+            if (vector != null && vector.size() == dimensions) {
+                for (int i = 0; i < dimensions; i++) {
+                    sum[i] += vector.get(i);
+                }
+                count++;
+            }
+        }
+
+        if (count == 0) {
+            return null;
+        }
+
+        List<Double> average = new ArrayList<>();
+        for (int i = 0; i < dimensions; i++) {
+            average.add(sum[i] / count);
+        }
+        return average;
+    }
+
+    /**
+     * Format vector for logging (rounded to 2 decimal places)
+     */
+    private String formatVector(List<Double> vector) {
+        if (vector == null) return "null";
+        return vector.stream()
+                .map(v -> String.format("%.2f", v))
+                .collect(Collectors.joining(", ", "[", "]"));
+    }
+
+    /**
+     * Filter out products that match user's disliked flavor profile or origins
+     * Uses vector cosine similarity for flavor matching
+     */
+    private List<ProductNode> filterOutDislikedProducts(List<ProductNode> candidates, GraphContext context) {
+        if (context.getAvoidFlavorVector() == null && context.getAvoidOrigins() == null) {
+            return candidates;
+        }
+
+        Set<String> avoidOriginsLower = context.getAvoidOrigins() != null
+                ? context.getAvoidOrigins().stream().map(String::toLowerCase).collect(Collectors.toSet())
+                : Collections.emptySet();
+
+        List<Double> avoidVector = context.getAvoidFlavorVector();
+
+        return candidates.stream()
+                .filter(product -> {
+                    // Check origin
+                    if (!avoidOriginsLower.isEmpty() && product.getOrigins() != null) {
+                        boolean hasDislikedOrigin = product.getOrigins().stream()
+                                .anyMatch(o -> avoidOriginsLower.contains(o.getCountry().toLowerCase()));
+                        if (hasDislikedOrigin) {
+                            log.debug("Filtering out {} - matches disliked origin", product.getProductName());
+                            return false;
+                        }
+                    }
+
+                    // Check flavor vector similarity - filter if too similar to disliked profile
+                    if (avoidVector != null && product.getFlavorProfile() != null && product.getFlavorProfile().size() == 9) {
+                        double similarity = cosineSimilarity(avoidVector, product.getFlavorProfile());
+                        if (similarity > 0.85) { // High similarity to disliked = filter out
+                            log.debug("Filtering out {} - flavor similarity {} to disliked profile",
+                                    product.getProductName(), String.format("%.2f", similarity));
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Calculate cosine similarity between two vectors
+     */
+    private double cosineSimilarity(List<Double> a, List<Double> b) {
+        if (a.size() != b.size()) return 0.0;
+
+        double dotProduct = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+
+        for (int i = 0; i < a.size(); i++) {
+            dotProduct += a.get(i) * b.get(i);
+            normA += a.get(i) * a.get(i);
+            normB += b.get(i) * b.get(i);
+        }
+
+        if (normA == 0.0 || normB == 0.0) return 0.0;
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    /**
+     * Extract flavors from product's JSON fields into the target set
+     */
+    private void extractFlavorsFromProduct(CoffeeProduct product, Set<String> targetFlavors) {
+        try {
+            // Parse tastingNotesJson (array of strings)
+            if (product.getTastingNotesJson() != null && !product.getTastingNotesJson().isEmpty()) {
+                List<String> notes = objectMapper.readValue(product.getTastingNotesJson(), new TypeReference<List<String>>() {});
+                targetFlavors.addAll(notes);
+            }
+        } catch (Exception e) {
+            log.debug("Failed to parse tasting notes: {}", e.getMessage());
+        }
+
+        try {
+            // Parse scaFlavorsJson (can be array or object)
+            if (product.getScaFlavorsJson() != null && !product.getScaFlavorsJson().isEmpty()) {
+                // Try as array first
+                String json = product.getScaFlavorsJson();
+                if (json.startsWith("[")) {
+                    List<String> flavors = objectMapper.readValue(json, new TypeReference<List<String>>() {});
+                    targetFlavors.addAll(flavors);
+                } else if (json.startsWith("{")) {
+                    // It's an object, extract values
+                    Map<String, Object> flavorMap = objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+                    for (Object value : flavorMap.values()) {
+                        if (value instanceof String) {
+                            targetFlavors.add((String) value);
+                        } else if (value instanceof List) {
+                            for (Object item : (List<?>) value) {
+                                if (item instanceof String) {
+                                    targetFlavors.add((String) item);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Failed to parse SCA flavors: {}", e.getMessage());
+        }
+    }
+
+    /**
      * Call Grok to decide what graph query to execute
      */
     private GrokDecision callGrokForDecision(
@@ -299,8 +582,13 @@ public class ChatbotService {
             refProduct.append("\n");
 
             prompt = prompt.replace("{{REFERENCE_PRODUCT}}", refProduct.toString());
+
+            // Add barista knowledge context for this product
+            String baristaContext = baristaKnowledgeService.generateContextForPrompt(referenceProduct);
+            prompt = prompt.replace("{{BARISTA_CONTEXT}}", baristaContext);
         } else {
             prompt = prompt.replace("{{REFERENCE_PRODUCT}}", "");
+            prompt = prompt.replace("{{BARISTA_CONTEXT}}", "");
         }
 
         // Replace {{GRAPH_CONTEXT}} placeholder
@@ -321,6 +609,138 @@ public class ChatbotService {
         }
 
         return prompt;
+    }
+
+    /**
+     * Handle non-search intents (EXPLAIN, COMPARE, BREWING, CLARIFY)
+     * These intents don't require graph queries - just return Grok's response
+     */
+    private ChatbotResponse handleNonSearchIntent(GrokDecision decision, ProductNode referenceProduct, ChatbotRequest request) {
+        log.info("Handling non-search intent: {}", decision.getQueryType());
+
+        String explanation = decision.getResponse();
+        List<ProductRecommendation> products = new ArrayList<>();
+
+        switch (decision.getQueryType()) {
+            case EXPLAIN_ORIGIN:
+                // Enrich with barista knowledge about the origin
+                if (decision.getFilters() != null && decision.getFilters().getOrigin() != null) {
+                    String originExpertise = baristaKnowledgeService.getOriginExpertise(decision.getFilters().getOrigin());
+                    if (!originExpertise.isEmpty() && !explanation.contains(originExpertise.substring(0, Math.min(50, originExpertise.length())))) {
+                        explanation = explanation + "\n\n" + originExpertise;
+                    }
+                }
+                break;
+
+            case EXPLAIN_PROCESS:
+                // Enrich with barista knowledge about the process
+                if (decision.getFilters() != null && decision.getFilters().getProcess() != null) {
+                    String processExpertise = baristaKnowledgeService.getProcessExpertise(decision.getFilters().getProcess());
+                    if (!processExpertise.isEmpty() && !explanation.contains(processExpertise.substring(0, Math.min(50, processExpertise.length())))) {
+                        explanation = explanation + "\n\n" + processExpertise;
+                    }
+                }
+                break;
+
+            case EXPLAIN_PRODUCT:
+                // Include the reference product with barista insight
+                if (referenceProduct != null) {
+                    BaristaInsight insight = baristaKnowledgeService.generateInsight(referenceProduct);
+                    products.add(convertToRecommendationWithInsight(referenceProduct, insight));
+                }
+                break;
+
+            case BREWING_GUIDANCE:
+                // Add brewing guidance from barista knowledge
+                if (referenceProduct != null) {
+                    String brewingGuide = baristaKnowledgeService.getBrewingGuidance(referenceProduct);
+                    if (!explanation.toLowerCase().contains("pour-over") && !explanation.toLowerCase().contains("espresso")) {
+                        explanation = explanation + "\n\n" + brewingGuide;
+                    }
+                    products.add(convertToRecommendation(referenceProduct));
+                }
+                break;
+
+            case DISCOVER_RANDOM:
+                // Get random products for discovery
+                List<ProductNode> randomProducts = productNodeRepository.findRandomProducts(5);
+                Set<Long> shownIds = request.getShownProductIds() != null
+                        ? new HashSet<>(request.getShownProductIds())
+                        : new HashSet<>();
+
+                for (ProductNode p : randomProducts) {
+                    if (!shownIds.contains(p.getProductId()) && products.size() < 3) {
+                        BaristaInsight insight = baristaKnowledgeService.generateInsight(p);
+                        products.add(convertToRecommendationWithInsight(p, insight));
+                    }
+                }
+                break;
+
+            case COMPARE_PRODUCTS:
+                // Compare products (if we have them in shown products)
+                // For now, just return Grok's comparison in the response
+                break;
+
+            case CLARIFY_NEEDED:
+                // No products needed, just the clarifying question
+                // The clarifying question is already in decision.getClarifyingQuestion()
+                break;
+
+            default:
+                break;
+        }
+
+        return ChatbotResponse.builder()
+                .products(products)
+                .explanation(explanation)
+                .clarifyingQuestion(decision.getClarifyingQuestion())
+                .suggestedActions(convertSuggestedActions(decision.getSuggestedActions()))
+                .build();
+    }
+
+    /**
+     * Convert ProductNode to ProductRecommendation
+     */
+    private ProductRecommendation convertToRecommendation(ProductNode product) {
+        // Build origin string
+        String origin = "Unknown";
+        if (product.getOrigins() != null && !product.getOrigins().isEmpty()) {
+            origin = product.getOrigins().stream()
+                    .map(o -> o.getCountry())
+                    .collect(Collectors.joining(", "));
+        }
+
+        // Build flavors list
+        List<String> flavors = new ArrayList<>();
+        if (product.getTastingNotes() != null) {
+            flavors = product.getTastingNotes().stream()
+                    .map(tn -> tn.getName())
+                    .limit(5)
+                    .collect(Collectors.toList());
+        }
+
+        return ProductRecommendation.builder()
+                .id(product.getProductId())
+                .name(product.getProductName())
+                .brand(product.getSoldBy() != null ? product.getSoldBy().getName() : "Unknown")
+                .origin(origin)
+                .roastLevel(product.getRoastLevel() != null ? product.getRoastLevel().getLevel() : "Unknown")
+                .price(product.getPrice())
+                .currency(product.getCurrency() != null ? product.getCurrency() : "GBP")
+                .flavors(flavors)
+                .url(product.getSellerUrl())
+                .build();
+    }
+
+    /**
+     * Convert ProductNode to ProductRecommendation with barista insight as reason
+     */
+    private ProductRecommendation convertToRecommendationWithInsight(ProductNode product, BaristaInsight insight) {
+        ProductRecommendation rec = convertToRecommendation(product);
+        if (insight != null) {
+            rec.setReason(insight.toOneLiner());
+        }
+        return rec;
     }
 
     /**
@@ -668,7 +1088,8 @@ public class ChatbotService {
             String userQuery,
             ProductNode referenceProduct,
             GrokDecision decision,
-            List<Map<String, Object>> conversationHistory) throws Exception {
+            List<Map<String, Object>> conversationHistory,
+            GraphContext graphContext) throws Exception {
 
         if (candidates.isEmpty()) {
             return Collections.emptyList();
@@ -679,7 +1100,7 @@ public class ChatbotService {
                 .limit(maxContextProducts)
                 .collect(Collectors.toList());
 
-        String systemPrompt = buildRankingSystemPrompt(topCandidates, referenceProduct, userQuery);
+        String systemPrompt = buildRankingSystemPrompt(topCandidates, referenceProduct, userQuery, graphContext);
 
         String grokResponse = grokService.callGrokWithHistory(
                 systemPrompt,
@@ -775,7 +1196,7 @@ public class ChatbotService {
     /**
      * Build system prompt for Grok ranking (using template from config file)
      */
-    private String buildRankingSystemPrompt(List<ProductNode> candidates, ProductNode referenceProduct, String userQuery) {
+    private String buildRankingSystemPrompt(List<ProductNode> candidates, ProductNode referenceProduct, String userQuery, GraphContext graphContext) {
         String prompt = rankingPromptTemplate;
 
         // Replace {{USER_QUERY}} placeholder
@@ -788,6 +1209,28 @@ public class ChatbotService {
             prompt = prompt.replace("{{REFERENCE_PRODUCT}}", refProduct);
         } else {
             prompt = prompt.replace("{{REFERENCE_PRODUCT}}", "");
+        }
+
+        // Replace {{USER_PREFERENCES}} placeholder (if graph context has user preferences)
+        if (graphContext != null && graphContext.hasUserPreferences()) {
+            StringBuilder prefs = new StringBuilder("=== USER TASTE PROFILE ===\n");
+            List<String> prefCategories = graphContext.getPreferredCategories();
+            if (!prefCategories.isEmpty()) {
+                prefs.append("User LOVES these flavor categories: ").append(String.join(", ", prefCategories)).append("\n");
+            }
+            if (graphContext.getPreferredOrigins() != null && !graphContext.getPreferredOrigins().isEmpty()) {
+                prefs.append("User LOVES these origins: ").append(String.join(", ", graphContext.getPreferredOrigins())).append("\n");
+            }
+            List<String> avoidCategories = graphContext.getAvoidCategories();
+            if (!avoidCategories.isEmpty()) {
+                prefs.append("User DISLIKES these flavor categories (AVOID): ").append(String.join(", ", avoidCategories)).append("\n");
+            }
+            if (graphContext.getAvoidOrigins() != null && !graphContext.getAvoidOrigins().isEmpty()) {
+                prefs.append("User DISLIKES these origins (AVOID): ").append(String.join(", ", graphContext.getAvoidOrigins())).append("\n");
+            }
+            prompt = prompt.replace("{{USER_PREFERENCES}}", prefs.toString());
+        } else {
+            prompt = prompt.replace("{{USER_PREFERENCES}}", "");
         }
 
         // Replace {{CANDIDATE_PRODUCTS}} placeholder

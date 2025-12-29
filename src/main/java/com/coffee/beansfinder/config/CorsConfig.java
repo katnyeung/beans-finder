@@ -34,6 +34,22 @@ public class CorsConfig implements WebMvcConfigurer {
                 .allowCredentials(false)
                 .maxAge(3600);
 
+        // Discover API - allow POST for drilldown (from our website only)
+        registry.addMapping("/api/discover/**")
+                .allowedOrigins(origins)
+                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(false)
+                .maxAge(3600);
+
+        // Brand suggest API - allow POST for user suggestions (from our website only)
+        registry.addMapping("/api/brands/suggest")
+                .allowedOrigins(origins)
+                .allowedMethods("POST", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(false)
+                .maxAge(3600);
+
         // Allow all origins for public read endpoints (brands, products, map, etc.)
         registry.addMapping("/api/**")
                 .allowedOrigins("*")

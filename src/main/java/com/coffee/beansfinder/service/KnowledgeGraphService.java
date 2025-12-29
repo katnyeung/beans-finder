@@ -110,10 +110,20 @@ public class KnowledgeGraphService {
                     product.getProductName(), product.getId());
 
             // Find or create product node
-            ProductNode productNode = productNodeRepository.findByProductId(product.getId())
-                    .orElse(ProductNode.builder()
+            Optional<ProductNode> existingNode = productNodeRepository.findByProductId(product.getId());
+            boolean isExistingProduct = existingNode.isPresent();
+
+            ProductNode productNode = existingNode.orElse(ProductNode.builder()
                             .productId(product.getId())
                             .build());
+
+            // Delete old relationships if product already exists in Neo4j
+            // This ensures stale tasting notes, origins, etc. are cleaned up before re-sync
+            if (isExistingProduct) {
+                log.debug("Cleaning up old relationships for product: {} (ID: {})",
+                        product.getProductName(), product.getId());
+                productNodeRepository.deleteAllProductRelationships(product.getId());
+            }
 
             // Update basic product info
             productNode.setProductName(product.getProductName());
@@ -497,7 +507,7 @@ public class KnowledgeGraphService {
     }
 
     /**
-     * Delete product from graph
+     * Delete product from graph (hard delete - use markProductAsDeleted for soft delete)
      */
     @Transactional(transactionManager = "neo4jTransactionManager")
     public void deleteProductFromGraph(Long productId) {
@@ -505,6 +515,32 @@ public class KnowledgeGraphService {
                 .ifPresent(product -> {
                     log.info("Deleting product from graph: {}", product.getProductName());
                     productNodeRepository.delete(product);
+                });
+    }
+
+    /**
+     * Soft delete: Mark product as deleted in graph (keeps node for recovery)
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public void markProductAsDeleted(Long productId) {
+        productNodeRepository.findByProductId(productId)
+                .ifPresent(product -> {
+                    log.info("Marking product as deleted in graph: {} (ID: {})", product.getProductName(), productId);
+                    product.setDeleted(true);
+                    productNodeRepository.save(product);
+                });
+    }
+
+    /**
+     * Restore soft-deleted product in graph
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public void restoreProduct(Long productId) {
+        productNodeRepository.findByProductId(productId)
+                .ifPresent(product -> {
+                    log.info("Restoring product in graph: {} (ID: {})", product.getProductName(), productId);
+                    product.setDeleted(false);
+                    productNodeRepository.save(product);
                 });
     }
 
@@ -616,25 +652,62 @@ public class KnowledgeGraphService {
 
         String noteId = rawText.toLowerCase().trim();
 
-        // Check if already exists
-        Optional<TastingNoteNode> existing = tastingNoteNodeRepository.findById(noteId);
-        if (existing.isPresent()) {
-            return existing.get();
-        }
-
         // Find the best matching attribute using SCAFlavorWheelService
         SCAFlavorWheelService.CategorySubcategory mapping = scaFlavorWheelService.findCategorySubcategory(rawText);
 
+        // Resolve attribute for this tasting note
         AttributeNode attribute = null;
         String scaCategoryName = "other"; // Default category
-        if (mapping != null && mapping.subcategory != null) {
+        if (mapping != null && mapping.subcategory != null && !mapping.subcategory.equals("uncategorized")) {
             // Try to find attribute that matches the raw text or subcategory keyword
             String attributeId = findBestAttributeId(rawText, mapping.subcategory);
-            attribute = attributeNodeRepository.findById(attributeId).orElse(null);
+            Optional<AttributeNode> existingAttribute = attributeNodeRepository.findById(attributeId);
+
+            if (existingAttribute.isPresent()) {
+                attribute = existingAttribute.get();
+            } else {
+                // Attribute doesn't exist - try to create it on-the-fly
+                log.warn("Attribute '{}' not found for tasting note '{}', attempting to create...",
+                         attributeId, rawText);
+
+                Optional<SubcategoryNode> subcategory = subcategoryNodeRepository.findById(mapping.subcategory);
+                if (subcategory.isPresent()) {
+                    AttributeNode newAttribute = AttributeNode.builder()
+                            .id(attributeId)
+                            .displayName(formatDisplayName(attributeId))
+                            .subcategory(subcategory.get())
+                            .build();
+                    attribute = attributeNodeRepository.save(newAttribute);
+                    log.info("Created missing AttributeNode: {} -> {} -> {}",
+                             attributeId, mapping.subcategory, mapping.category);
+                } else {
+                    log.warn("Cannot create attribute '{}': subcategory '{}' not found. " +
+                             "Run initializeFlavorHierarchy() first.", attributeId, mapping.subcategory);
+                }
+            }
+
             // Store the category name directly for efficient queries (denormalized)
             if (mapping.category != null) {
                 scaCategoryName = mapping.category;
             }
+        } else if (mapping != null && mapping.category != null) {
+            // Have category but no subcategory - still store the category name
+            scaCategoryName = mapping.category;
+        }
+
+        // Check if TastingNote already exists
+        Optional<TastingNoteNode> existing = tastingNoteNodeRepository.findById(noteId);
+        if (existing.isPresent()) {
+            TastingNoteNode existingNode = existing.get();
+            // If existing node has no attribute but we found one, update it
+            if (existingNode.getAttribute() == null && attribute != null) {
+                log.info("Updating existing TastingNote '{}' with missing MATCHES relationship to '{}'",
+                         noteId, attribute.getId());
+                existingNode.setAttribute(attribute);
+                existingNode.setScaCategoryName(scaCategoryName);
+                return tastingNoteNodeRepository.save(existingNode);
+            }
+            return existingNode;
         }
 
         // Create and save the tasting note with denormalized scaCategoryName
@@ -732,6 +805,12 @@ public class KnowledgeGraphService {
             productsDeleted = (int) count;
             log.info("Deleted {} ProductNodes", productsDeleted);
 
+            // Step 1.5: Ensure 4-tier flavor hierarchy exists (SCACategory, Subcategory, Attribute)
+            // This MUST be done before syncing products so TastingNotes can link to Attributes via MATCHES
+            log.info("Step 1.5: Initializing/verifying 4-tier flavor hierarchy...");
+            initializeFlavorHierarchy();
+            log.info("Flavor hierarchy initialized");
+
             // Step 2: Re-sync all products from PostgreSQL
             log.info("Step 2: Re-syncing all products from PostgreSQL...");
             List<CoffeeProduct> allProducts = coffeeProductRepository.findAll();
@@ -780,7 +859,7 @@ public class KnowledgeGraphService {
     }
 
     /**
-     * Internal helper: Clean up orphaned Origin/Process/Producer/Variety nodes.
+     * Internal helper: Clean up orphaned Origin/Process/Producer/Variety/TastingNote nodes.
      * Returns count of deleted nodes.
      */
     private int cleanupOrphans() {
@@ -793,6 +872,7 @@ public class KnowledgeGraphService {
         Set<String> linkedProcessTypes = new HashSet<>();
         Set<String> linkedProducerIds = new HashSet<>();
         Set<String> linkedVarietyNames = new HashSet<>();
+        Set<String> linkedTastingNoteIds = new HashSet<>();
 
         for (ProductNode product : allProducts) {
             if (product.getOrigins() != null) {
@@ -806,6 +886,9 @@ public class KnowledgeGraphService {
             }
             if (product.getVarieties() != null) {
                 product.getVarieties().forEach(v -> linkedVarietyNames.add(v.getName()));
+            }
+            if (product.getTastingNotes() != null) {
+                product.getTastingNotes().forEach(tn -> linkedTastingNoteIds.add(tn.getId()));
             }
         }
 
@@ -832,6 +915,13 @@ public class KnowledgeGraphService {
                 .filter(v -> !linkedVarietyNames.contains(v.getName()))
                 .peek(v -> log.debug("Deleting orphaned VarietyNode: {}", v.getName()))
                 .peek(varietyNodeRepository::delete)
+                .count();
+
+        // Delete orphaned TastingNoteNodes
+        totalDeleted += tastingNoteNodeRepository.findAll().stream()
+                .filter(tn -> !linkedTastingNoteIds.contains(tn.getId()))
+                .peek(tn -> log.debug("Deleting orphaned TastingNoteNode: {}", tn.getId()))
+                .peek(tastingNoteNodeRepository::delete)
                 .count();
 
         return (int) totalDeleted;
@@ -1405,6 +1495,106 @@ public class KnowledgeGraphService {
                 .map(AttributeNode::getId)
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Re-link unmatched TastingNotes using SCA Flavor Wheel service (no LLM cost).
+     * This is the FREE alternative to relinkUnmatchedTastingNotesWithLLM.
+     *
+     * Uses keyword matching from sca-lexicon.yaml to find the best attribute match.
+     * Also creates missing AttributeNodes on-the-fly if the keyword exists in lexicon.
+     *
+     * @return Map with statistics (total, linked, failed, created)
+     */
+    @Transactional(transactionManager = "neo4jTransactionManager")
+    public Map<String, Object> relinkUnmatchedTastingNotes() {
+        log.info("Re-linking unmatched TastingNotes using SCA Flavor Wheel service (FREE)...");
+
+        // Get all TastingNotes without attribute link
+        List<TastingNoteNode> unmatchedNotes = tastingNoteNodeRepository.findAll().stream()
+                .filter(tn -> tn.getAttribute() == null)
+                .collect(Collectors.toList());
+
+        if (unmatchedNotes.isEmpty()) {
+            log.info("No unmatched TastingNotes to re-link");
+            return Map.of(
+                    "total", 0,
+                    "linked", 0,
+                    "failed", 0,
+                    "attributesCreated", 0,
+                    "message", "No unmatched TastingNotes to re-link"
+            );
+        }
+
+        log.info("Found {} unmatched TastingNotes", unmatchedNotes.size());
+
+        int totalLinked = 0;
+        int totalFailed = 0;
+        int attributesCreated = 0;
+
+        for (TastingNoteNode note : unmatchedNotes) {
+            String rawText = note.getRawText() != null ? note.getRawText() : note.getId();
+
+            // Use SCA service to find category/subcategory
+            SCAFlavorWheelService.CategorySubcategory mapping = scaFlavorWheelService.findCategorySubcategory(rawText);
+
+            if (mapping == null || mapping.subcategory == null || mapping.subcategory.equals("uncategorized")) {
+                log.debug("No SCA mapping for note: {}", rawText);
+                totalFailed++;
+                continue;
+            }
+
+            // Find the best attribute ID for this note
+            String attributeId = findBestAttributeId(rawText, mapping.subcategory);
+
+            // Try to find existing attribute
+            Optional<AttributeNode> existingAttribute = attributeNodeRepository.findById(attributeId);
+            AttributeNode attribute;
+
+            if (existingAttribute.isPresent()) {
+                attribute = existingAttribute.get();
+            } else {
+                // Attribute doesn't exist - create it on-the-fly
+                Optional<SubcategoryNode> subcategory = subcategoryNodeRepository.findById(mapping.subcategory);
+                if (subcategory.isPresent()) {
+                    AttributeNode newAttribute = AttributeNode.builder()
+                            .id(attributeId)
+                            .displayName(formatDisplayName(attributeId))
+                            .subcategory(subcategory.get())
+                            .build();
+                    attribute = attributeNodeRepository.save(newAttribute);
+                    attributesCreated++;
+                    log.info("Created missing AttributeNode: {} -> {} -> {}",
+                             attributeId, mapping.subcategory, mapping.category);
+                } else {
+                    log.warn("Subcategory '{}' not found for note '{}', skipping", mapping.subcategory, rawText);
+                    totalFailed++;
+                    continue;
+                }
+            }
+
+            // Link the TastingNote to the Attribute
+            note.setAttribute(attribute);
+            note.setScaCategoryName(mapping.category);
+            tastingNoteNodeRepository.save(note);
+            totalLinked++;
+
+            if (totalLinked % 100 == 0) {
+                log.info("Progress: linked {} / {} notes", totalLinked, unmatchedNotes.size());
+            }
+        }
+
+        log.info("Re-linking complete: {} linked, {} failed, {} attributes created",
+                totalLinked, totalFailed, attributesCreated);
+
+        return Map.of(
+                "total", unmatchedNotes.size(),
+                "linked", totalLinked,
+                "failed", totalFailed,
+                "attributesCreated", attributesCreated,
+                "message", String.format("Linked %d notes, %d failed, %d new attributes created",
+                        totalLinked, totalFailed, attributesCreated)
+        );
     }
 
     /**

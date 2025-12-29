@@ -31,9 +31,14 @@ public class CrawlSummary {
     private int unchangedProducts;
 
     /**
-     * Number of products deleted (no longer in sitemap)
+     * Number of products soft deleted (no longer in sitemap or stale lastmod)
      */
     private int deletedProducts;
+
+    /**
+     * Number of previously deleted products that were restored
+     */
+    private int restoredProducts;
 
     /**
      * Total URLs processed from sitemap

@@ -1,7 +1,9 @@
 package com.coffee.beansfinder.controller;
 
+import com.coffee.beansfinder.entity.BrandSuggestion;
 import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.entity.LocationCoordinates;
+import com.coffee.beansfinder.repository.BrandSuggestionRepository;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
 import com.coffee.beansfinder.service.KnowledgeGraphService;
 import com.coffee.beansfinder.service.NominatimGeolocationService;
@@ -31,6 +33,7 @@ import java.util.List;
 public class BrandController {
 
     private final CoffeeBrandRepository brandRepository;
+    private final BrandSuggestionRepository suggestionRepository;
     private final PerplexityApiService perplexityService;
     private final WebScraperService scraperService;
     private final com.coffee.beansfinder.repository.CoffeeProductRepository productRepository;
@@ -585,10 +588,12 @@ public class BrandController {
      */
     @Operation(
         summary = "Suggest a brand",
-        description = "Public endpoint for users to suggest a new coffee brand. Requires reCAPTCHA verification."
+        description = "Public endpoint for users to suggest a new coffee brand. Saves to review queue (not directly to brands). Requires reCAPTCHA verification."
     )
     @PostMapping("/suggest")
-    public ResponseEntity<String> suggestBrand(@RequestBody SuggestBrandRequest request) {
+    public ResponseEntity<String> suggestBrand(
+            @RequestBody SuggestBrandRequest request,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
         log.info("Brand suggestion received: {} ({})", request.name, request.websiteUrl);
 
         try {
@@ -612,28 +617,40 @@ public class BrandController {
                 return ResponseEntity.badRequest().body("CAPTCHA verification failed. Please try again.");
             }
 
-            // Check if brand already exists
+            // Check if brand already exists in main table
             if (brandRepository.existsByName(request.name.trim())) {
                 log.warn("Brand already exists: {}", request.name);
                 return ResponseEntity.badRequest().body("This brand already exists in our database");
             }
 
-            // Check if website URL already exists
+            // Check if website URL already exists in main table
             if (brandRepository.existsByWebsite(request.websiteUrl.trim())) {
                 log.warn("Website already exists: {}", request.websiteUrl);
                 return ResponseEntity.badRequest().body("A brand with this website already exists");
             }
 
-            // Create brand (pending approval)
-            CoffeeBrand brand = CoffeeBrand.builder()
+            // Check if already suggested
+            if (suggestionRepository.existsByWebsiteUrlIgnoreCase(request.websiteUrl.trim())) {
+                log.warn("Suggestion already exists: {}", request.websiteUrl);
+                return ResponseEntity.badRequest().body("This brand has already been suggested and is pending review");
+            }
+
+            // Get IP address for spam tracking
+            String ipAddress = httpRequest.getHeader("X-Forwarded-For");
+            if (ipAddress == null || ipAddress.isEmpty()) {
+                ipAddress = httpRequest.getRemoteAddr();
+            }
+
+            // Save to suggestions table (for review)
+            BrandSuggestion suggestion = BrandSuggestion.builder()
                     .name(request.name.trim())
-                    .website(request.websiteUrl.trim())
-                    .status("pending_approval")
-                    .approved(false)
+                    .websiteUrl(request.websiteUrl.trim())
+                    .submittedByIp(ipAddress)
+                    .status("pending")
                     .build();
 
-            brand = brandRepository.save(brand);
-            log.info("Brand suggestion saved: {} (ID: {})", brand.getName(), brand.getId());
+            suggestion = suggestionRepository.save(suggestion);
+            log.info("Brand suggestion saved to review queue: {} (ID: {})", suggestion.getName(), suggestion.getId());
 
             return ResponseEntity.ok("Thank you! Your suggestion has been submitted for review.");
 
@@ -643,8 +660,172 @@ public class BrandController {
         }
     }
 
+    @Operation(
+        summary = "Get all brand suggestions",
+        description = "Returns all user-submitted brand suggestions for review"
+    )
+    @GetMapping("/suggestions")
+    public List<BrandSuggestion> getAllSuggestions() {
+        return suggestionRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    @Operation(
+        summary = "Get pending brand suggestions",
+        description = "Returns only pending brand suggestions"
+    )
+    @GetMapping("/suggestions/pending")
+    public List<BrandSuggestion> getPendingSuggestions() {
+        return suggestionRepository.findByStatusOrderByCreatedAtDesc("pending");
+    }
+
+    @Operation(
+        summary = "Approve a brand suggestion",
+        description = "Approves a suggestion and moves it to the brand enrichment queue"
+    )
+    @PostMapping("/suggestions/{id}/approve")
+    public ResponseEntity<String> approveSuggestion(@PathVariable Long id) {
+        return suggestionRepository.findById(id)
+                .map(suggestion -> {
+                    suggestion.setStatus("approved");
+                    suggestion.setReviewedAt(LocalDateTime.now());
+                    suggestionRepository.save(suggestion);
+                    log.info("Brand suggestion approved: {} (ID: {})", suggestion.getName(), id);
+                    return ResponseEntity.ok("Suggestion approved. Use /api/brands/auto-setup?name=" + suggestion.getName() + " to enrich and add.");
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Operation(
+        summary = "Reject a brand suggestion",
+        description = "Rejects a spam or invalid suggestion"
+    )
+    @PostMapping("/suggestions/{id}/reject")
+    public ResponseEntity<String> rejectSuggestion(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason) {
+        return suggestionRepository.findById(id)
+                .map(suggestion -> {
+                    suggestion.setStatus("rejected");
+                    suggestion.setReviewedAt(LocalDateTime.now());
+                    if (reason != null) {
+                        suggestion.setReviewerNotes(reason);
+                    }
+                    suggestionRepository.save(suggestion);
+                    log.info("Brand suggestion rejected: {} (ID: {})", suggestion.getName(), id);
+                    return ResponseEntity.ok("Suggestion rejected");
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Operation(
+        summary = "Extract brand details from a suggestion",
+        description = "Takes a suggestion ID and uses AI to extract full brand details (sitemap, location, etc.) from the website. Uses the user-provided name and URL. Returns JSON compatible with /bulk-submit endpoint."
+    )
+    @PostMapping("/suggestions/{id}/extract")
+    public ResponseEntity<?> extractFromSuggestion(@PathVariable Long id) {
+        return suggestionRepository.findById(id)
+                .map(suggestion -> {
+                    try {
+                        String brandName = suggestion.getName().trim();
+                        String websiteUrl = suggestion.getWebsiteUrl().trim();
+
+                        log.info("Extracting brand details from suggestion: {} ({})", brandName, websiteUrl);
+
+                        // Normalize URL
+                        if (!websiteUrl.startsWith("http://") && !websiteUrl.startsWith("https://")) {
+                            websiteUrl = "https://" + websiteUrl;
+                        }
+
+                        // Use Perplexity with BOTH name and URL (name is fixed, AI only extracts location/sitemap)
+                        PerplexityApiService.BrandDetails details = perplexityService.discoverBrandDetailsFromWebsite(brandName, websiteUrl);
+
+                        if (details == null) {
+                            // Fallback: create minimal details with provided name/url
+                            details = new PerplexityApiService.BrandDetails();
+                            details.name = brandName;
+                            details.website = websiteUrl;
+                            log.warn("AI extraction failed, using provided name/url: {}", brandName);
+                        }
+
+                        // Auto-resolve product sitemap
+                        String resolvedSitemapUrl = details.sitemapUrl;
+                        if (resolvedSitemapUrl != null && !resolvedSitemapUrl.isEmpty()) {
+                            try {
+                                List<String> productSitemaps = scraperService.extractProductSitemapUrls(resolvedSitemapUrl);
+                                if (!productSitemaps.isEmpty()) {
+                                    resolvedSitemapUrl = productSitemaps.get(0);
+                                    log.info("Auto-resolved to product sitemap: {}", resolvedSitemapUrl);
+                                }
+                            } catch (Exception e) {
+                                log.debug("Could not resolve sitemap index: {}", e.getMessage());
+                            }
+                        }
+
+                        // Geocode location
+                        Double latitude = null;
+                        Double longitude = null;
+
+                        String locationToGeocode = details.address != null && !details.address.isBlank()
+                                ? details.address
+                                : details.city;
+
+                        if (locationToGeocode != null && details.country != null) {
+                            try {
+                                LocationCoordinates coords = geolocationService.geocode(locationToGeocode, details.country, null);
+                                if (coords != null) {
+                                    latitude = coords.getLatitude();
+                                    longitude = coords.getLongitude();
+                                    log.info("Geocoded {} to ({}, {})", locationToGeocode, latitude, longitude);
+                                }
+                            } catch (Exception e) {
+                                log.debug("Geocoding failed for {}: {}", locationToGeocode, e.getMessage());
+                            }
+                        }
+
+                        // Build response in BrandDetailDto format (same as /extract-from-urls)
+                        BrandDetailDto brandDetail = new BrandDetailDto(
+                                details.name != null ? details.name : suggestion.getName(),
+                                details.website != null ? details.website : websiteUrl,
+                                resolvedSitemapUrl,
+                                details.country,
+                                details.city,
+                                details.address,
+                                details.postcode,
+                                details.description,
+                                latitude,
+                                longitude
+                        );
+
+                        // Mark suggestion as processed
+                        suggestion.setStatus("extracted");
+                        suggestion.setReviewedAt(LocalDateTime.now());
+                        suggestionRepository.save(suggestion);
+
+                        log.info("Successfully extracted brand from suggestion: {} -> {}", suggestion.getName(), brandDetail.name());
+
+                        // Return in format compatible with bulk-submit
+                        return ResponseEntity.ok(new ExtractFromSuggestionResponse(
+                                brandDetail,
+                                suggestion.getId(),
+                                "Success. Use /api/brands/bulk-submit with {\"brands\": [<this data>]} to save."
+                        ));
+
+                    } catch (Exception e) {
+                        log.error("Failed to extract from suggestion {}: {}", id, e.getMessage());
+                        return ResponseEntity.status(500).body(new ErrorResponse("Extraction failed: " + e.getMessage()));
+                    }
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    public record ExtractFromSuggestionResponse(
+            BrandDetailDto brand,
+            Long suggestionId,
+            String message
+    ) {}
+
     /**
-     * Verify reCAPTCHA token with Google
+     * Verify reCAPTCHA v2 token with Google
      */
     private boolean verifyRecaptcha(String token) {
         try {
@@ -670,8 +851,8 @@ public class BrandController {
             java.net.http.HttpResponse<String> response = client.send(request,
                     java.net.http.HttpResponse.BodyHandlers.ofString());
 
-            // Parse response (simple JSON parsing)
             String body = response.body();
+            log.debug("reCAPTCHA response: {}", body);
             return body.contains("\"success\": true") || body.contains("\"success\":true");
 
         } catch (Exception e) {

@@ -14,27 +14,48 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
 
     Optional<ProductNode> findByProductId(Long productId);
 
+    /**
+     * Delete all outgoing relationships from a product node.
+     * Used before re-syncing to ensure old relationships are cleaned up.
+     * This prevents stale tasting notes, flavors, origins, etc. from persisting after re-crawl.
+     */
+    @Query("MATCH (p:Product {productId: $productId})-[r:HAS_TASTING_NOTE|FROM_ORIGIN|HAS_PROCESS|HAS_VARIETY|PRODUCED_BY|ROASTED_AT]->() DELETE r")
+    void deleteAllProductRelationships(@Param("productId") Long productId);
+
+    // ==================== SOFT DELETE FILTER ====================
+    // Most queries below need to filter: (p.deleted IS NULL OR p.deleted = false)
+    // This ensures soft-deleted products are excluded from searches
+
+    /**
+     * Find active (non-deleted) product by ID
+     */
+    @Query("MATCH (p:Product {productId: $productId}) " +
+           "WHERE p.deleted IS NULL OR p.deleted = false " +
+           "RETURN p")
+    Optional<ProductNode> findActiveByProductId(@Param("productId") Long productId);
+
     @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
            "WHERE tn.rawText CONTAINS $flavorName " +
+           "AND (p.deleted IS NULL OR p.deleted = false) " +
            "RETURN p")
     List<ProductNode> findByFlavorNameContaining(@Param("flavorName") String flavorName);
 
     @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory) " +
-           "WHERE c.name = $categoryName " +
+           "WHERE c.name = $categoryName AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH DISTINCT p " +
            "MATCH (p)-[r]-(related) " +
            "RETURN p, collect(r), collect(related)")
     List<ProductNode> findBySCACategory(@Param("categoryName") String categoryName);
 
     @Query("MATCH (p:Product)-[:FROM_ORIGIN]->(o:Origin) " +
-           "WHERE o.country = $country " +
+           "WHERE o.country = $country AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH DISTINCT p " +
            "MATCH (p)-[r]-(related) " +
            "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByOriginCountry(@Param("country") String country);
 
     @Query("MATCH (p:Product)-[:HAS_PROCESS]->(pr:Process) " +
-           "WHERE pr.type = $processType " +
+           "WHERE pr.type = $processType AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH DISTINCT p " +
            "MATCH (p)-[r]-(related) " +
            "RETURN p, collect(r), collect(related)")
@@ -44,107 +65,128 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
            "(p)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
            "WHERE pr.type CONTAINS $processType " +
            "AND tn.rawText CONTAINS $flavorName " +
+           "AND (p.deleted IS NULL OR p.deleted = false) " +
            "RETURN p")
     List<ProductNode> findByProcessAndFlavor(
             @Param("processType") String processType,
             @Param("flavorName") String flavorName);
 
     /**
-     * Find products by brand name (via SOLD_BY relationship)
+     * Find products by brand name (via SOLD_BY relationship, excludes deleted)
      */
     @Query("MATCH (p:Product)-[:SOLD_BY]->(b:Brand) " +
-           "WHERE b.name = $brandName " +
+           "WHERE b.name = $brandName AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH DISTINCT p " +
            "MATCH (p)-[r]-(related) " +
            "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByBrandName(@Param("brandName") String brandName);
 
     /**
-     * Find products by roast level
+     * Find products by roast level (excludes deleted)
      */
     @Query("MATCH (p:Product)-[:ROASTED_AT]->(r:RoastLevel) " +
-           "WHERE r.level = $level " +
+           "WHERE r.level = $level AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH DISTINCT p " +
            "MATCH (p)-[rel]-(related) " +
            "RETURN p, collect(rel), collect(related)")
     List<ProductNode> findByRoastLevel(@Param("level") String level);
 
     /**
-     * Find products by exact flavor name (for flavor wheel)
+     * Find products by exact flavor name (for flavor wheel, excludes deleted)
      * Uses TastingNote with normalized ID (lowercase)
      */
     @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
-           "WHERE tn.id = $flavorName " +
+           "WHERE tn.id = $flavorName AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH DISTINCT p " +
            "MATCH (p)-[r]-(related) " +
            "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByFlavorName(@Param("flavorName") String flavorName);
 
     /**
-     * Find products that have ALL specified flavors (AND logic)
+     * Find products that have ALL specified flavors (AND logic, excludes deleted)
      * Uses TastingNote IDs (normalized lowercase)
+     * Fetches related nodes (brand, origin, roast) for complete product data
      */
     @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
-           "WHERE tn.id IN $flavorNames " +
+           "WHERE tn.id IN $flavorNames AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH p, COUNT(DISTINCT tn) as matchCount " +
            "WHERE matchCount = $requiredCount " +
-           "RETURN p")
+           "WITH p " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByAllFlavors(
             @Param("flavorNames") List<String> flavorNames,
             @Param("requiredCount") int requiredCount);
 
     /**
-     * Find products that have ANY of the specified flavors (OR logic)
+     * Find products that have ANY of the specified flavors (OR logic, excludes deleted)
      * Uses TastingNote IDs (normalized lowercase)
+     * Fetches related nodes (brand, origin, roast) for complete product data
      */
     @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote) " +
-           "WHERE tn.id IN $flavorNames " +
-           "RETURN DISTINCT p")
+           "WHERE tn.id IN $flavorNames AND (p.deleted IS NULL OR p.deleted = false) " +
+           "WITH DISTINCT p " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByAnyFlavor(@Param("flavorNames") List<String> flavorNames);
 
     /**
-     * Find products by name (fuzzy search, case-insensitive)
+     * Find products by Attribute ID (aggregates all TastingNotes that MATCH the attribute).
+     * Used for flavor wheel click - clicking "Cherry" returns all products with
+     * "cherry", "maraschino cherry", "cherry blossom", etc.
+     */
+    @Query("MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute {id: $attributeId}) " +
+           "WHERE p.deleted IS NULL OR p.deleted = false " +
+           "WITH DISTINCT p " +
+           "MATCH (p)-[r]-(related) " +
+           "RETURN p, collect(r), collect(related)")
+    List<ProductNode> findByAttributeId(@Param("attributeId") String attributeId);
+
+    /**
+     * Find products by name (fuzzy search, case-insensitive, excludes deleted)
      * Returns products where productName contains the search term
      */
     @Query("MATCH (p:Product) " +
            "WHERE toLower(p.productName) CONTAINS toLower($productName) " +
+           "AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH DISTINCT p " +
            "MATCH (p)-[r]-(related) " +
            "RETURN p, collect(r), collect(related)")
     List<ProductNode> findByProductNameContaining(@Param("productName") String productName);
 
     // ==================== GRAPH COUNT QUERIES FOR RAG CONTEXT ====================
+    // NOTE: All count queries filter out deleted products
 
     /**
-     * Count products from same origin as reference product
+     * Count products from same origin as reference product (excludes deleted)
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:FROM_ORIGIN]->(o:Origin)<-[:FROM_ORIGIN]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "RETURN COUNT(DISTINCT p)")
     long countBySameOrigin(@Param("refId") Long refId);
 
     /**
-     * Count products with same roast level
+     * Count products with same roast level (excludes deleted)
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:ROASTED_AT]->(r:RoastLevel)<-[:ROASTED_AT]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "RETURN COUNT(DISTINCT p)")
     long countBySameRoast(@Param("refId") Long refId);
 
     /**
-     * Count products with same process
+     * Count products with same process (excludes deleted)
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:HAS_PROCESS]->(pr:Process)<-[:HAS_PROCESS]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "RETURN COUNT(DISTINCT p)")
     long countBySameProcess(@Param("refId") Long refId);
 
     /**
-     * Count products with similar flavors (any overlap)
+     * Count products with similar flavors (any overlap, excludes deleted)
      * Uses TastingNote for flavor matching
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(tn:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "RETURN COUNT(DISTINCT p)")
     long countBySimilarFlavors(@Param("refId") Long refId);
 
@@ -165,13 +207,14 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
     List<String> findAvailableProcesses();
 
     // ==================== LLM-DRIVEN GRAPH QUERIES ====================
+    // NOTE: All queries filter out deleted products: (p.deleted IS NULL OR p.deleted = false)
 
     /**
      * Find products with similar flavor overlap (ranked by count)
      * Level 1: Exact TastingNote match
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(tn:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH p, COUNT(DISTINCT tn) as flavorOverlap " +
            "ORDER BY flavorOverlap DESC " +
            "LIMIT $limit " +
@@ -184,7 +227,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      * Level 2: Match by Attribute (e.g., "lemon" matches other lemon products)
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(:TastingNote)-[:MATCHES]->(a:Attribute)<-[:MATCHES]-(:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH p, COUNT(DISTINCT a) as attributeOverlap " +
            "ORDER BY attributeOverlap DESC " +
            "LIMIT $limit " +
@@ -197,7 +240,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      * Level 3: Match by Subcategory (e.g., "citrus_fruit" matches all citrus products)
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(:TastingNote)-[:MATCHES]->(:Attribute)-[:BELONGS_TO]->(s:Subcategory)<-[:BELONGS_TO]-(:Attribute)<-[:MATCHES]-(:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH p, COUNT(DISTINCT s) as subcategoryOverlap " +
            "ORDER BY subcategoryOverlap DESC " +
            "LIMIT $limit " +
@@ -211,7 +254,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      */
     @Query("MATCH (ref:Product {productId: $refId}) " +
            "MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory {name: $category}) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH p, COUNT(DISTINCT tn) as categoryCount " +
            "ORDER BY categoryCount DESC " +
            "LIMIT $limit " +
@@ -226,7 +269,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(refTn:TastingNote) " +
            "MATCH (p:Product)-[:HAS_TASTING_NOTE]->(refTn) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH p, COUNT(DISTINCT refTn) as baseOverlap " +
            "MATCH (p)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory {name: $category}) " +
            "WITH p, baseOverlap, COUNT(DISTINCT tn) as categoryCount " +
@@ -241,7 +284,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      * Traverses 4-tier hierarchy: TastingNote -> Attribute -> Subcategory -> SCACategory
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:FROM_ORIGIN]->(o:Origin)<-[:FROM_ORIGIN]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "MATCH (p)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory {name: $category}) " +
            "WITH p, COUNT(DISTINCT tn) as categoryCount " +
            "ORDER BY categoryCount DESC " +
@@ -255,7 +298,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:FROM_ORIGIN]->(o:Origin)<-[:FROM_ORIGIN]-(p:Product) " +
            "MATCH (p)-[:ROASTED_AT]->(r:RoastLevel {level: $roastLevel}) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "WITH p " +
            "LIMIT $limit " +
            "MATCH (p)-[rel]-(related) " +
@@ -263,6 +306,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
     List<ProductNode> findBySameOriginDifferentRoast(@Param("refId") Long refId, @Param("roastLevel") String roastLevel, @Param("limit") int limit);
 
     // ==================== PROFILE-BASED VECTOR QUERIES ====================
+    // NOTE: All queries filter out deleted products: (p.deleted IS NULL OR p.deleted = false)
 
     /**
      * Find products with MORE of a specific SCA category using flavor profile vector comparison.
@@ -282,6 +326,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
            "WHERE ref.flavorProfile IS NOT NULL " +
            "MATCH (p:Product) " +
            "WHERE p.productId <> $refId " +
+           "AND (p.deleted IS NULL OR p.deleted = false) " +
            "AND p.flavorProfile IS NOT NULL " +
            "AND size(p.flavorProfile) = 9 " +
            "AND size(ref.flavorProfile) = 9 " +
@@ -320,7 +365,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      * @param limit Maximum results
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(tn:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "AND ref.characterAxes IS NOT NULL " +
            "AND p.characterAxes IS NOT NULL " +
            "AND size(ref.characterAxes) = 4 " +
@@ -354,6 +399,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
            "WHERE ref.characterAxes IS NOT NULL AND ref.flavorProfile IS NOT NULL " +
            "MATCH (p:Product) " +
            "WHERE p.productId <> $refId " +
+           "AND (p.deleted IS NULL OR p.deleted = false) " +
            "AND p.characterAxes IS NOT NULL " +
            "AND p.flavorProfile IS NOT NULL " +
            "AND size(p.characterAxes) = 4 " +
@@ -392,7 +438,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      * @param limit Maximum results
      */
     @Query("MATCH (ref:Product {productId: $refId})-[:HAS_TASTING_NOTE]->(tn:TastingNote)<-[:HAS_TASTING_NOTE]-(p:Product) " +
-           "WHERE p.productId <> $refId " +
+           "WHERE p.productId <> $refId AND (p.deleted IS NULL OR p.deleted = false) " +
            "AND ref.characterAxes IS NOT NULL " +
            "AND p.characterAxes IS NOT NULL " +
            "AND size(ref.characterAxes) = 4 " +
@@ -426,6 +472,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
            "WHERE ref.characterAxes IS NOT NULL AND ref.flavorProfile IS NOT NULL " +
            "MATCH (p:Product) " +
            "WHERE p.productId <> $refId " +
+           "AND (p.deleted IS NULL OR p.deleted = false) " +
            "AND p.characterAxes IS NOT NULL " +
            "AND p.flavorProfile IS NOT NULL " +
            "AND size(p.characterAxes) = 4 " +
@@ -465,6 +512,7 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
            "AND size(ref.flavorProfile) = 9 AND size(ref.characterAxes) = 4 " +
            "MATCH (p:Product) " +
            "WHERE p.productId <> $refId " +
+           "AND (p.deleted IS NULL OR p.deleted = false) " +
            "AND p.flavorProfile IS NOT NULL AND p.characterAxes IS NOT NULL " +
            "AND size(p.flavorProfile) = 9 AND size(p.characterAxes) = 4 " +
            "WITH p, ref, " +
@@ -481,4 +529,18 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
            "MATCH (p)-[r]-(related) " +
            "RETURN p, collect(r), collect(related)")
     List<ProductNode> findBySimilarProfile(@Param("refId") Long refId, @Param("limit") int limit);
+
+    /**
+     * Find random products for discovery/surprise feature.
+     * Uses random ordering to provide variety.
+     */
+    @Query("MATCH (p:Product) " +
+           "WHERE (p.deleted IS NULL OR p.deleted = false) " +
+           "AND p.flavorProfile IS NOT NULL " +
+           "WITH p, rand() as r " +
+           "ORDER BY r " +
+           "LIMIT $limit " +
+           "MATCH (p)-[rel]-(related) " +
+           "RETURN p, collect(rel), collect(related)")
+    List<ProductNode> findRandomProducts(@Param("limit") int limit);
 }

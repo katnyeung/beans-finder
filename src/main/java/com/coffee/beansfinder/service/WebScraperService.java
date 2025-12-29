@@ -1,24 +1,38 @@
 package com.coffee.beansfinder.service;
 
+import com.coffee.beansfinder.dto.SitemapEntry;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Service for scraping coffee product pages using Jsoup
+ * Service for scraping coffee product pages using Jsoup.
+ * Falls back to Crawl4AI or Playwright for Cloudflare-protected sites (403 errors).
  */
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class WebScraperService {
+
+    @Lazy
+    private final PlaywrightScraperService playwrightScraperService;
+
+    private final CrawlClientService crawlClientService;
 
     @Value("${crawler.user.agent}")
     private String userAgent;
@@ -32,7 +46,8 @@ public class WebScraperService {
     private long lastRequestTime = 0;
 
     /**
-     * Fetch and parse HTML content from a URL
+     * Fetch and parse HTML content from a URL.
+     * Fallback chain: Jsoup → Playwright (for Cloudflare-protected sites)
      */
     public Optional<Document> fetchPage(String url) {
         if (url == null || url.isEmpty()) {
@@ -43,9 +58,12 @@ public class WebScraperService {
         // Rate limiting - respect delay between requests
         enforceDelay();
 
+        boolean got403 = false;
+
         for (int attempt = 1; attempt <= retryAttempts; attempt++) {
             try {
-                log.info("Fetching page (attempt {}/{}): {}", attempt, retryAttempts, url);
+                log.info("Fetching page (attempt {}/{}): {} [UA: {}]", attempt, retryAttempts, url,
+                        userAgent != null ? userAgent.substring(0, Math.min(50, userAgent.length())) + "..." : "null");
 
                 Document doc = Jsoup.connect(url)
                         .userAgent(userAgent)
@@ -57,24 +75,69 @@ public class WebScraperService {
                 return Optional.of(doc);
 
             } catch (IOException e) {
+                String errorMsg = e.getMessage();
                 log.error("Failed to fetch page (attempt {}/{}): {} - {}",
-                        attempt, retryAttempts, url, e.getMessage());
+                        attempt, retryAttempts, url, errorMsg);
 
-                if (attempt == retryAttempts) {
-                    log.error("All retry attempts exhausted for URL: {}", url);
-                    return Optional.empty();
+                // Track if we got a 403 error (Cloudflare blocking)
+                if (errorMsg != null && errorMsg.contains("Status=403")) {
+                    got403 = true;
                 }
 
-                // Exponential backoff
-                try {
-                    Thread.sleep(2000L * attempt);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    return Optional.empty();
+                if (attempt == retryAttempts) {
+                    log.error("All Jsoup retry attempts exhausted for URL: {}", url);
+                }
+
+                // Exponential backoff between retries
+                if (attempt < retryAttempts) {
+                    try {
+                        Thread.sleep(2000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return Optional.empty();
+                    }
                 }
             }
         }
 
+        // If we got 403 errors (Cloudflare blocking), try Crawl4AI first, then Playwright
+        if (got403) {
+            // Try Crawl4AI first (Python microservice)
+            if (crawlClientService.isEnabled()) {
+                log.info("Attempting Crawl4AI fallback for 403-blocked URL: {}", url);
+                String content = crawlClientService.fetchRawContent(url);
+                if (content != null && !content.isEmpty()) {
+                    try {
+                        return Optional.of(Jsoup.parse(content, url));
+                    } catch (Exception e) {
+                        log.warn("Failed to parse Crawl4AI response for {}: {}", url, e.getMessage());
+                    }
+                }
+            }
+
+            // Fall back to Playwright if Crawl4AI failed
+            log.info("Attempting Playwright fallback for 403-blocked URL: {}", url);
+            return fetchPageWithPlaywright(url);
+        }
+
+        return Optional.empty();
+    }
+
+    /**
+     * Fallback method using Playwright (bypasses Cloudflare protection).
+     * Used when Jsoup gets 403 errors from Cloudflare-protected sites.
+     */
+    private Optional<Document> fetchPageWithPlaywright(String url) {
+        try {
+            String content = playwrightScraperService.fetchPageContent(url);
+            if (content != null && !content.isEmpty()) {
+                Document doc = Jsoup.parse(content, url);
+                log.info("Successfully fetched page via Playwright fallback: {}", url);
+                return Optional.of(doc);
+            }
+        } catch (Exception e) {
+            log.error("Playwright fallback error for {}: {}", url, e.getMessage());
+        }
         return Optional.empty();
     }
 
@@ -386,6 +449,152 @@ public class WebScraperService {
     }
 
     /**
+     * Extract product URLs from sitemap.xml with lastmod date filtering.
+     * Only returns products modified within the specified number of days.
+     *
+     * @param sitemapUrl Main sitemap URL
+     * @param maxAgeDays Maximum age in days (e.g., 30 for products updated in last month)
+     * @return List of SitemapEntry objects with url, lastmod, and title
+     */
+    public List<SitemapEntry> extractProductUrlsFromSitemapWithDateFilter(String sitemapUrl, int maxAgeDays) {
+        List<SitemapEntry> entries = new ArrayList<>();
+        LocalDateTime cutoffDate = LocalDateTime.now().minusDays(maxAgeDays);
+
+        log.info("Fetching sitemap from: {} (filtering products updated within {} days)", sitemapUrl, maxAgeDays);
+
+        try {
+            // First, check if this is a sitemap index with product sitemaps
+            List<String> productSitemaps = extractProductSitemapUrls(sitemapUrl);
+
+            List<String> sitemapsToProcess = new ArrayList<>();
+            if (!productSitemaps.isEmpty()) {
+                log.info("Found {} product sitemaps, will process all of them", productSitemaps.size());
+                sitemapsToProcess.addAll(productSitemaps);
+            } else {
+                log.info("No product sitemaps found in index, treating {} as direct product sitemap", sitemapUrl);
+                sitemapsToProcess.add(sitemapUrl);
+            }
+
+            // Process each sitemap
+            for (String sitemap : sitemapsToProcess) {
+                log.info("Processing sitemap: {}", sitemap);
+
+                Optional<Document> sitemapDoc = fetchPage(sitemap);
+
+                if (sitemapDoc.isEmpty()) {
+                    log.error("Failed to fetch sitemap: {}", sitemap);
+                    continue;
+                }
+
+                // Parse XML sitemap
+                Elements urlElements = sitemapDoc.get().select("url");
+
+                int totalUrls = 0;
+                int coffeeUrls = 0;
+                int dateFilteredOut = 0;
+                int titleFilteredOut = 0;
+                int urlFilteredOut = 0;
+
+                for (Element urlElement : urlElements) {
+                    Element locElement = urlElement.selectFirst("loc");
+                    if (locElement == null) continue;
+
+                    String url = locElement.text();
+                    totalUrls++;
+
+                    if (url.isEmpty()) continue;
+
+                    // Step 1: Parse lastmod and filter by date
+                    Element lastmodElement = urlElement.selectFirst("lastmod");
+                    LocalDateTime lastModified = null;
+                    if (lastmodElement != null) {
+                        lastModified = parseLastModDate(lastmodElement.text());
+                        if (lastModified != null && lastModified.isBefore(cutoffDate)) {
+                            dateFilteredOut++;
+                            continue;
+                        }
+                    }
+                    // If no lastmod, we still process the URL (conservative approach)
+
+                    // Step 2: URL-based filter
+                    if (!isCoffeeProductUrl(url)) {
+                        urlFilteredOut++;
+                        continue;
+                    }
+
+                    // Step 3: Title-based filter
+                    String title = "";
+                    Element imageTitle = urlElement.selectFirst("image|title");
+                    if (imageTitle != null) {
+                        title = imageTitle.text();
+                    } else {
+                        Element regularTitle = urlElement.selectFirst("title");
+                        if (regularTitle != null) {
+                            title = regularTitle.text();
+                        }
+                    }
+
+                    if (!title.isEmpty() && !isCoffeeProductTitle(title)) {
+                        log.debug("Filtered by title '{}': {}", title, url);
+                        titleFilteredOut++;
+                        continue;
+                    }
+
+                    // Passed all filters
+                    SitemapEntry entry = new SitemapEntry(url, lastModified);
+                    entry.setTitle(title);
+                    entries.add(entry);
+                    coffeeUrls++;
+
+                    if (lastModified != null) {
+                        log.debug("Coffee product: '{}' - {} (lastmod: {})", title, url, lastModified);
+                    }
+                }
+
+                log.info("Extracted {} coffee URLs from {} total (filtered {} by date, {} by URL, {} by title) in {}",
+                         coffeeUrls, totalUrls, dateFilteredOut, urlFilteredOut, titleFilteredOut, sitemap);
+            }
+
+            log.info("Total: {} coffee product URLs extracted from {} sitemap(s) (within {} days)",
+                     entries.size(), sitemapsToProcess.size(), maxAgeDays);
+
+        } catch (Exception e) {
+            log.error("Error parsing sitemap {}: {}", sitemapUrl, e.getMessage(), e);
+        }
+
+        return entries;
+    }
+
+    /**
+     * Parse lastmod date from sitemap.
+     * Supports ISO 8601 formats: 2025-12-06T21:48:41+00:00, 2023-01-03T10:10:52+00:00, 2025-12-06
+     */
+    private LocalDateTime parseLastModDate(String dateStr) {
+        if (dateStr == null || dateStr.isEmpty()) {
+            return null;
+        }
+
+        try {
+            // Try parsing as OffsetDateTime first (with timezone)
+            OffsetDateTime odt = OffsetDateTime.parse(dateStr);
+            return odt.toLocalDateTime();
+        } catch (DateTimeParseException e) {
+            // Try parsing as LocalDateTime or date only
+            try {
+                if (dateStr.contains("T")) {
+                    return LocalDateTime.parse(dateStr, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                } else {
+                    // Date only: 2025-12-06
+                    return LocalDateTime.parse(dateStr + "T00:00:00", DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                }
+            } catch (DateTimeParseException e2) {
+                log.warn("Could not parse lastmod date: {}", dateStr);
+                return null;
+            }
+        }
+    }
+
+    /**
      * Check if URL is likely a coffee bean product (URL-based filter only)
      * Fast filter to exclude collection pages and obvious non-coffee paths
      */
@@ -396,6 +605,8 @@ public class WebScraperService {
         // Examples: /shop/, /products/, /collections/, /all/, /coffee/
         if (lowerUrl.endsWith("/shop/") ||
             lowerUrl.endsWith("/shop") ||
+            lowerUrl.endsWith("/shop-coffee/") ||
+            lowerUrl.endsWith("/shop-coffee") ||
             lowerUrl.endsWith("/products/") ||
             lowerUrl.endsWith("/products") ||
             lowerUrl.endsWith("/product/") ||
@@ -411,12 +622,29 @@ public class WebScraperService {
             return false;
         }
 
+        // Exclude Squarespace category/filter pages (e.g., /shop/coffee/origin, /shop/coffee/process/natural)
+        // These show product lists filtered by category, not individual products
+        // Real Squarespace products use /shop/p/product-name pattern
+        if (lowerUrl.contains("/shop/coffee/origin") ||
+            lowerUrl.contains("/shop/coffee/process") ||
+            lowerUrl.contains("/shop/coffee/roast") ||
+            lowerUrl.contains("/shop/coffee/variety") ||
+            lowerUrl.contains("/shop/coffee/region") ||
+            lowerUrl.contains("/shop/coffee/producer") ||
+            lowerUrl.contains("/shop/coffee/country") ||
+            lowerUrl.contains("/shop/coffee/category") ||
+            lowerUrl.contains("/shop/coffee/filter") ||
+            lowerUrl.contains("/shop/coffee/type")) {
+            return false;
+        }
+
         // First check: must be in a product URL path
         boolean isInProductPath = lowerUrl.contains("/products/") ||
                                   lowerUrl.contains("/product/") ||
                                   lowerUrl.contains("/coffees/") ||
                                   lowerUrl.contains("/coffee/") ||
-                                  lowerUrl.contains("/shop/");
+                                  lowerUrl.contains("/shop/") ||
+                                  lowerUrl.contains("/shop-coffee/");
 
         if (!isInProductPath) {
             return false;

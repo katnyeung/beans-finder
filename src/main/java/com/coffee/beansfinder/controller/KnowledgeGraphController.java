@@ -412,6 +412,34 @@ public class KnowledgeGraphController {
     }
 
     /**
+     * Re-link unmatched TastingNotes to Attributes using SCA Flavor Wheel service (FREE).
+     * This is the cost-free alternative that uses keyword matching from sca-lexicon.yaml.
+     *
+     * Cost: $0 (no LLM calls)
+     * Time: ~10-30 seconds for 700 notes
+     *
+     * Also creates missing AttributeNodes on-the-fly if the keyword exists in lexicon.
+     */
+    @PostMapping("/relink-tasting-notes-free")
+    public ResponseEntity<Map<String, Object>> relinkTastingNotesFree() {
+        try {
+            log.info("Starting FREE re-linking of unmatched TastingNotes using SCA service...");
+
+            Map<String, Object> result = graphService.relinkUnmatchedTastingNotes();
+
+            log.info("Re-linking complete: {}", result.get("message"));
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            log.error("Failed to re-link TastingNotes: {}", e.getMessage(), e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            errorResponse.put("message", "Re-linking failed: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(errorResponse);
+        }
+    }
+
+    /**
      * Get statistics about TastingNote linking
      */
     @GetMapping("/tasting-note-stats")

@@ -29,6 +29,19 @@ public interface TastingNoteNodeRepository extends Neo4jRepository<TastingNoteNo
     List<TastingNoteNode> findByAttributeId(@Param("attributeId") String attributeId);
 
     /**
+     * Find all tasting notes that match a specific attribute, with product counts.
+     * Used for discover page Level 3 drill-down.
+     */
+    @Query("MATCH (tn:TastingNote)-[:MATCHES]->(a:Attribute {id: $attributeId}) " +
+           "OPTIONAL MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn) " +
+           "WHERE p.deleted IS NULL OR p.deleted = false " +
+           "WITH tn.id as noteId, tn.rawText as rawText, COUNT(DISTINCT p) as productCount " +
+           "WHERE productCount > 0 " +
+           "RETURN {noteId: noteId, rawText: rawText, productCount: productCount} as data " +
+           "ORDER BY productCount DESC")
+    List<Map<String, Object>> findByAttributeIdWithCounts(@Param("attributeId") String attributeId);
+
+    /**
      * Find tasting notes with their full hierarchy (for debugging)
      */
     @Query("MATCH (tn:TastingNote)-[:MATCHES]->(a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory) " +

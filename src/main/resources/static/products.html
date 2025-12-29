@@ -20,9 +20,17 @@
             <div class="nav-links">
                 <a href="/">Home</a>
                 <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">🎨 By Flavor</a>
+                        <a href="/filter-products.html">🔍 By Product</a>
+                        <a href="/discover.html">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
                 <a href="/brands.html">Brands</a>
-                <a href="/flavor-wheel.html">Flavor Wheel</a>
-                <a href="/map.html">Map</a>
+                <a href="/insights.html">Insights</a>
             </div>
         </div>
     </nav>
@@ -32,6 +40,13 @@
             <a href="/brands.html" class="btn btn-secondary">← Back to Brands</a>
             <h2 id="brandName">Loading...</h2>
             <p id="brandInfo"></p>
+        </div>
+
+        <!-- Brand Discount Banner -->
+        <div id="brand-discount-banner" class="brand-discount-banner" style="display: none;">
+            <span class="discount-icon">🏷️</span>
+            <span id="discount-text"></span>
+            <span id="discount-code-badge" class="discount-code-badge" style="display: none;"></span>
         </div>
 
         <div id="loading" class="loading">Loading products...</div>

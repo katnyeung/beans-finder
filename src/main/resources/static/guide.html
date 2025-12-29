@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee Preference Guide - Graphee.link</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/" class="logo-link">
+                    <img src="/graphee_logo.png" alt="Graphee.link" class="nav-logo">
+                    <span class="brand-name">Graphee.link</span>
+                </a>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">🎨 By Flavor</a>
+                        <a href="/filter-products.html">🔍 By Product</a>
+                        <a href="/discover.html">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
+                <a href="/brands.html">Brands</a>
+                <a href="/insights.html">Insights</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Guide Container -->
+        <div class="guide-container">
+            <!-- Progress indicator -->
+            <div class="quiz-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <span class="progress-text" id="progress-text">Step 1 of 3</span>
+            </div>
+
+            <!-- Section Content Area -->
+            <div class="guide-section" id="guide-content">
+                <!-- Sections rendered by JavaScript -->
+            </div>
+
+            <!-- Navigation -->
+            <div class="guide-nav" id="guide-nav">
+                <button class="btn btn-secondary" id="back-btn" style="display: none;">← Back</button>
+                <button class="btn-skip" id="skip-btn">Skip this step</button>
+                <button class="btn btn-primary" id="next-btn">Continue →</button>
+            </div>
+        </div>
+
+        <!-- Summary & Redirect (hidden initially) -->
+        <div class="guide-container" id="guide-summary-container" style="display: none;">
+            <h2 class="guide-title">Your Coffee Preferences</h2>
+            <p class="guide-hint">Here's what we'll search for based on your selections.</p>
+
+            <div class="guide-summary" id="guide-summary">
+                <!-- Summary rendered by JavaScript -->
+            </div>
+
+            <div class="guide-nav">
+                <button class="btn btn-secondary" id="summary-back-btn">← Change selections</button>
+                <button class="btn btn-primary" id="discover-btn">Find My Coffee →</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="/js/common.js"></script>
+    <script src="/js/guide.js"></script>
+</body>
+</html>

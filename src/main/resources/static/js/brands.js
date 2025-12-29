@@ -3,16 +3,30 @@ const API_BASE = '/api';
 
 // Store brands data for sorting
 let brandsData = [];
+let brandsEnrichment = {}; // Cache for top flavors, origins per brand
 let currentSort = { column: null, ascending: true };
 let searchTimeout = null;
 
 // Load brands on page load
 document.addEventListener('DOMContentLoaded', () => {
     loadNewProducts();
-    loadBrands();
+    loadBrandsEnrichment().then(() => loadBrands());
     setupProductSearch();
     setupSuggestBrandModal();
 });
+
+// Load brands enrichment cache (top flavors, origins)
+async function loadBrandsEnrichment() {
+    try {
+        const response = await fetch('/cache/brands-enrichment.json');
+        if (response.ok) {
+            const data = await response.json();
+            brandsEnrichment = data.brands || {};
+        }
+    } catch (err) {
+        console.warn('Could not load brands enrichment cache:', err);
+    }
+}
 
 // Load new products (last 7 days)
 async function loadNewProducts() {
@@ -183,14 +197,35 @@ function createBrandRow(brand) {
         ? brand.productCount
         : 0;
 
+    // Get enrichment data for this brand
+    const enrichment = brandsEnrichment[brand.id.toString()] || {};
+    const topFlavors = enrichment.topTastingNotes || [];
+    const topOrigins = enrichment.topOrigins || [];
+
+    // Render top flavors as clickable badges
+    const flavorsHtml = topFlavors.length > 0
+        ? topFlavors.map(flavor =>
+            `<a href="/discover.html?flavor=${encodeURIComponent(flavor)}" class="tasting-note-badge" onclick="event.stopPropagation()" title="Explore ${escapeHtml(flavor)}">${escapeHtml(flavor)}</a>`
+          ).join('')
+        : '';
+
+    // Render origins: "Colombia (8) / Brazil (7)" format
+    const originsHtml = topOrigins.length > 0
+        ? topOrigins.map(o =>
+            `<a href="/map.html" class="origin-link" onclick="event.stopPropagation()" title="View on map">${escapeHtml(o.origin)} <span class="origin-count">(${o.count})</span></a>`
+          ).join(' / ')
+        : '';
+
+    // Brand name: if website exists, make it a link to the website
+    const brandNameHtml = brand.website
+        ? `<a href="${escapeHtml(brand.website)}" target="_blank" onclick="event.stopPropagation()" class="brand-name-link" title="Visit website">${escapeHtml(brand.name)}</a>`
+        : escapeHtml(brand.name);
+
     row.innerHTML = `
-        <td class="brand-name">${escapeHtml(brand.name)}</td>
+        <td class="brand-name">${brandNameHtml}</td>
         <td>${escapeHtml(brand.country || 'N/A')}</td>
-        <td>
-            ${brand.website
-                ? `<a href="${escapeHtml(brand.website)}" target="_blank" onclick="event.stopPropagation()">Visit</a>`
-                : 'N/A'}
-        </td>
+        <td class="flavors-cell">${flavorsHtml}</td>
+        <td class="origins-cell">${originsHtml}</td>
         <td>${productCount}</td>
         <td>${lastCrawl}</td>
     `;
@@ -210,14 +245,23 @@ function sortTable(column) {
         currentSort.ascending = !currentSort.ascending;
     } else {
         currentSort.column = column;
-        currentSort.ascending = false; // Start with descending for numbers
+        // Start with ascending for name, descending for numbers/dates
+        currentSort.ascending = column === 'name';
     }
 
     // Sort the brands data
     const sortedBrands = [...brandsData].sort((a, b) => {
         let aVal, bVal;
 
-        if (column === 'productCount') {
+        if (column === 'name') {
+            aVal = (a.name || '').toLowerCase();
+            bVal = (b.name || '').toLowerCase();
+            if (currentSort.ascending) {
+                return aVal.localeCompare(bVal);
+            } else {
+                return bVal.localeCompare(aVal);
+            }
+        } else if (column === 'productCount') {
             aVal = a.productCount || 0;
             bVal = b.productCount || 0;
         } else if (column === 'lastCrawl') {
@@ -440,7 +484,6 @@ async function handleSuggestSubmit(e) {
     const brandName = document.getElementById('brand-name').value.trim();
     const brandUrl = document.getElementById('brand-url').value.trim();
     const submitBtn = document.getElementById('submit-suggestion-btn');
-    const message = document.getElementById('form-message');
 
     // Get reCAPTCHA response
     let recaptchaToken = '';

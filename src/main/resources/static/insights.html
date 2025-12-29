@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TL;DR Weekly Market Insights - Graphee.link</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/" class="logo-link">
+                    <img src="/graphee_logo.png" alt="Graphee.link" class="nav-logo">
+                    <span class="brand-name">Graphee.link</span>
+                </a>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">By Flavor</a>
+                        <a href="/filter-products.html">By Product</a>
+                        <a href="/discover.html">Tasting Notes</a>
+                        <a href="/map.html">By Map</a>
+                    </div>
+                </div>
+                <a href="/brands.html">Brands</a>
+                <a href="/insights.html" class="active">Insights</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="digest-layout">
+            <!-- Left Sidebar - Digest Archive -->
+            <aside class="digest-sidebar">
+                <h3>Archives</h3>
+                <div id="digest-archive-list">
+                    <p class="loading-text">Loading...</p>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <div class="digest-main">
+                <!-- Digest Header -->
+                <section class="digest-header">
+                    <img src="/tldr_logo.jpg" alt="TL;DR Weekly Market Insights" class="tldr-logo">
+                    <p class="digest-date" id="digest-date">Loading...</p>
+                </section>
+
+                <!-- Loading State -->
+                <div id="loading" class="loading-state">
+                    <p>Loading digest...</p>
+                </div>
+
+                <!-- No Digest State -->
+                <div id="no-digest" class="empty-state hidden">
+                    <h2>No Digest Available Yet</h2>
+                    <p>Check back soon - we publish a new digest every Saturday.</p>
+                </div>
+
+                <!-- Digest Content -->
+                <div id="digest-content" class="hidden">
+                    <!-- Sources (at top) -->
+                    <section class="digest-sources">
+                        <p class="sources-line">Sources: <span id="sources-list"></span></p>
+                    </section>
+
+                    <!-- Featured Story -->
+                    <section class="featured-story" id="featured-story">
+                    </section>
+
+                    <!-- Secondary Stories Grid -->
+                    <section class="secondary-stories" id="secondary-stories">
+                    </section>
+
+                    <!-- Origin Photos Section -->
+                    <section class="origin-photos" id="origin-photos">
+                    </section>
+
+                    <!-- Data Insights Section -->
+                    <section class="digest-insights">
+                        <h2>This Week's Data</h2>
+                        <div class="insights-grid">
+                            <!-- Top Origins -->
+                            <div class="insight-card">
+                                <h3>🌍 Top Origins</h3>
+                                <canvas id="origins-chart" height="120"></canvas>
+                            </div>
+
+                            <!-- Top Flavors -->
+                            <div class="insight-card">
+                                <h3>🎨 Top Flavors</h3>
+                                <canvas id="flavors-chart" height="120"></canvas>
+                            </div>
+
+                            <!-- Top Processes -->
+                            <div class="insight-card">
+                                <h3>⚙️ Top Processes</h3>
+                                <canvas id="processes-chart" height="120"></canvas>
+                            </div>
+
+                            <!-- New Products -->
+                            <div class="insight-card">
+                                <h3>📦 Product Stats</h3>
+                                <div id="product-stats" class="insight-stats"></div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Graphee.link - Discover Specialty Coffee</p>
+        </div>
+    </footer>
+
+    <script src="/js/common.js"></script>
+    <script src="/js/insights.js"></script>
+</body>
+</html>

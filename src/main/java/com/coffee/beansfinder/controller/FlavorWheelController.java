@@ -2,6 +2,7 @@ package com.coffee.beansfinder.controller;
 
 import com.coffee.beansfinder.dto.FlavorCountDTO;
 import com.coffee.beansfinder.graph.node.ProductNode;
+import com.coffee.beansfinder.graph.repository.AttributeNodeRepository;
 import com.coffee.beansfinder.graph.repository.ProductNodeRepository;
 import com.coffee.beansfinder.graph.repository.SCACategoryRepository;
 import com.coffee.beansfinder.graph.repository.TastingNoteNodeRepository;
@@ -27,6 +28,9 @@ public class FlavorWheelController {
     private TastingNoteNodeRepository tastingNoteNodeRepository;
 
     @Autowired
+    private AttributeNodeRepository attributeNodeRepository;
+
+    @Autowired
     private SCACategoryRepository scaCategoryRepository;
 
     @Autowired
@@ -34,34 +38,23 @@ public class FlavorWheelController {
 
     @GetMapping("/data")
     @Operation(summary = "Get complete flavor wheel hierarchy",
-               description = "Returns all SCA categories with their flavors and product counts for visualization (served from static cache)")
+               description = "Returns all SCA categories with their Attributes (~110) and product counts for visualization")
     public ResponseEntity<Map<String, Object>> getFlavorWheelData() {
-        // NOTE: This endpoint now uses static cache file (flavor-wheel-data.json)
+        // NOTE: This endpoint now uses Attributes (~110) instead of TastingNotes (~3000+)
         // Frontend should load from /cache/flavor-wheel-data.json directly (zero Neo4j queries)
         // This fallback is kept for API compatibility
 
-        // Single efficient query - returns raw map data from TastingNoteNode 4-tier hierarchy
-        List<Map<String, Object>> allFlavorData = tastingNoteNodeRepository.findAllTastingNotesWithProductCountsAsMap();
-
-        System.out.println("=== FLAVOR WHEEL DATA DEBUG ===");
-        System.out.println("Total rows returned: " + allFlavorData.size());
-        if (!allFlavorData.isEmpty()) {
-            System.out.println("First row keys: " + allFlavorData.get(0).keySet());
-            System.out.println("First row: " + allFlavorData.get(0));
-        }
+        // Query Attributes with product counts grouped by category
+        List<Map<String, Object>> allAttributeData = attributeNodeRepository.findAllAttributesWithProductCountsByCategory();
 
         // Group by category
         Map<String, List<Map<String, Object>>> categoryMap = new HashMap<>();
         Map<String, Integer> categoryCounts = new HashMap<>();
 
-        int skippedRows = 0;
-        int processedRows = 0;
-
-        for (Map<String, Object> row : allFlavorData) {
-            // Spring Data Neo4j auto-unwraps single-column results
-            // So {data: {...}} becomes {...} automatically
+        for (Map<String, Object> row : allAttributeData) {
             String category = (String) row.get("category");
-            String flavorName = (String) row.get("flavorName");
+            String attributeId = (String) row.get("attributeId");
+            String attributeName = (String) row.get("attributeName");
             Object productCountObj = row.get("productCount");
 
             // Handle both Long and Integer types
@@ -73,14 +66,11 @@ public class FlavorWheelController {
             }
 
             // Skip if missing data
-            if (flavorName == null || productCount == null || productCount == 0) {
-                skippedRows++;
-                System.out.println("Skipping row: flavorName=" + flavorName + ", category=" + category + ", productCount=" + productCount);
+            if (attributeName == null || productCount == null || productCount == 0) {
                 continue;
             }
-            processedRows++;
 
-            // Ensure category is never null (defensive programming)
+            // Ensure category is never null
             if (category == null || category.isEmpty()) {
                 category = "other";
             }
@@ -88,7 +78,8 @@ public class FlavorWheelController {
             categoryMap.putIfAbsent(category, new ArrayList<>());
 
             Map<String, Object> flavor = new HashMap<>();
-            flavor.put("name", flavorName);
+            flavor.put("id", attributeId);  // Attribute ID for click handling
+            flavor.put("name", attributeName);  // Display name
             flavor.put("productCount", productCount.intValue());
 
             categoryMap.get(category).add(flavor);
@@ -104,11 +95,6 @@ public class FlavorWheelController {
             String categoryName = entry.getKey();
             List<Map<String, Object>> flavors = entry.getValue();
 
-            // Limit "other" category to top 10 flavors to reduce visual clutter
-            if ("other".equals(categoryName) && flavors.size() > 10) {
-                flavors = flavors.subList(0, 10);
-            }
-
             Map<String, Object> categoryData = new HashMap<>();
             categoryData.put("name", categoryName);
             categoryData.put("productCount", categoryCounts.get(categoryName));
@@ -122,11 +108,6 @@ public class FlavorWheelController {
         // Sort categories by product count (descending)
         categories.sort((a, b) -> Integer.compare((int) b.get("productCount"), (int) a.get("productCount")));
 
-        System.out.println("Processed " + processedRows + " rows, skipped " + skippedRows + " rows");
-        System.out.println("Final categories: " + categories.size());
-        System.out.println("Total flavors: " + totalFlavors);
-        System.out.println("Total products: " + totalProducts);
-
         Map<String, Object> response = new HashMap<>();
         response.put("categories", categories);
         response.put("totalProducts", totalProducts);
@@ -137,17 +118,25 @@ public class FlavorWheelController {
     }
 
     @GetMapping("/products")
-    @Operation(summary = "Search products by category or flavor",
-               description = "Query products by SCA category name or specific flavor name")
+    @Operation(summary = "Search products by category, attribute, or tasting note",
+               description = "Query products by SCA category, Attribute ID (aggregates all matching TastingNotes), or exact TastingNote ID")
     public ResponseEntity<Map<String, Object>> searchProducts(
             @RequestParam(required = false) String category,
+            @RequestParam(required = false) String attribute,
             @RequestParam(required = false) String flavor) {
 
         List<ProductNode> products;
         String searchType;
         String searchValue;
 
-        if (flavor != null && !flavor.isEmpty()) {
+        if (attribute != null && !attribute.isEmpty()) {
+            // Search by Attribute ID - aggregates all TastingNotes that MATCH this attribute
+            // e.g., "cherry" returns products with "cherry", "maraschino cherry", "cherry blossom"
+            products = productNodeRepository.findByAttributeId(attribute.toLowerCase());
+            searchType = "attribute";
+            searchValue = attribute;
+        } else if (flavor != null && !flavor.isEmpty()) {
+            // Search by exact TastingNote ID (legacy behavior)
             products = productNodeRepository.findByFlavorName(flavor.toLowerCase());
             searchType = "flavor";
             searchValue = flavor;
@@ -157,7 +146,7 @@ public class FlavorWheelController {
             searchValue = category;
         } else {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "Either 'category' or 'flavor' parameter is required"));
+                .body(Map.of("error", "Either 'category', 'attribute', or 'flavor' parameter is required"));
         }
 
         Map<String, Object> response = new HashMap<>();

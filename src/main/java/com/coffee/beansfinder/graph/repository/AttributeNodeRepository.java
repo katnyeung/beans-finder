@@ -43,4 +43,35 @@ public interface AttributeNodeRepository extends Neo4jRepository<AttributeNode, 
     @Query("MATCH (a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory {name: $categoryName}) " +
            "RETURN a")
     List<AttributeNode> findByCategoryName(@Param("categoryName") String categoryName);
+
+    /**
+     * Find all attributes with product counts, grouped by SCA category.
+     * Used for flavor wheel visualization (shows ~110 attributes instead of ~3000 tasting notes).
+     * Excludes deleted products.
+     */
+    @Query("MATCH (a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory) " +
+           "OPTIONAL MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a) " +
+           "WHERE p.deleted IS NULL OR p.deleted = false " +
+           "WITH a.id as attributeId, a.displayName as attributeName, " +
+           "     s.id as subcategory, c.name as category, " +
+           "     COUNT(DISTINCT p) as productCount " +
+           "WHERE productCount > 0 " +
+           "RETURN {attributeId: attributeId, attributeName: attributeName, " +
+           "        subcategory: subcategory, category: category, productCount: productCount} as data " +
+           "ORDER BY category, productCount DESC")
+    List<java.util.Map<String, Object>> findAllAttributesWithProductCountsByCategory();
+
+    /**
+     * Find attributes by category name with product counts.
+     * Used for discover page Level 2 drill-down.
+     */
+    @Query("MATCH (a:Attribute)-[:BELONGS_TO]->(s:Subcategory)-[:BELONGS_TO]->(c:SCACategory {name: $categoryName}) " +
+           "OPTIONAL MATCH (p:Product)-[:HAS_TASTING_NOTE]->(tn:TastingNote)-[:MATCHES]->(a) " +
+           "WHERE p.deleted IS NULL OR p.deleted = false " +
+           "WITH a.id as attributeId, a.displayName as attributeName, " +
+           "     s.id as subcategory, COUNT(DISTINCT p) as productCount " +
+           "RETURN {attributeId: attributeId, attributeName: attributeName, " +
+           "        subcategory: subcategory, productCount: productCount} as data " +
+           "ORDER BY productCount DESC")
+    List<java.util.Map<String, Object>> findByCategoryNameWithCounts(@Param("categoryName") String categoryName);
 }

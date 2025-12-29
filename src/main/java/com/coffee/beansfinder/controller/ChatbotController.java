@@ -110,25 +110,32 @@ public class ChatbotController {
                 request.getQuery());
 
         try {
-            // Step 4: Check semantic cache (only for simple queries without reference product)
-            // Skip cache if user has reference product (comparative queries need fresh context)
+            // Step 4: Check semantic cache (only for simple queries without personalization)
+            // Skip cache if:
+            // - User has reference product (comparative queries need fresh context)
+            // - User has loved/disliked products (personalized queries are user-specific)
             ChatbotResponse response = null;
             boolean cacheHit = false;
+            boolean isPersonalizedQuery = request.getReferenceProductId() != null ||
+                    (request.getLovedProductIds() != null && !request.getLovedProductIds().isEmpty()) ||
+                    (request.getDislikedProductIds() != null && !request.getDislikedProductIds().isEmpty());
 
-            if (request.getReferenceProductId() == null) {
+            if (!isPersonalizedQuery) {
                 response = semanticCacheService.getCachedResponse(request.getQuery());
                 if (response != null) {
                     cacheHit = true;
                     log.info("SEMANTIC CACHE HIT: Returning cached response for query: {}", request.getQuery());
                 }
+            } else {
+                log.debug("Skipping semantic cache for personalized query (user preferences present)");
             }
 
             // Step 5: If cache miss, process query normally
             if (response == null) {
                 response = chatbotService.processQuery(request);
 
-                // Cache response for future (only if no reference product)
-                if (request.getReferenceProductId() == null) {
+                // Cache response for future (only if not personalized)
+                if (!isPersonalizedQuery) {
                     semanticCacheService.cacheResponse(request.getQuery(), response);
                 }
 

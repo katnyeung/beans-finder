@@ -98,6 +98,10 @@ public class CoffeeBrand {
     @Builder.Default
     private String userSuggestions = "[]";
 
+    // Hash of homepage content for discount extraction (skip LLM if unchanged)
+    @Column(name = "discount_content_hash", length = 64)
+    private String discountContentHash;
+
     @PrePersist
     protected void onCreate() {
         createdDate = LocalDateTime.now();

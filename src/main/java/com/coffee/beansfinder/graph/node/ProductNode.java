@@ -31,6 +31,13 @@ public class ProductNode {
     private Boolean inStock;
     private LocalDateTime lastUpdate;
 
+    /**
+     * Soft delete flag: false = active, true = deleted
+     * When true, product is excluded from all searches and recommendations
+     */
+    @Builder.Default
+    private Boolean deleted = false;
+
     @Relationship(type = "SOLD_BY", direction = Relationship.Direction.OUTGOING)
     private BrandNode soldBy;
 

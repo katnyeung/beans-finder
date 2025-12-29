@@ -67,6 +67,15 @@ categories:
           - nectarine
           - stone fruit
           - grape
+          - grapes
+          - red grape
+          - red grapes
+          - white grape
+          - green grape
+          - grape candy
+          - grape soda
+          - grape jam
+          - candyfloss grapes
           - pineapple
           - mango
           - papaya
@@ -127,6 +136,12 @@ categories:
           - tea rose
           - delicate
           - aromatic
+          - violet
+          - violets
+          - lilac
+          - honeysuckle
+          - blossom
+          - geranium
 
   # ========================================
   # CATEGORY 3: SWEET
@@ -191,17 +206,29 @@ categories:
         keywords:
           - nutty
           - almond
+          - almonds
           - hazelnut
+          - hazelnuts
           - peanut
           - peanuts
           - walnut
+          - walnuts
           - pecan
+          - pecans
           - cashew
+          - cashews
+          - pistachio
+          - pistachios
+          - macadamia
           - malt
+          - malty
           - grain
           - toast
           - toasted
           - cereal
+          - praline
+          - nougat
+          - marzipan
 
       cocoa:
         display_name: "Cocoa"

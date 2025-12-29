@@ -1,11 +1,11 @@
 package com.coffee.beansfinder.service;
 
+import com.coffee.beansfinder.dto.Crawl4AIResponse;
 import com.coffee.beansfinder.dto.ExtractedProductData;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.playwright.*;
 import com.microsoft.playwright.options.WaitUntilState;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -20,19 +20,25 @@ import java.util.regex.Pattern;
 
 /**
  * Playwright-based scraper for JavaScript-heavy sites
- * Used as fallback when traditional scraping fails
+ * Now integrated with Crawl4AI Python microservice for enhanced extraction.
+ * Crawl4AI is tried first (if enabled), with Playwright as fallback.
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class PlaywrightScraperService {
 
     private final ObjectMapper objectMapper;
+    private final CrawlClientService crawlClientService;
     private Playwright playwright;
     private Browser browser;
     private final Random random = new Random();
     private int consecutiveFailures = 0;
     private static final int MAX_CONSECUTIVE_FAILURES_BEFORE_RESTART = 3;
+
+    public PlaywrightScraperService(ObjectMapper objectMapper, CrawlClientService crawlClientService) {
+        this.objectMapper = objectMapper;
+        this.crawlClientService = crawlClientService;
+    }
 
     // Common user agents for rotation (Chrome on Windows/Mac)
     private static final String[] USER_AGENTS = {
@@ -190,11 +196,39 @@ public class PlaywrightScraperService {
     }
 
     /**
-     * Extract only product-relevant text from rendered page
-     * Reduces token usage by 90% compared to sending full HTML
+     * Extract only product-relevant text from rendered page.
+     * Now integrated with Crawl4AI Python microservice:
+     * - First tries Crawl4AI if enabled (produces LLM-friendly markdown)
+     * - Falls back to Playwright if Crawl4AI fails or returns poor quality
+     *
+     * Reduces token usage by 90% compared to sending full HTML.
      * Cost: ~2,500 tokens vs 25,000 tokens for full HTML
      */
     public String extractProductText(String url) {
+        // Try Crawl4AI first if enabled
+        if (crawlClientService.isEnabled()) {
+            try {
+                log.info("[Crawl4AI] Attempting extraction for: {}", url);
+                Crawl4AIResponse response = crawlClientService.crawlSmart(url);
+
+                if (response != null && response.isSuccess()) {
+                    String content = response.getMarkdown();
+                    if (content != null && content.length() > 300) {
+                        log.info("[Crawl4AI] Success ({} chars): {}", content.length(), url);
+                        return content;
+                    }
+                    log.info("[Crawl4AI] Content too short ({} chars), falling back to Playwright: {}",
+                            content != null ? content.length() : 0, url);
+                } else {
+                    log.info("[Crawl4AI] Failed ({}), falling back to Playwright: {}",
+                            response != null ? response.getError() : "null response", url);
+                }
+            } catch (Exception e) {
+                log.warn("[Crawl4AI] Exception, falling back to Playwright: {} - {}", url, e.getMessage());
+            }
+        }
+
+        // Fallback to Playwright
         log.info("Extracting product text with Playwright: {}", url);
 
         // Retry up to 2 times on failure
@@ -279,6 +313,16 @@ public class PlaywrightScraperService {
                         // Collect text from multiple product-related areas (not just the first match)
                         let allText = [];
 
+                        // FIRST: Extract meta description (often contains tasting notes!)
+                        const metaDesc = document.querySelector('meta[name="description"]');
+                        if (metaDesc && metaDesc.content) {
+                            allText.push('META_DESCRIPTION: ' + metaDesc.content.trim());
+                        }
+                        const ogDesc = document.querySelector('meta[property="og:description"]');
+                        if (ogDesc && ogDesc.content && ogDesc.content !== (metaDesc?.content || '')) {
+                            allText.push('OG_DESCRIPTION: ' + ogDesc.content.trim());
+                        }
+
                         // Product description selectors (collect from all matching elements)
                         const descriptionSelectors = [
                             '.product-single__description',
@@ -291,14 +335,33 @@ public class PlaywrightScraperService {
                             '.accordion__content',
                             '.tab-content',
                             '.product__info-wrapper',
-                            '.product-single__content-text'
+                            '.product-single__content-text',
+                            // Additional selectors for various Shopify themes
+                            '.product__info',
+                            '.product-info__description',
+                            '.product-details__description',
+                            '.product-block',
+                            '.product__details',
+                            '[class*="product-info"]',
+                            '[class*="product-detail"]',
+                            '[class*="product-description"]',
+                            // Flavor/tasting notes specific
+                            '[class*="flavor"]',
+                            '[class*="tasting"]',
+                            '[class*="taste"]',
+                            '[class*="notes"]',
+                            '[class*="profile"]'
                         ];
 
                         descriptionSelectors.forEach(selector => {
                             try {
                                 document.querySelectorAll(selector).forEach(el => {
                                     const text = el.innerText || el.textContent;
-                                    if (text && text.trim().length > 50) {
+                                    // Allow shorter text (10+ chars) for flavor-related selectors
+                                    const minLength = selector.includes('flavor') || selector.includes('tasting') ||
+                                                      selector.includes('taste') || selector.includes('notes') ||
+                                                      selector.includes('profile') ? 10 : 50;
+                                    if (text && text.trim().length > minLength) {
                                         allText.push(text.trim());
                                     }
                                 });
@@ -396,6 +459,417 @@ public class PlaywrightScraperService {
             }
         }
 
+        return null;
+    }
+
+    /**
+     * Try to fetch Shopify product JSON (contains origin, process, tasting notes in body_html).
+     * Shopify stores expose product data at /products/{handle}.json
+     *
+     * @param url Product page URL (e.g., https://example.com/products/coffee-name)
+     * @return Product JSON body_html content, or null if not available
+     */
+    public String fetchShopifyProductJson(String url) {
+        // Convert product URL to JSON endpoint
+        // /products/coffee-name -> /products/coffee-name.json
+        // /collections/x/products/coffee-name -> /products/coffee-name.json
+        String jsonUrl = url;
+
+        // Handle collection URLs: extract just the product part
+        if (url.contains("/collections/") && url.contains("/products/")) {
+            int productsIndex = url.lastIndexOf("/products/");
+            jsonUrl = url.substring(0, url.indexOf("/collections/")) + url.substring(productsIndex);
+        }
+
+        // Remove query parameters and add .json
+        if (jsonUrl.contains("?")) {
+            jsonUrl = jsonUrl.substring(0, jsonUrl.indexOf("?"));
+        }
+        if (!jsonUrl.endsWith(".json")) {
+            jsonUrl = jsonUrl + ".json";
+        }
+
+        log.info("Fetching Shopify product JSON: {}", jsonUrl);
+
+        BrowserContext context = null;
+        Page page = null;
+
+        try {
+            context = createStealthContext();
+            page = context.newPage();
+
+            page.navigate(jsonUrl, new Page.NavigateOptions()
+                    .setTimeout(15000)
+                    .setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+
+            String content = page.content();
+
+            // Extract JSON from page (it's wrapped in HTML by browser)
+            if (content.contains("\"body_html\"")) {
+                // Parse the JSON to extract body_html
+                int bodyHtmlStart = content.indexOf("\"body_html\":\"");
+                if (bodyHtmlStart != -1) {
+                    bodyHtmlStart += 13; // Skip past "body_html":"
+                    int bodyHtmlEnd = content.indexOf("\",\"vendor\"", bodyHtmlStart);
+                    if (bodyHtmlEnd == -1) {
+                        bodyHtmlEnd = content.indexOf("\",\"", bodyHtmlStart);
+                    }
+                    if (bodyHtmlEnd != -1) {
+                        String bodyHtml = content.substring(bodyHtmlStart, bodyHtmlEnd);
+                        // Unescape JSON string
+                        bodyHtml = bodyHtml.replace("\\u003c", "<")
+                                          .replace("\\u003e", ">")
+                                          .replace("\\u0026", "&")
+                                          .replace("\\/", "/")
+                                          .replace("\\n", "\n")
+                                          .replace("\\\"", "\"");
+                        // Strip HTML tags
+                        bodyHtml = bodyHtml.replaceAll("<[^>]+>", " ")
+                                          .replaceAll("\\s+", " ")
+                                          .trim();
+                        log.info("Extracted Shopify body_html ({} chars): {}", bodyHtml.length(), url);
+                        return bodyHtml;
+                    }
+                }
+            }
+
+            log.warn("No body_html found in Shopify JSON for: {}", url);
+            return null;
+
+        } catch (Exception e) {
+            log.debug("Failed to fetch Shopify product JSON for {}: {}", url, e.getMessage());
+            return null;
+        } finally {
+            try {
+                if (page != null && !page.isClosed()) page.close();
+                if (context != null) context.close();
+            } catch (Exception e) {
+                // Ignore cleanup errors
+            }
+        }
+    }
+
+    /**
+     * Extract WIDER product text content for retry scenarios.
+     * Used when the targeted extraction (extractProductText) fails to find tasting notes.
+     * This method extracts the FULL page body text instead of targeted selectors,
+     * which may capture tasting notes in unexpected locations.
+     *
+     * @param url Product page URL
+     * @return Extracted text from full page body
+     */
+    public String extractProductTextWide(String url) {
+        log.info("Extracting WIDE product text with Playwright (fallback): {}", url);
+
+        BrowserContext context = null;
+        Page page = null;
+
+        try {
+            context = createStealthContext();
+            page = context.newPage();
+
+            // Add random delay
+            int delay = 1000 + random.nextInt(2000);
+            Thread.sleep(delay);
+
+            // Navigate
+            page.navigate(url, new Page.NavigateOptions()
+                    .setTimeout(25000)
+                    .setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+
+            // Wait for dynamic content
+            page.waitForTimeout(3000);
+
+            // Try to expand collapsed sections
+            page.evaluate("""
+                () => {
+                    const expandSelectors = [
+                        '.accordion__header:not(.is-open)',
+                        '.accordion-trigger:not([aria-expanded="true"])',
+                        '.tab-link:not(.active)',
+                        '.collapsible-trigger:not(.is-open)',
+                        'details:not([open]) summary'
+                    ];
+                    expandSelectors.forEach(selector => {
+                        try {
+                            document.querySelectorAll(selector).forEach(el => {
+                                try { el.click(); } catch(e) {}
+                            });
+                        } catch(e) {}
+                    });
+                    document.querySelectorAll('details:not([open])').forEach(d => {
+                        try { d.setAttribute('open', ''); } catch(e) {}
+                    });
+                }
+                """);
+
+            page.waitForTimeout(500);
+
+            // Extract EVERYTHING - full body text, all meta tags, JSON-LD structured data
+            String wideText = page.evaluate("""
+                () => {
+                    let allText = [];
+
+                    // 1. ALL meta tags (description, og:description, twitter:description, keywords)
+                    const metaTags = ['description', 'keywords'];
+                    metaTags.forEach(name => {
+                        const meta = document.querySelector('meta[name="' + name + '"]');
+                        if (meta && meta.content) {
+                            allText.push('META_' + name.toUpperCase() + ': ' + meta.content.trim());
+                        }
+                    });
+                    const ogDesc = document.querySelector('meta[property="og:description"]');
+                    if (ogDesc && ogDesc.content) {
+                        allText.push('OG_DESCRIPTION: ' + ogDesc.content.trim());
+                    }
+
+                    // 2. JSON-LD structured data (often contains product info)
+                    document.querySelectorAll('script[type="application/ld+json"]').forEach(script => {
+                        try {
+                            const json = JSON.parse(script.textContent);
+                            if (json.description) {
+                                allText.push('JSON_LD_DESCRIPTION: ' + json.description);
+                            }
+                            if (json.name) {
+                                allText.push('JSON_LD_NAME: ' + json.name);
+                            }
+                        } catch(e) {}
+                    });
+
+                    // 3. Product JSON embedded in page (Shopify pattern)
+                    const productJsonMatch = document.body.innerHTML.match(/var\\s+product\\s*=\\s*(\\{[^;]+\\});/);
+                    if (productJsonMatch) {
+                        try {
+                            const productJson = JSON.parse(productJsonMatch[1]);
+                            if (productJson.description) {
+                                allText.push('SHOPIFY_PRODUCT_DESCRIPTION: ' + productJson.description.replace(/<[^>]*>/g, ' '));
+                            }
+                        } catch(e) {}
+                    }
+
+                    // 4. Remove scripts/styles but keep all body text
+                    ['script', 'style', 'iframe', 'noscript'].forEach(tag => {
+                        document.querySelectorAll(tag).forEach(el => {
+                            try { el.remove(); } catch (e) {}
+                        });
+                    });
+
+                    // 5. Get FULL body text (not just product sections)
+                    const bodyText = document.body.innerText || document.body.textContent || '';
+                    allText.push('BODY_TEXT: ' + bodyText);
+
+                    return allText.join('\\n\\n');
+                }
+                """).toString();
+
+            // Clean up whitespace
+            wideText = wideText.replaceAll("\\s+", " ").trim();
+
+            // Limit to 60KB to avoid token limits
+            if (wideText.length() > 60000) {
+                wideText = wideText.substring(0, 60000);
+            }
+
+            log.info("Extracted WIDE product text ({} chars): {}", wideText.length(), url);
+            return wideText;
+
+        } catch (Exception e) {
+            log.error("Wide extraction failed for {}: {}", url, e.getMessage());
+            return null;
+        } finally {
+            try {
+                if (page != null && !page.isClosed()) page.close();
+                if (context != null) context.close();
+            } catch (Exception closeError) {
+                // Ignore cleanup errors
+            }
+        }
+    }
+
+    /**
+     * Extract homepage text for discount/promotion extraction.
+     * Unlike extractProductText(), this method KEEPS header notification bars and announcement sections.
+     *
+     * @param url Homepage URL
+     * @return Extracted text including promotional content
+     */
+    public String extractHomepageForDiscounts(String url) {
+        log.info("Extracting homepage for discounts: {}", url);
+
+        int maxRetries = 2;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            BrowserContext context = null;
+            Page page = null;
+
+            try {
+                context = createStealthContext();
+                page = context.newPage();
+
+                // Random delay to simulate human behavior
+                Thread.sleep(1000 + random.nextInt(2000));
+
+                page.navigate(url, new Page.NavigateOptions()
+                        .setTimeout(25000)
+                        .setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+
+                // Wait for dynamic content
+                page.waitForTimeout(2000);
+
+                // Extract promotional text - keep headers, notification bars, banners
+                String promoText = page.evaluate("""
+                    () => {
+                        // Remove only scripts and styles, keep headers for notification bars
+                        ['script', 'style', 'iframe', 'noscript'].forEach(tag => {
+                            document.querySelectorAll(tag).forEach(el => {
+                                try { el.remove(); } catch (e) {}
+                            });
+                        });
+
+                        let allText = [];
+
+                        // Promotional selectors - notification bars, announcements, banners
+                        const promoSelectors = [
+                            // Notification bars (common patterns)
+                            '.header-notification',
+                            '.header-notification__content',
+                            '.announcement-bar',
+                            '.announcement-bar__message',
+                            '.announcement',
+                            '.top-bar',
+                            '.promo-bar',
+                            '.site-header__announcement',
+                            '[class*="announcement"]',
+                            '[class*="notification"]',
+                            '[class*="promo-bar"]',
+                            '[class*="top-banner"]',
+                            // Utility bar / info bar (common Shopify patterns)
+                            '.utility-bar',
+                            '.info-bar',
+                            '.marquee',
+                            '[class*="utility-bar"]',
+                            '[class*="info-bar"]',
+                            '[class*="marquee"]',
+                            '[class*="ticker"]',
+                            '[class*="topbar"]',
+                            '[class*="top_bar"]',
+                            // Data attributes for announcements
+                            '[data-section-type="announcement"]',
+                            '[data-section-type="announcement-bar"]',
+                            '[data-announcement]',
+                            // Hero/banner sections
+                            '.hero',
+                            '.hero__content',
+                            '.banner',
+                            '.banner__content',
+                            '[class*="hero"]',
+                            '[class*="banner"]',
+                            // Popup/modal content (text only)
+                            '.popup__content',
+                            '.modal__content',
+                            '[class*="popup"]',
+                            '[class*="modal"]',
+                            // Free shipping bars
+                            '[class*="shipping"]',
+                            '[class*="delivery"]',
+                            '[class*="free-shipping"]',
+                            // Sale/offer sections
+                            '[class*="sale"]',
+                            '[class*="offer"]',
+                            '[class*="discount"]',
+                            '[class*="promo"]',
+                            // Subscription offers (common patterns)
+                            '[class*="subscribe"]',
+                            '[class*="subscription"]',
+                            '[class*="save"]',
+                            '[class*="savings"]',
+                            // Slideshow/carousel content
+                            '.slideshow',
+                            '.slideshow__slide',
+                            '.carousel',
+                            '[class*="slideshow"]',
+                            '[class*="carousel"]',
+                            '[class*="slider"]',
+                            // Featured/highlight sections
+                            '.featured',
+                            '[class*="featured"]',
+                            '[class*="highlight"]',
+                            // Call-to-action sections
+                            '.cta',
+                            '[class*="cta"]',
+                            // Header area (where sticky promos often appear)
+                            'header',
+                            '.header',
+                            '.site-header'
+                        ];
+
+                        promoSelectors.forEach(selector => {
+                            try {
+                                document.querySelectorAll(selector).forEach(el => {
+                                    const text = el.innerText || el.textContent;
+                                    if (text && text.trim().length > 5 && text.trim().length < 1000) {
+                                        allText.push(text.trim());
+                                    }
+                                });
+                            } catch(e) {}
+                        });
+
+                        // Also scan for text containing promo keywords anywhere on page
+                        const promoKeywords = ['free shipping', 'free delivery', 'free uk', 'off your', '% off', 'discount', 'save ', 'subscribe', 'code:', 'use code', 'first order'];
+                        const allElements = document.querySelectorAll('div, span, p, a, li, section');
+                        allElements.forEach(el => {
+                            try {
+                                const text = (el.innerText || el.textContent || '').trim().toLowerCase();
+                                if (text.length > 10 && text.length < 200) {
+                                    for (const keyword of promoKeywords) {
+                                        if (text.includes(keyword)) {
+                                            allText.push((el.innerText || el.textContent).trim());
+                                            break;
+                                        }
+                                    }
+                                }
+                            } catch(e) {}
+                        });
+
+                        // Deduplicate
+                        allText = [...new Set(allText)];
+
+                        // Always include top portion of body for context
+                        const body = document.body.innerText || document.body.textContent || '';
+                        const topPortion = body.substring(0, 3000);
+
+                        // Combine: promo content + top portion
+                        if (allText.length > 0) {
+                            return allText.join('\\n\\n') + '\\n\\n--- Page Top ---\\n\\n' + topPortion;
+                        }
+
+                        // Fallback: return top portion of page (first 8000 chars)
+                        return body.substring(0, 8000);
+                    }
+                    """).toString();
+
+                log.info("Extracted homepage promo text ({} chars): {}", promoText.length(), url);
+                return promoText.trim();
+
+            } catch (Exception e) {
+                log.error("Attempt {}/{} failed for homepage {}: {}", attempt, maxRetries, url, e.getMessage());
+                if (attempt == maxRetries) {
+                    return null;
+                }
+                try {
+                    Thread.sleep(2000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
+            } finally {
+                try {
+                    if (page != null && !page.isClosed()) page.close();
+                    if (context != null) context.close();
+                } catch (Exception e) {
+                    // Ignore
+                }
+            }
+        }
         return null;
     }
 
@@ -714,6 +1188,173 @@ public class PlaywrightScraperService {
     }
 
     /**
+     * Extract article content from news pages (Perfect Daily Grind, Daily Coffee News, etc.)
+     * Returns the main article text without navigation, ads, sidebars, etc.
+     *
+     * @param url News article URL
+     * @return Extracted article text (up to 5000 chars), or null if failed
+     */
+    public String extractArticleContent(String url) {
+        log.info("Extracting article content: {}", url);
+
+        BrowserContext context = null;
+        Page page = null;
+
+        try {
+            context = createStealthContext();
+            page = context.newPage();
+
+            // Random delay
+            Thread.sleep(1000 + random.nextInt(2000));
+
+            page.navigate(url, new Page.NavigateOptions()
+                    .setTimeout(25000)
+                    .setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+
+            page.waitForTimeout(3000);  // Wait longer for content to load
+
+            // Extract article content using common news article selectors
+            Object evalResult = page.evaluate("""
+                () => {
+                    let allText = [];
+
+                    // Get title first
+                    const title = document.querySelector('h1.entry-title, h1.post-title, h1.article-title, h1')?.innerText || '';
+                    if (title) {
+                        allText.push('TITLE: ' + title.trim());
+                    }
+
+                    // Get meta description as fallback summary
+                    const metaDesc = document.querySelector('meta[name="description"]')?.content ||
+                                    document.querySelector('meta[property="og:description"]')?.content || '';
+                    if (metaDesc) {
+                        allText.push('SUMMARY: ' + metaDesc.trim());
+                    }
+
+                    // Remove non-content elements AFTER getting meta
+                    ['script', 'style', 'nav', 'footer', 'header', 'aside', 'iframe', 'noscript',
+                     '.sidebar', '.comments', '.related-posts', '.share-buttons', '.ad', '.advertisement',
+                     '.wp-block-embed', '.social-share', '.author-bio', '.post-navigation',
+                     '[class*="sidebar"]', '[class*="comment"]', '[class*="related"]', '[class*="share"]',
+                     '[class*="newsletter"]', '[class*="subscription"]', '[class*="popup"]',
+                     '[class*="widget"]', '[class*="advert"]', '[class*="promo"]'].forEach(selector => {
+                        try {
+                            document.querySelectorAll(selector).forEach(el => el.remove());
+                        } catch(e) {}
+                    });
+
+                    // Article content selectors (prioritized for WordPress/news sites)
+                    const articleSelectors = [
+                        // WordPress common
+                        '.entry-content',
+                        '.post-content',
+                        '.article-content',
+                        '.td-post-content',
+                        '.single-post-content',
+                        // Generic article
+                        'article .content',
+                        'article',
+                        '.article-body',
+                        '.story-content',
+                        '.post-body',
+                        // Structured data
+                        '[itemprop="articleBody"]',
+                        // Fallbacks
+                        'main article',
+                        'main .post',
+                        'main',
+                        '#main-content',
+                        '#content',
+                        '.content-area'
+                    ];
+
+                    let foundContent = false;
+                    for (const selector of articleSelectors) {
+                        try {
+                            const el = document.querySelector(selector);
+                            if (el) {
+                                // Get all paragraph text
+                                const paragraphs = el.querySelectorAll('p');
+                                let pText = '';
+                                paragraphs.forEach(p => {
+                                    const text = p.innerText?.trim();
+                                    if (text && text.length > 20) {
+                                        pText += text + ' ';
+                                    }
+                                });
+
+                                if (pText.length > 200) {
+                                    allText.push(pText.trim());
+                                    foundContent = true;
+                                    break;
+                                }
+
+                                // Fallback to full element text
+                                const fullText = el.innerText || el.textContent;
+                                if (fullText && fullText.trim().length > 200) {
+                                    allText.push(fullText.trim());
+                                    foundContent = true;
+                                    break;
+                                }
+                            }
+                        } catch(e) {}
+                    }
+
+                    // If still no content, try getting all paragraphs from body
+                    if (!foundContent) {
+                        const allParagraphs = document.querySelectorAll('body p');
+                        let bodyText = '';
+                        allParagraphs.forEach(p => {
+                            const text = p.innerText?.trim();
+                            if (text && text.length > 30) {
+                                bodyText += text + ' ';
+                            }
+                        });
+                        if (bodyText.length > 200) {
+                            allText.push(bodyText.trim());
+                        }
+                    }
+
+                    return allText.join(' --- ');
+                }
+                """);
+
+            // Debug: log what we got back
+            log.info("Playwright evaluate returned type: {}, value preview: {}",
+                    evalResult != null ? evalResult.getClass().getSimpleName() : "null",
+                    evalResult != null ? (evalResult.toString().length() > 100 ?
+                            evalResult.toString().substring(0, 100) + "..." : evalResult.toString()) : "null");
+
+            String articleText = evalResult != null ? evalResult.toString() : "";
+
+            // Clean and limit
+            articleText = articleText.replaceAll("\\s+", " ").trim();
+            if (articleText.length() > 5000) {
+                articleText = articleText.substring(0, 5000) + "...";
+            }
+
+            // If still too short, log warning
+            if (articleText.length() < 100) {
+                log.warn("Article extraction returned very short content ({} chars) for: {}", articleText.length(), url);
+            }
+
+            log.info("Extracted article ({} chars): {}", articleText.length(), url);
+            return articleText.length() > 50 ? articleText : null;
+
+        } catch (Exception e) {
+            log.error("Failed to extract article from {}: {}", url, e.getMessage());
+            return null;
+        } finally {
+            try {
+                if (page != null && !page.isClosed()) page.close();
+                if (context != null) context.close();
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+    }
+
+    /**
      * Check if site is likely JavaScript-rendered
      */
     public boolean isJavaScriptRendered(String htmlContent) {
@@ -724,5 +1365,61 @@ public class PlaywrightScraperService {
                htmlContent.contains("var Shopify") ||
                htmlContent.contains("data-react-helmet") ||
                (htmlContent.contains("<div id=\"root\"></div>") && htmlContent.split("<div").length < 10);
+    }
+
+    /**
+     * Fetch XML/HTML content using Playwright (bypasses Cloudflare protection).
+     * Used as fallback when Jsoup gets 403 errors from Cloudflare-protected sites.
+     *
+     * @param url URL to fetch (typically a sitemap URL)
+     * @return Raw content as String, or null if failed
+     */
+    public String fetchPageContent(String url) {
+        log.info("Fetching page content via Playwright: {}", url);
+
+        int maxRetries = 2;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            BrowserContext context = null;
+            Page page = null;
+
+            try {
+                context = createStealthContext();
+                page = context.newPage();
+
+                // Small delay to simulate human behavior
+                Thread.sleep(500 + random.nextInt(1000));
+
+                page.navigate(url, new Page.NavigateOptions()
+                        .setTimeout(30000)
+                        .setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+
+                // Get the page content
+                String content = page.content();
+
+                if (content != null && !content.isEmpty()) {
+                    log.info("Successfully fetched {} chars via Playwright: {}", content.length(), url);
+                    return content;
+                }
+
+            } catch (Exception e) {
+                log.error("Playwright fetch attempt {}/{} failed for {}: {}", attempt, maxRetries, url, e.getMessage());
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return null;
+                    }
+                }
+            } finally {
+                try {
+                    if (page != null && !page.isClosed()) page.close();
+                    if (context != null) context.close();
+                } catch (Exception e) {
+                    // Ignore cleanup errors
+                }
+            }
+        }
+        return null;
     }
 }

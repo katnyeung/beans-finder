@@ -3,6 +3,7 @@ package com.coffee.beansfinder.service;
 import com.coffee.beansfinder.dto.CrawlSummary;
 import com.coffee.beansfinder.dto.ExtractedProductData;
 import com.coffee.beansfinder.dto.SCAFlavorMapping;
+import com.coffee.beansfinder.dto.SitemapEntry;
 import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
@@ -43,6 +44,8 @@ public class CrawlerService {
     private final ObjectMapper objectMapper;
     private final MapCacheService mapCacheService;
     private final ContentHashService contentHashService;
+    private final PriceHistoryService priceHistoryService;
+    private final DiscountExtractorService discountExtractorService;
 
     @Value("${crawler.update.interval.days:14}")
     private int updateIntervalDays;
@@ -188,12 +191,38 @@ public class CrawlerService {
      * Crawl all products from a brand's sitemap using incremental hash-based change detection.
      * Only calls OpenAI for new or changed products, saving API costs.
      *
+     * @param brand The brand to crawl
      * @return CrawlSummary with stats on new/updated/unchanged/deleted products
      */
     // NOTE: No @Transactional here - each product is saved in its own transaction
     // This prevents "idle-in-transaction timeout" during slow OpenAI API calls
     public CrawlSummary crawlBrandFromSitemap(CoffeeBrand brand) {
-        log.info("Starting incremental sitemap crawl for brand: {} from {}", brand.getName(), brand.getSitemapUrl());
+        return crawlBrandFromSitemap(brand, 0);
+    }
+
+    /**
+     * Crawl all products from a brand's sitemap using incremental hash-based change detection.
+     * Only calls OpenAI for new or changed products, saving API costs.
+     *
+     * @param brand The brand to crawl
+     * @param maxAgeDays Only process products with lastmod within this many days (0 = no filter)
+     * @return CrawlSummary with stats on new/updated/unchanged/deleted products
+     */
+    public CrawlSummary crawlBrandFromSitemap(CoffeeBrand brand, int maxAgeDays) {
+        if (maxAgeDays > 0) {
+            log.info("Starting incremental sitemap crawl for brand: {} from {} (filtering to last {} days)",
+                    brand.getName(), brand.getSitemapUrl(), maxAgeDays);
+        } else {
+            log.info("Starting incremental sitemap crawl for brand: {} from {}", brand.getName(), brand.getSitemapUrl());
+        }
+
+        // Extract discounts from brand homepage
+        try {
+            int discountsFound = discountExtractorService.extractAndSave(brand);
+            log.info("Extracted {} discounts for brand: {}", discountsFound, brand.getName());
+        } catch (Exception e) {
+            log.warn("Failed to extract discounts for brand {}: {}", brand.getName(), e.getMessage());
+        }
 
         CrawlSummary.CrawlSummaryBuilder summaryBuilder = CrawlSummary.builder()
                 .brandName(brand.getName());
@@ -207,21 +236,38 @@ public class CrawlerService {
         int updatedCount = 0;
         int unchangedCount = 0;
         int deletedCount = 0;
+        int restoredCount = 0;
+        int staleDeletedCount = 0;
 
         try {
-            // Step 1: Build map of existing products by sellerUrl for efficient lookup
-            List<CoffeeProduct> existingProducts = productRepository.findByBrand(brand);
-            Map<String, CoffeeProduct> existingByUrl = new HashMap<>();
-            for (CoffeeProduct p : existingProducts) {
+            // Step 1: Build lightweight map of existing products (ID + hash only, no entity references)
+            // This avoids holding DB connections during slow Playwright operations
+            record ProductRef(Long id, String contentHash) {}
+            Map<String, ProductRef> existingByUrl = new HashMap<>();
+            Set<Long> existingProductIds = new HashSet<>();
+
+            for (CoffeeProduct p : productRepository.findByBrand(brand)) {
                 if (p.getSellerUrl() != null) {
-                    existingByUrl.put(p.getSellerUrl(), p);
+                    existingByUrl.put(p.getSellerUrl(), new ProductRef(p.getId(), p.getContentHash()));
+                    existingProductIds.add(p.getId());
                 }
             }
             log.info("Found {} existing products for brand: {}", existingByUrl.size(), brand.getName());
 
-            // Step 2: Fetch and filter sitemap to coffee products only (keyword-based, free)
-            List<String> productUrls = scraperService.extractProductUrlsFromSitemap(brand.getSitemapUrl());
-            log.info("Extracted {} URLs from sitemap (after keyword-based filtering)", productUrls.size());
+            // Step 2: Fetch and filter sitemap to coffee products only
+            List<String> productUrls;
+            if (maxAgeDays > 0) {
+                // Use date-filtered method - only products updated within maxAgeDays
+                List<SitemapEntry> entries = scraperService.extractProductUrlsFromSitemapWithDateFilter(
+                        brand.getSitemapUrl(), maxAgeDays);
+                productUrls = entries.stream().map(SitemapEntry::getUrl).toList();
+                log.info("Extracted {} URLs from sitemap (filtered by date: last {} days, keyword-based filtering)",
+                        productUrls.size(), maxAgeDays);
+            } else {
+                // Use original method - all coffee products
+                productUrls = scraperService.extractProductUrlsFromSitemap(brand.getSitemapUrl());
+                log.info("Extracted {} URLs from sitemap (after keyword-based filtering)", productUrls.size());
+            }
 
             if (productUrls.isEmpty()) {
                 log.warn("No coffee products found in sitemap for brand: {}", brand.getName());
@@ -229,7 +275,10 @@ public class CrawlerService {
             }
 
             // Track which URLs we've seen in this crawl (for deletion detection)
+            // NOTE: When using date filter, we don't delete products not in filtered list
+            //       because they may just be older than maxAgeDays
             Set<String> urlsInSitemap = new HashSet<>(productUrls);
+            boolean skipDeletion = maxAgeDays > 0;
 
             // Step 3: Process each URL with hash-based change detection
             int totalUrls = productUrls.size();
@@ -241,22 +290,40 @@ public class CrawlerService {
                 log.info("[{}/{}] Extracting text with Playwright: {}", i + 1, totalUrls, productUrl);
                 String productText = playwrightService.extractProductText(productUrl);
 
+                // Check if extraction failed or returned too little content
+                final int MIN_CONTENT_LENGTH = 300; // Minimum chars for meaningful extraction
                 if (productText == null || productText.isEmpty()) {
                     log.error("Playwright failed to extract text for: {}", productUrl);
                     continue; // Skip this URL, don't fail entire crawl
                 }
 
+                // If content is too short, try wide extraction (full page body)
+                if (productText.length() < MIN_CONTENT_LENGTH) {
+                    log.warn("⚠️ Extracted text too short ({} chars < {}), retrying with wide extraction: {}",
+                            productText.length(), MIN_CONTENT_LENGTH, productUrl);
+                    String wideText = playwrightService.extractProductTextWide(productUrl);
+                    if (wideText != null && wideText.length() > productText.length()) {
+                        log.info("Wide extraction got {} chars (was {})", wideText.length(), productText.length());
+                        productText = wideText;
+                    }
+
+                    // If still too short, skip this product
+                    if (productText.length() < MIN_CONTENT_LENGTH) {
+                        log.error("❌ Content still too short after wide extraction ({} chars), skipping: {}",
+                                productText.length(), productUrl);
+                        continue;
+                    }
+                }
+
                 // Step 3b: Generate hash of extracted content
                 String newHash = contentHashService.generateHash(productText);
 
-                // Step 3c: Check if product exists
-                CoffeeProduct existingProduct = existingByUrl.get(productUrl);
+                // Step 3c: Check if product exists (using lightweight ref, not entity)
+                ProductRef existingRef = existingByUrl.get(productUrl);
 
-                if (existingProduct != null) {
+                if (existingRef != null) {
                     // Product exists - check if content changed
-                    String existingHash = existingProduct.getContentHash();
-
-                    if (!contentHashService.hasContentChanged(newHash, existingHash)) {
+                    if (!contentHashService.hasContentChanged(newHash, existingRef.contentHash())) {
                         // Content unchanged - skip OpenAI, save cost!
                         log.info("⏭️ [{}/{}] UNCHANGED (hash match): {}", i + 1, totalUrls, productUrl);
                         unchangedCount++;
@@ -268,45 +335,126 @@ public class CrawlerService {
                     ExtractedProductData data = extractWithOpenAI(productText, brand.getName(), productUrl);
 
                     if (data != null) {
-                        processAndSaveProduct(brand, data, productText, productUrl, existingProduct.getId());
-                        existingProduct.setContentHash(newHash);
-                        productRepository.save(existingProduct);
+                        // Fresh DB lookup for save (opens new connection, saves, closes)
+                        processAndSaveProduct(brand, data, productText, productUrl, existingRef.id());
+                        // Update hash in separate transaction
+                        productRepository.findById(existingRef.id()).ifPresent(p -> {
+                            p.setContentHash(newHash);
+                            productRepository.save(p);
+                        });
                         updatedCount++;
                         log.info("✓ [{}/{}] UPDATED: {} (origin: {})", i + 1, totalUrls,
                                 data.getProductName(), data.getOrigin());
                     }
                 } else {
-                    // New product - extract with OpenAI
-                    log.info("🆕 [{}/{}] NEW product: {}", i + 1, totalUrls, productUrl);
-                    ExtractedProductData data = extractWithOpenAI(productText, brand.getName(), productUrl);
+                    // Check if this is a soft-deleted product returning (recovery)
+                    Optional<CoffeeProduct> softDeleted = productRepository.findBySellerUrlIncludeDeleted(productUrl);
 
-                    if (data != null) {
-                        CoffeeProduct newProduct = processAndSaveProduct(brand, data, productText, productUrl, null);
-                        if (newProduct != null) {
-                            newProduct.setContentHash(newHash);
-                            productRepository.save(newProduct);
-                            newCount++;
-                            log.info("✓ [{}/{}] ADDED: {} (origin: {})", i + 1, totalUrls,
-                                    data.getProductName(), data.getOrigin());
+                    if (softDeleted.isPresent() && softDeleted.get().getDeletedAt() != null) {
+                        // Product was soft-deleted - restore it!
+                        CoffeeProduct restored = softDeleted.get();
+                        log.info("♻️ [{}/{}] RESTORING soft-deleted product: {}", i + 1, totalUrls, restored.getProductName());
+
+                        // Clear soft delete flags
+                        restored.setDeletedAt(null);
+                        try {
+                            graphService.restoreProduct(restored.getId());
+                        } catch (Exception e) {
+                            log.warn("Failed to restore product {} in graph: {}", restored.getId(), e.getMessage());
+                        }
+
+                        // Update content if changed
+                        if (contentHashService.hasContentChanged(newHash, restored.getContentHash())) {
+                            ExtractedProductData data = extractWithOpenAI(productText, brand.getName(), productUrl);
+                            if (data != null) {
+                                processAndSaveProduct(brand, data, productText, productUrl, restored.getId());
+                                restored.setContentHash(newHash);
+                            }
+                        }
+
+                        productRepository.save(restored);
+                        restoredCount++;
+                        log.info("✓ [{}/{}] RESTORED: {}", i + 1, totalUrls, restored.getProductName());
+
+                    } else {
+                        // Truly new product - extract with OpenAI
+                        log.info("🆕 [{}/{}] NEW product: {}", i + 1, totalUrls, productUrl);
+                        ExtractedProductData data = extractWithOpenAI(productText, brand.getName(), productUrl);
+
+                        if (data != null) {
+                            CoffeeProduct newProduct = processAndSaveProduct(brand, data, productText, productUrl, null);
+                            if (newProduct != null) {
+                                newProduct.setContentHash(newHash);
+                                productRepository.save(newProduct);
+                                newCount++;
+                                log.info("✓ [{}/{}] ADDED: {} (origin: {})", i + 1, totalUrls,
+                                        data.getProductName(), data.getOrigin());
+                            }
                         }
                     }
                 }
             }
 
-            // Step 4: Delete products no longer in sitemap
-            for (CoffeeProduct existing : existingProducts) {
-                if (existing.getSellerUrl() != null && !urlsInSitemap.contains(existing.getSellerUrl())) {
-                    log.info("🗑️ DELETING product not in sitemap: {} (ID: {})",
-                            existing.getProductName(), existing.getId());
-                    try {
-                        // Delete from Neo4j first
-                        graphService.deleteProductFromGraph(existing.getId());
-                    } catch (Exception e) {
-                        log.warn("Failed to delete product {} from graph: {}", existing.getId(), e.getMessage());
+            // Step 4: Soft delete products no longer in sitemap
+            // Skip deletion when using date filter (products may just be older than maxAgeDays)
+            if (!skipDeletion) {
+                // Find products not in sitemap and soft delete them
+                for (Map.Entry<String, ProductRef> entry : existingByUrl.entrySet()) {
+                    String url = entry.getKey();
+                    ProductRef ref = entry.getValue();
+                    if (!urlsInSitemap.contains(url)) {
+                        // Fresh DB lookup for deletion
+                        productRepository.findById(ref.id()).ifPresent(existing -> {
+                            if (existing.getDeletedAt() == null) {
+                                log.info("🗑️ SOFT DELETING product not in sitemap: {} (ID: {})",
+                                        existing.getProductName(), existing.getId());
+                                try {
+                                    graphService.markProductAsDeleted(existing.getId());
+                                } catch (Exception e) {
+                                    log.warn("Failed to mark product {} as deleted in graph: {}", existing.getId(), e.getMessage());
+                                }
+                                existing.setDeletedAt(LocalDateTime.now());
+                                productRepository.save(existing);
+                            }
+                        });
+                        deletedCount++;
                     }
-                    // Delete from PostgreSQL
-                    productRepository.delete(existing);
-                    deletedCount++;
+                }
+            } else {
+                // When using date filter, soft delete products with stale lastmod
+                log.info("Checking for stale products (lastmod > {} days)...", maxAgeDays);
+
+                // Get all sitemap entries (without date filter) to find stale products
+                List<SitemapEntry> allEntries = scraperService.extractProductUrlsFromSitemapWithDateFilter(
+                        brand.getSitemapUrl(), Integer.MAX_VALUE);  // Get all entries with dates
+
+                LocalDateTime cutoffDate = LocalDateTime.now().minusDays(maxAgeDays);
+
+                for (SitemapEntry entry : allEntries) {
+                    if (entry.getLastModified() != null && entry.getLastModified().isBefore(cutoffDate)) {
+                        // Product is stale - soft delete it
+                        ProductRef ref = existingByUrl.get(entry.getUrl());
+                        if (ref != null) {
+                            // Fresh DB lookup for deletion
+                            productRepository.findById(ref.id()).ifPresent(existing -> {
+                                if (existing.getDeletedAt() == null) {
+                                    log.info("🕐 STALE (lastmod > {} days): {} - soft deleting", maxAgeDays, existing.getProductName());
+                                    existing.setDeletedAt(LocalDateTime.now());
+                                    productRepository.save(existing);
+                                    try {
+                                        graphService.markProductAsDeleted(existing.getId());
+                                    } catch (Exception e) {
+                                        log.warn("Failed to mark stale product {} as deleted in graph: {}", existing.getId(), e.getMessage());
+                                    }
+                                }
+                            });
+                            staleDeletedCount++;
+                        }
+                    }
+                }
+
+                if (staleDeletedCount > 0) {
+                    log.info("Soft deleted {} stale products (lastmod > {} days)", staleDeletedCount, maxAgeDays);
                 }
             }
 
@@ -316,11 +464,13 @@ public class CrawlerService {
 
             // Build summary
             double costSaved = CrawlSummary.calculateCostSaved(unchangedCount);
+            int totalDeleted = deletedCount + staleDeletedCount;
             CrawlSummary summary = summaryBuilder
                     .newProducts(newCount)
                     .updatedProducts(updatedCount)
                     .unchangedProducts(unchangedCount)
-                    .deletedProducts(deletedCount)
+                    .deletedProducts(totalDeleted)
+                    .restoredProducts(restoredCount)
                     .totalProcessed(totalUrls)
                     .apiCostSaved(costSaved)
                     .build();
@@ -329,7 +479,8 @@ public class CrawlerService {
             log.info("  🆕 New products:       {}", newCount);
             log.info("  🔄 Updated products:   {}", updatedCount);
             log.info("  ⏭️ Unchanged products: {}", unchangedCount);
-            log.info("  🗑️ Deleted products:   {}", deletedCount);
+            log.info("  🗑️ Soft deleted:       {} (sitemap: {}, stale: {})", totalDeleted, deletedCount, staleDeletedCount);
+            log.info("  ♻️ Restored products:  {}", restoredCount);
             log.info("  💰 API cost saved:     ${}", String.format("%.4f", costSaved));
             log.info("==========================================");
 
@@ -357,58 +508,107 @@ public class CrawlerService {
 
     /**
      * Helper method to extract product data with OpenAI
-     * Retries up to 2 times if tasting notes are empty (page may not have loaded fully)
+     * Strategy: Shopify JSON first (fastest, most reliable), then page text, then wide extraction
      */
     private ExtractedProductData extractWithOpenAI(String productText, String brandName, String productUrl) {
-        final int MAX_RETRIES = 2;
+        try {
+            // STRATEGY 1: Try Shopify JSON endpoint FIRST (most reliable for Shopify stores)
+            // The .json endpoint contains the full body_html with origin, process, tasting notes
+            if (productUrl.contains("/products/")) {
+                log.info("🔍 Trying Shopify JSON endpoint first: {}", productUrl);
+                String shopifyJson = playwrightService.fetchShopifyProductJson(productUrl);
+                if (shopifyJson != null && !shopifyJson.isEmpty() && shopifyJson.length() > 100) {
+                    // Combine page text with Shopify JSON for comprehensive extraction
+                    String combinedText = productText + "\n\nSHOPIFY_PRODUCT_DATA:\n" + shopifyJson;
+                    ExtractedProductData jsonData = openAIService.extractFromText(combinedText, brandName, productUrl);
 
-        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-            try {
-                ExtractedProductData data = openAIService.extractFromText(productText, brandName, productUrl);
+                    if (jsonData != null && jsonData.getProductName() != null) {
+                        boolean jsonHasOrigin = !isEmptyOrNull(jsonData.getOrigin());
+                        boolean jsonHasTastingNotes = jsonData.getTastingNotes() != null && !jsonData.getTastingNotes().isEmpty();
 
-                if (data == null || data.getProductName() == null) {
-                    log.error("OpenAI failed to extract data for: {}", productUrl);
-                    return null;
-                }
-
-                // Check if tasting notes are empty
-                boolean hasTastingNotes = data.getTastingNotes() != null && !data.getTastingNotes().isEmpty();
-
-                if (hasTastingNotes) {
-                    // Success - have tasting notes
-                    return data;
-                } else if (attempt < MAX_RETRIES) {
-                    // No tasting notes - retry with fresh page load
-                    log.warn("⚠️ No tasting notes found for {} (attempt {}/{}), retrying with fresh page load...",
-                            productUrl, attempt, MAX_RETRIES);
-
-                    // Wait a bit before retry
-                    Thread.sleep(1000);
-
-                    // Re-fetch the page with Playwright (fresh load)
-                    String freshText = playwrightService.extractProductText(productUrl);
-                    if (freshText != null && !freshText.isEmpty()) {
-                        productText = freshText;
-                        log.info("Re-fetched page text ({} chars) for retry", freshText.length());
+                        if (jsonHasOrigin && jsonHasTastingNotes) {
+                            log.info("✓ Shopify JSON extraction complete: origin={}, process={}, tastingNotes={}",
+                                    jsonData.getOrigin(), jsonData.getProcess(),
+                                    jsonData.getTastingNotes() != null ? jsonData.getTastingNotes().size() : 0);
+                            if (!isValidCoffeeProduct(jsonData)) {
+                                log.warn("Skipping non-coffee product: {} - {}", jsonData.getProductName(), productUrl);
+                                return null;
+                            }
+                            return jsonData;
+                        }
+                        // Partial success - continue with other methods
+                        log.info("Shopify JSON partial: origin={}, tastingNotes={}", jsonHasOrigin, jsonHasTastingNotes);
                     }
-                } else {
-                    // Final attempt still has no tasting notes - return anyway (may be valid product without notes)
-                    log.warn("⚠️ No tasting notes found after {} attempts for: {} - saving anyway",
-                            MAX_RETRIES, productUrl);
-                    return data;
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                log.error("Retry interrupted for {}", productUrl);
-                return null;
-            } catch (Exception e) {
-                log.error("OpenAI extraction error for {} (attempt {}): {}", productUrl, attempt, e.getMessage());
-                if (attempt >= MAX_RETRIES) {
-                    return null;
                 }
             }
+
+            // STRATEGY 2: Use the targeted page extraction text
+            ExtractedProductData data = openAIService.extractFromText(productText, brandName, productUrl);
+
+            if (data == null || data.getProductName() == null) {
+                log.error("OpenAI failed to extract data for: {}", productUrl);
+                return null;
+            }
+
+            // Check if we have complete data
+            boolean hasTastingNotes = data.getTastingNotes() != null && !data.getTastingNotes().isEmpty();
+            boolean hasOrigin = !isEmptyOrNull(data.getOrigin());
+
+            if (hasTastingNotes && hasOrigin) {
+                // Success - have both tasting notes and origin
+                if (!isValidCoffeeProduct(data)) {
+                    log.warn("Skipping non-coffee product (missing origin/process/variety): {} - {}",
+                            data.getProductName(), productUrl);
+                    return null;
+                }
+                return data;
+            }
+
+            // STRATEGY 3: No tasting notes - try WIDER extraction (full page body text)
+            if (!hasTastingNotes) {
+                log.warn("⚠️ No tasting notes found for {} - trying WIDE extraction (full page + JSON-LD + meta tags)...",
+                        productUrl);
+
+                // Use wide extraction that captures meta tags, JSON-LD, and full body
+                String wideText = playwrightService.extractProductTextWide(productUrl);
+                if (wideText != null && !wideText.isEmpty() && wideText.length() > productText.length()) {
+                    log.info("Wide extraction got more content ({} chars vs {} chars), re-extracting...",
+                            wideText.length(), productText.length());
+
+                    ExtractedProductData wideData = openAIService.extractFromText(wideText, brandName, productUrl);
+
+                    if (wideData != null && wideData.getProductName() != null) {
+                        boolean wideHasTastingNotes = wideData.getTastingNotes() != null && !wideData.getTastingNotes().isEmpty();
+
+                        if (wideHasTastingNotes) {
+                            // Wide extraction found tasting notes - validate before returning
+                            if (!isValidCoffeeProduct(wideData)) {
+                                log.warn("Skipping non-coffee product (missing origin/process/variety): {} - {}",
+                                        wideData.getProductName(), productUrl);
+                                return null;
+                            }
+                            log.info("✓ Wide extraction found tasting notes: {}", wideData.getTastingNotes());
+                            return wideData;
+                        }
+                    }
+                }
+            }
+
+            // Still no tasting notes - validate before returning
+            // If missing 2+ of origin/process/variety, it's likely not a coffee bean product
+            if (!isValidCoffeeProduct(data)) {
+                log.warn("Skipping non-coffee product (missing origin/process/variety): {} - {}",
+                        data.getProductName(), productUrl);
+                return null;
+            }
+
+            log.warn("⚠️ No tasting notes found after all fallbacks for: {} - saving anyway", productUrl);
+            return data;
+
+        } catch (Exception e) {
+            log.error("OpenAI extraction error for {}: {}", productUrl, e.getMessage());
+            return null;
         }
-        return null;
     }
 
     /**
@@ -454,6 +654,13 @@ public class CrawlerService {
                 return null;
             }
 
+            // Validate: if missing 2+ of origin/process/variety, it's likely not a coffee bean product
+            if (!isValidCoffeeProduct(extractedData)) {
+                log.warn("Skipping non-coffee product (missing origin/process/variety): {} - {}",
+                        extractedData.getProductName(), productUrl);
+                return null;
+            }
+
             log.info("Successfully extracted product: {}", extractedData.getProductName());
 
             // Process and save (with existing product ID if provided)
@@ -466,10 +673,9 @@ public class CrawlerService {
     }
 
     /**
-     * Save extracted products in batch to prevent connection timeout
-     * Called during chunked processing of Playwright + Perplexity fallback
+     * Save extracted products in batch.
+     * No @Transactional - each productRepository.save() auto-commits immediately.
      */
-    @Transactional
     private void saveExtractedProducts(CoffeeBrand brand, List<ExtractedProductData> products) {
         log.info("Saving batch of {} products for brand: {}", products.size(), brand.getName());
 
@@ -532,10 +738,10 @@ public class CrawlerService {
     }
 
     /**
-     * Process extracted data and save to database
-     * Each product is saved in its own transaction to prevent timeout during slow API calls
+     * Process extracted data and save to database.
+     * No @Transactional - each productRepository.save() auto-commits immediately,
+     * preventing connection timeouts during long crawl operations.
      */
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public CoffeeProduct processAndSaveProduct(
             CoffeeBrand brand,
             ExtractedProductData extractedData,
@@ -544,7 +750,6 @@ public class CrawlerService {
         return processAndSaveProductInternal(brand, extractedData, rawContent, url, null);
     }
 
-    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public CoffeeProduct processAndSaveProduct(
             CoffeeBrand brand,
             ExtractedProductData extractedData,
@@ -606,6 +811,10 @@ public class CrawlerService {
             product.setVariety(extractedData.getVariety());
             product.setAltitude(extractedData.getAltitude());
             product.setPrice(extractedData.getPrice());
+            // Set currency from extraction (defaults to GBP if not extracted)
+            if (extractedData.getCurrency() != null && !extractedData.getCurrency().isEmpty()) {
+                product.setCurrency(extractedData.getCurrency());
+            }
             product.setInStock(extractedData.getInStock() != null ? extractedData.getInStock() : true);
             product.setSellerUrl(url);
 
@@ -619,6 +828,11 @@ public class CrawlerService {
                     ? extractedData.getRawDescription()
                     : rawContent;
             product.setRawDescription(description.length() > 5000 ? description.substring(0, 5000) : description);
+
+            // Set description summary (condensed paraphrase for copyright compliance)
+            if (extractedData.getDescriptionSummary() != null && !extractedData.getDescriptionSummary().isEmpty()) {
+                product.setDescriptionSummary(extractedData.getDescriptionSummary());
+            }
 
             product.setCrawlStatus("done");
             product.setLastUpdateDate(LocalDateTime.now());
@@ -647,6 +861,14 @@ public class CrawlerService {
             // Save to database
             product = productRepository.save(product);
             log.info("Saved product to database: {} (ID: {})", product.getProductName(), product.getId());
+
+            // Record price history (for price tracking and trend analysis)
+            try {
+                priceHistoryService.recordPrice(product);
+            } catch (Exception e) {
+                log.warn("Failed to record price history for product {}: {}", product.getId(), e.getMessage());
+                // Continue even if price history fails
+            }
 
             // Sync to knowledge graph
             try {
@@ -729,6 +951,53 @@ public class CrawlerService {
                 urls.size(), baseProducts.size(), urls.size() - baseProducts.size());
 
         return baseProducts.size();
+    }
+
+    /**
+     * Validate if extracted data represents a real coffee bean product.
+     * If missing 2+ of origin/process/variety AND has no tasting notes, it's likely equipment/courses.
+     *
+     * Blends are allowed if they have tasting notes (even without origin/process/variety).
+     *
+     * Examples of non-coffee products that slip through:
+     * - "Espresso Masterclass" (course) - no origin, no process, no variety, no tasting notes
+     * - "CAFEC TH-3 Paper Filter" (equipment) - no origin, no process, no variety, no tasting notes
+     * - "Filter selection" (subscription box) - no origin, no process, no variety, no tasting notes
+     *
+     * Examples of valid blends:
+     * - "Firehouse Blend" - no origin but has tasting notes (chocolate, forest fruits, etc.)
+     */
+    private boolean isValidCoffeeProduct(ExtractedProductData data) {
+        // If product has tasting notes, it's likely a real coffee (including blends)
+        boolean hasTastingNotes = data.getTastingNotes() != null && !data.getTastingNotes().isEmpty();
+        if (hasTastingNotes) {
+            return true;
+        }
+
+        // No tasting notes - check origin/process/variety
+        int missingCount = 0;
+
+        // Check origin
+        if (isEmptyOrNull(data.getOrigin())) {
+            missingCount++;
+        }
+
+        // Check process
+        if (isEmptyOrNull(data.getProcess())) {
+            missingCount++;
+        }
+
+        // Check variety
+        if (isEmptyOrNull(data.getVariety())) {
+            missingCount++;
+        }
+
+        // If missing 2 or more AND no tasting notes, it's likely not a coffee bean product
+        return missingCount < 2;
+    }
+
+    private boolean isEmptyOrNull(String value) {
+        return value == null || value.trim().isEmpty() || value.equalsIgnoreCase("N/A");
     }
 
     /**

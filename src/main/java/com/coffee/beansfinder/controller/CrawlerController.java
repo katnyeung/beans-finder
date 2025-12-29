@@ -6,6 +6,7 @@ import com.coffee.beansfinder.entity.CoffeeProduct;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
 import com.coffee.beansfinder.repository.CoffeeProductRepository;
 import com.coffee.beansfinder.service.CrawlerService;
+import com.coffee.beansfinder.service.KnowledgeGraphService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,6 +30,7 @@ public class CrawlerController {
     private final CrawlerService crawlerService;
     private final CoffeeBrandRepository brandRepository;
     private final CoffeeProductRepository productRepository;
+    private final KnowledgeGraphService graphService;
 
     /**
      * Trigger manual crawl of all brands
@@ -64,18 +66,22 @@ public class CrawlerController {
      *
      * @param brandId The brand ID to crawl products for
      * @param force If true, clears content hashes to force OpenAI re-extraction (rebuilds flavor profiles)
+     * @param deleteExisting If true, deletes all existing products before crawling (clean slate)
+     * @param maxAgeDays Only process products with lastmod within this many days (e.g., 30 = last month). 0 = no filter
      * @return CrawlSummary with stats on new/updated/unchanged/deleted products
      */
     @Operation(
         summary = "Crawl all products from sitemap (incremental)",
-        description = "Fetches the brand's sitemap.xml, extracts all product URLs, and uses hash-based change detection to only process new or changed products. Set force=true to clear hashes and force OpenAI re-extraction (rebuilds flavor profiles)."
+        description = "Fetches the brand's sitemap.xml, extracts all product URLs, and uses hash-based change detection to only process new or changed products. Set force=true to clear hashes and force OpenAI re-extraction (rebuilds flavor profiles). Set deleteExisting=true to delete all products first (clean slate). Set maxAgeDays to filter by lastmod date (e.g., 30 for products updated in last month)."
     )
     @PostMapping("/crawl-from-sitemap")
     public ResponseEntity<?> crawlFromSitemap(
             @Parameter(description = "Brand ID") @RequestParam Long brandId,
-            @Parameter(description = "Force re-extraction by clearing content hashes") @RequestParam(defaultValue = "false") boolean force) {
+            @Parameter(description = "Force re-extraction by clearing content hashes") @RequestParam(defaultValue = "false") boolean force,
+            @Parameter(description = "Delete all existing products before crawling (clean slate)") @RequestParam(defaultValue = "false") boolean deleteExisting,
+            @Parameter(description = "Only process products updated within this many days (0 = no filter)") @RequestParam(defaultValue = "0") int maxAgeDays) {
 
-        log.info("Sitemap crawl requested for Brand ID: {} (force={})", brandId, force);
+        log.info("Sitemap crawl requested for Brand ID: {} (force={}, deleteExisting={}, maxAgeDays={})", brandId, force, deleteExisting, maxAgeDays);
 
         // Validate brand exists
         CoffeeBrand brand = brandRepository.findById(brandId)
@@ -88,16 +94,35 @@ public class CrawlerController {
         }
 
         try {
+            // If deleteExisting=true, delete all products for this brand (clean slate)
+            if (deleteExisting) {
+                List<CoffeeProduct> existingProducts = productRepository.findByBrandId(brandId);
+                int deletedCount = existingProducts.size();
+
+                // Delete from Neo4j first
+                for (CoffeeProduct p : existingProducts) {
+                    try {
+                        graphService.deleteProductFromGraph(p.getId());
+                    } catch (Exception e) {
+                        log.warn("Failed to delete product {} from Neo4j: {}", p.getId(), e.getMessage());
+                    }
+                }
+
+                // Then delete from PostgreSQL
+                productRepository.deleteAll(existingProducts);
+                log.info("Delete existing mode: removed {} products for brand {}", deletedCount, brand.getName());
+            }
             // If force=true, clear content hashes to force OpenAI re-extraction
-            if (force) {
+            else if (force) {
                 int cleared = productRepository.clearContentHashByBrandId(brandId);
                 log.info("Force mode: cleared {} content hashes for brand {}", cleared, brand.getName());
             }
 
-            log.info("Starting sitemap crawl for brand: {} using sitemap: {}",
-                     brand.getName(), brand.getSitemapUrl());
+            log.info("Starting sitemap crawl for brand: {} using sitemap: {}{}",
+                     brand.getName(), brand.getSitemapUrl(),
+                     maxAgeDays > 0 ? " (filtering to last " + maxAgeDays + " days)" : "");
 
-            CrawlSummary summary = crawlerService.crawlBrandFromSitemap(brand);
+            CrawlSummary summary = crawlerService.crawlBrandFromSitemap(brand, maxAgeDays);
 
             return ResponseEntity.ok(summary);
 
@@ -151,18 +176,20 @@ public class CrawlerController {
      *
      * @param batchSize Number of brands to process (default 5)
      * @param force If true, clears content hashes to force OpenAI re-extraction
+     * @param maxAgeDays Only process products with lastmod within this many days (default 31)
      * @return Summary of batch crawl results
      */
     @Operation(
         summary = "Batch crawl brands from sitemap",
-        description = "Processes brands not crawled today, oldest first. Each brand is crawled synchronously one by one."
+        description = "Processes brands not crawled today, oldest first. Each brand is crawled synchronously one by one. Products with lastmod older than maxAgeDays are soft-deleted."
     )
     @PostMapping("/batch-crawl")
     public ResponseEntity<?> batchCrawl(
             @Parameter(description = "Number of brands to process") @RequestParam(defaultValue = "5") int batchSize,
-            @Parameter(description = "Force re-extraction by clearing content hashes") @RequestParam(defaultValue = "false") boolean force) {
+            @Parameter(description = "Force re-extraction by clearing content hashes") @RequestParam(defaultValue = "false") boolean force,
+            @Parameter(description = "Only process products updated within this many days (default 31)") @RequestParam(defaultValue = "31") int maxAgeDays) {
 
-        log.info("Batch crawl requested: batchSize={}, force={}", batchSize, force);
+        log.info("Batch crawl requested: batchSize={}, force={}, maxAgeDays={}", batchSize, force, maxAgeDays);
 
         // Get brands not crawled today, oldest first
         List<CoffeeBrand> brands = brandRepository.findBrandsNotCrawledToday();
@@ -194,8 +221,8 @@ public class CrawlerController {
                     log.info("Force mode: cleared {} content hashes for {}", cleared, brand.getName());
                 }
 
-                // Crawl from sitemap
-                CrawlSummary summary = crawlerService.crawlBrandFromSitemap(brand);
+                // Crawl from sitemap with date filter
+                CrawlSummary summary = crawlerService.crawlBrandFromSitemap(brand, maxAgeDays);
 
                 results.add(new BrandCrawlResult(
                         brand.getId(),
@@ -208,8 +235,9 @@ public class CrawlerController {
                 ));
                 success++;
 
-                log.info("✅ Completed {}: new={}, updated={}, unchanged={}",
-                        brand.getName(), summary.getNewProducts(), summary.getUpdatedProducts(), summary.getUnchangedProducts());
+                log.info("✅ Completed {}: new={}, updated={}, unchanged={}, deleted={}, restored={}",
+                        brand.getName(), summary.getNewProducts(), summary.getUpdatedProducts(),
+                        summary.getUnchangedProducts(), summary.getDeletedProducts(), summary.getRestoredProducts());
 
             } catch (Exception e) {
                 log.error("❌ Failed to crawl {}: {}", brand.getName(), e.getMessage());

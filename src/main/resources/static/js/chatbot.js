@@ -17,11 +17,43 @@ let isWaitingForResponse = false;
 const STORAGE_KEY_CONVERSATION = 'chatbot_conversation_history';
 const STORAGE_KEY_SHOWN_PRODUCTS = 'chatbot_shown_products';
 const STORAGE_KEY_REFERENCE_PRODUCT = 'chatbot_reference_product';
+const STORAGE_KEY_ANON_CHAT_COUNT = 'chatbot_anonymous_count';
+const STORAGE_KEY_ANON_CHAT_DATE = 'chatbot_anonymous_date';
+
+// Freemium limit for anonymous users (resets daily)
+const ANONYMOUS_CHAT_LIMIT = 5;
+
+// Currency symbols mapping
+const CURRENCY_SYMBOLS = {
+    'GBP': '£',
+    'USD': '$',
+    'EUR': '€',
+    'JPY': '¥',
+    'CNY': '¥',
+    'AUD': 'A$',
+    'CAD': 'C$',
+    'CHF': 'CHF ',
+    'KRW': '₩',
+    'SGD': 'S$',
+    'HKD': 'HK$',
+    'NZD': 'NZ$',
+    'SEK': 'kr',
+    'NOK': 'kr',
+    'DKK': 'kr'
+};
+
+/**
+ * Format price with correct currency symbol
+ */
+function formatPrice(price, currency) {
+    const symbol = CURRENCY_SYMBOLS[currency] || CURRENCY_SYMBOLS['GBP'];
+    return `${symbol}${price.toFixed(2)}`;
+}
 
 /**
  * Initialize chatbot
  */
-function initChatbot() {
+async function initChatbot() {
     console.log('Initializing chatbot...');
 
     // Load state from localStorage
@@ -54,6 +86,9 @@ function initChatbot() {
     // Check for URL params (from product detail page "Ask Chatbot" button)
     checkUrlParamsForChatbot();
 
+    // Check for personalized actions (after auth loads - small delay)
+    setTimeout(() => checkPersonalizedActions(), 500);
+
     console.log('Chatbot initialized. History length:', conversationHistory.length);
 }
 
@@ -76,7 +111,8 @@ function checkUrlParamsForChatbot() {
         saveStateToStorage();
 
         // Build product info card from URL params
-        const productName = decodeURIComponent(chatbotProductName);
+        // Note: URLSearchParams.get() already decodes, so no need for decodeURIComponent
+        const productName = chatbotProductName;
         const brandName = urlParams.get('brandName') || '';
         const origin = urlParams.get('origin') || '';
         const region = urlParams.get('region') || '';
@@ -152,31 +188,19 @@ function displayProductInfoCard(product) {
 
     chatMessages.appendChild(messageDiv);
 
-    // Build quick action buttons based on product attributes
+    // Build quick action buttons based on product attributes (simplified - max 5 options)
     const quickActions = [];
 
     quickActions.push({ label: 'Similar Flavors', icon: '🎯', intent: 'SIMILAR_FLAVORS' });
+    quickActions.push({ label: 'Similar Direction', icon: '📊', intent: 'similar_profile' });
 
     if (product.origin) {
         quickActions.push({ label: `More from ${product.origin}`, icon: '🌍', intent: 'SAME_ORIGIN' });
     }
 
-    if (product.roastLevel) {
-        quickActions.push({ label: `${product.roastLevel} Roasts`, icon: '🔥', intent: 'SAME_ROAST' });
-    }
-
-    // Flavor profile quick actions (vector-based)
-    if (product.tastingNotes && product.tastingNotes.length > 0) {
-        quickActions.push({ label: 'More Fruity', icon: '🍓', intent: 'more_fruity' });
-        quickActions.push({ label: 'More Sweet', icon: '🍯', intent: 'more_sweet' });
-        quickActions.push({ label: 'More Roasted', icon: '☕', intent: 'more_roasted' });
-    }
-
-    // Character axes quick actions (vector-based)
-    quickActions.push({ label: 'More Acidic', icon: '✨', intent: 'more_acidity' });
-    quickActions.push({ label: 'Less Acidic', icon: '🌊', intent: 'less_acidity' });
-    quickActions.push({ label: 'Fuller Body', icon: '💪', intent: 'more_body' });
-    quickActions.push({ label: 'Lighter Body', icon: '🪶', intent: 'less_body' });
+    // Simple taste spectrum: Fruity (bright) vs Bold (rich)
+    quickActions.push({ label: 'More Fruity', icon: '🍓', intent: 'more_fruity' });
+    quickActions.push({ label: 'More Bold', icon: '☕', intent: 'more_roasted' });
 
     // Create quick actions container (reuse existing styles)
     const actionsContainer = document.createElement('div');
@@ -279,6 +303,83 @@ function saveStateToStorage() {
 }
 
 /**
+ * Get today's date as YYYY-MM-DD string
+ */
+function getTodayDateString() {
+    return new Date().toISOString().split('T')[0];
+}
+
+/**
+ * Check if anonymous user has reached chat limit
+ * Returns true if user can chat, false if limit reached
+ * Resets count daily
+ */
+function checkAnonymousLimit() {
+    // If user is signed in, no limit
+    if (typeof currentUser !== 'undefined' && currentUser) {
+        return true;
+    }
+
+    // Check if we need to reset (new day)
+    const storedDate = localStorage.getItem(STORAGE_KEY_ANON_CHAT_DATE);
+    const today = getTodayDateString();
+
+    if (storedDate !== today) {
+        // New day - reset count
+        localStorage.setItem(STORAGE_KEY_ANON_CHAT_COUNT, '0');
+        localStorage.setItem(STORAGE_KEY_ANON_CHAT_DATE, today);
+        return true;
+    }
+
+    const anonCount = parseInt(localStorage.getItem(STORAGE_KEY_ANON_CHAT_COUNT) || '0');
+    return anonCount < ANONYMOUS_CHAT_LIMIT;
+}
+
+/**
+ * Increment anonymous chat count (call after successful response)
+ */
+function incrementAnonymousChatCount() {
+    if (typeof currentUser !== 'undefined' && currentUser) {
+        return; // Don't count for signed-in users
+    }
+
+    // Ensure date is set
+    const today = getTodayDateString();
+    const storedDate = localStorage.getItem(STORAGE_KEY_ANON_CHAT_DATE);
+    if (storedDate !== today) {
+        localStorage.setItem(STORAGE_KEY_ANON_CHAT_COUNT, '0');
+        localStorage.setItem(STORAGE_KEY_ANON_CHAT_DATE, today);
+    }
+
+    const anonCount = parseInt(localStorage.getItem(STORAGE_KEY_ANON_CHAT_COUNT) || '0');
+    localStorage.setItem(STORAGE_KEY_ANON_CHAT_COUNT, (anonCount + 1).toString());
+    console.log('Anonymous chat count:', anonCount + 1, '/', ANONYMOUS_CHAT_LIMIT, '(resets daily)');
+}
+
+/**
+ * Display sign-in prompt when limit reached
+ */
+function displaySignInPrompt() {
+    const chatMessages = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chat-message bot-message signin-prompt';
+
+    messageDiv.innerHTML = `
+        <div class="message-text">
+            <strong>You've used your 5 free chats for today!</strong>
+            <p>Sign in with Google for unlimited chats and personalized recommendations based on your taste preferences.</p>
+            <button onclick="signIn()" class="btn-signin-chat">
+                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                Sign in with Google
+            </button>
+        </div>
+    `;
+
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+/**
  * Send message to chatbot
  */
 async function sendMessage() {
@@ -286,6 +387,12 @@ async function sendMessage() {
     const query = chatInput.value.trim();
 
     if (!query || isWaitingForResponse) {
+        return;
+    }
+
+    // Check freemium limit for anonymous users
+    if (!checkAnonymousLimit()) {
+        displaySignInPrompt();
         return;
     }
 
@@ -373,6 +480,9 @@ async function sendMessage() {
         if (data.products && data.products.length > 0) {
             logChatAnswer(data.products);
         }
+
+        // Increment anonymous chat count on successful response
+        incrementAnonymousChatCount();
 
         // Remove loading indicator and display bot response
         removeLoadingIndicator();
@@ -492,6 +602,18 @@ function displayProductCards(products) {
 function displayBotResponse(data) {
     const chatMessages = document.getElementById('chat-messages');
 
+    // Check if this is a clarifying question (bot needs more info)
+    if (data.clarifyingQuestion) {
+        // Display clarifying question with special styling
+        displayClarifyingQuestion(data.clarifyingQuestion);
+
+        // Display clarifying action buttons prominently
+        if (data.suggestedActions && data.suggestedActions.length > 0) {
+            displayClarifyingActions(data.suggestedActions);
+        }
+        return; // Don't show regular content for clarifying questions
+    }
+
     // Display explanation
     if (data.explanation) {
         displayMessage(data.explanation, 'bot');
@@ -528,6 +650,67 @@ function displayBotResponse(data) {
     if (data.error) {
         console.error('Chatbot error:', data.error);
     }
+}
+
+/**
+ * Display clarifying question with barista-style formatting
+ */
+function displayClarifyingQuestion(question) {
+    const chatMessages = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'chat-message bot-message clarifying-question';
+
+    const messageText = document.createElement('div');
+    messageText.className = 'message-text';
+    messageText.innerHTML = `<span class="clarify-icon">🤔</span> ${question}`;
+
+    messageDiv.appendChild(messageText);
+    chatMessages.appendChild(messageDiv);
+
+    // Scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+/**
+ * Display clarifying action buttons prominently (grid layout)
+ * Used when bot needs more info from user (e.g., budget, flavor preference)
+ */
+function displayClarifyingActions(actions) {
+    const chatMessages = document.getElementById('chat-messages');
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'chat-clarifying-actions';
+
+    actions.forEach(action => {
+        const button = document.createElement('button');
+        button.className = 'clarifying-action-btn';
+
+        // Add icon if provided
+        if (action.icon) {
+            button.innerHTML = `<span class="clarify-btn-icon">${action.icon}</span><span class="clarify-btn-label">${action.label}</span>`;
+        } else {
+            button.textContent = action.label;
+        }
+
+        button.title = action.intent;
+
+        button.onclick = () => {
+            // Pre-fill chat input with the action label or intent
+            const chatInput = document.getElementById('chat-input');
+            const query = action.label; // Use label directly for clarifying responses
+            chatInput.value = query;
+            chatInput.focus();
+
+            // Auto-send the message
+            sendMessage();
+        };
+
+        actionsContainer.appendChild(button);
+    });
+
+    chatMessages.appendChild(actionsContainer);
+
+    // Scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 /**
@@ -586,6 +769,7 @@ function convertIntentToQuery(intent) {
         'same_roast': 'Show me products with the same roast level',
         'same_process': 'Show me products with the same processing method',
         'similar_flavors': 'Show me products with similar flavors',
+        'similar_profile': 'Show me products with similar direction (similar acidity, body, and roast character)',
         'lighter_roast': 'Show me lighter roasts',
         'darker_roast': 'Show me darker roasts',
         'cheaper': 'Show me cheaper options',
@@ -626,12 +810,13 @@ function createChatProductRow(product) {
     // Price column (with variants fallback)
     const priceCell = document.createElement('td');
     priceCell.className = 'price-cell';
+    const currency = product.currency || 'GBP';
     if (product.priceVariants && product.priceVariants.length > 0) {
         priceCell.textContent = product.priceVariants
-            .map(v => `${v.size}: £${v.price.toFixed(2)}`)
+            .map(v => `${v.size}: ${formatPrice(v.price, currency)}`)
             .join(' | ');
     } else if (product.price) {
-        priceCell.textContent = `£${product.price.toFixed(2)}`;
+        priceCell.textContent = formatPrice(product.price, currency);
     } else {
         priceCell.textContent = 'N/A';
     }
@@ -809,6 +994,279 @@ async function logChatAnswer(products) {
         }
     } catch (e) {
         console.debug('Analytics log failed:', e);
+    }
+}
+
+// ========================================
+// Personalized Recommendations Functions
+// ========================================
+
+// User preferences cache
+let userPreferences = {
+    loved: [],      // Products user loves
+    pinned: [],     // Products user wants to try
+    disliked: []    // Products to avoid
+};
+
+/**
+ * Load user preferences from tracking API
+ * Returns promise with preferences or null if not signed in
+ */
+async function loadUserPreferences() {
+    if (typeof currentUser === 'undefined' || !currentUser) {
+        return null;
+    }
+
+    try {
+        const [lovedRes, pinnedRes, dislikedRes] = await Promise.all([
+            fetch('/api/user/tracking?status=LOVE'),
+            fetch('/api/user/tracking?status=WANT'),
+            fetch('/api/user/tracking?status=DISLIKE')
+        ]);
+
+        if (lovedRes.ok && pinnedRes.ok && dislikedRes.ok) {
+            const loved = await lovedRes.json();
+            const pinned = await pinnedRes.json();
+            const disliked = await dislikedRes.json();
+
+            // Filter to only include items marked for chat (includedInChat !== false)
+            const filterForChat = (items) => items.filter(item => item.includedInChat !== false);
+
+            userPreferences = {
+                loved: filterForChat(loved).slice(0, 10),      // Max 10 most recent
+                pinned: filterForChat(pinned).slice(0, 10),    // Max 10 most recent
+                disliked: filterForChat(disliked)              // Include all for negative filtering
+            };
+
+            console.log('User preferences loaded (filtered by includedInChat):', {
+                loved: userPreferences.loved.length,
+                pinned: userPreferences.pinned.length,
+                disliked: userPreferences.disliked.length
+            });
+
+            return userPreferences;
+        }
+    } catch (e) {
+        console.debug('Failed to load user preferences:', e);
+    }
+
+    return null;
+}
+
+/**
+ * Check and show personalized actions if user is signed in with enough tracked products
+ */
+async function checkPersonalizedActions() {
+    const actionsDiv = document.getElementById('personalized-actions');
+    if (!actionsDiv) return;
+
+    // Hide by default
+    actionsDiv.classList.add('hidden');
+
+    // Only show if user is signed in
+    if (typeof currentUser === 'undefined' || !currentUser) {
+        return;
+    }
+
+    // Only show if conversation is empty (first message)
+    if (conversationHistory.length > 0) {
+        return;
+    }
+
+    // Load preferences
+    const prefs = await loadUserPreferences();
+    if (!prefs) return;
+
+    // Check minimum product count (3 for each type)
+    const hasEnoughLoved = prefs.loved.length >= 3;
+    const hasEnoughPinned = prefs.pinned.length >= 3;
+
+    if (!hasEnoughLoved && !hasEnoughPinned) {
+        return; // Not enough tracked products
+    }
+
+    // Show/hide individual buttons based on tracked count
+    const btnLoved = document.getElementById('btn-find-loved');
+    const btnPinned = document.getElementById('btn-find-pinned');
+
+    if (btnLoved) {
+        btnLoved.style.display = hasEnoughLoved ? 'flex' : 'none';
+    }
+    if (btnPinned) {
+        btnPinned.style.display = hasEnoughPinned ? 'flex' : 'none';
+    }
+
+    // Show the personalized actions section
+    actionsDiv.classList.remove('hidden');
+}
+
+/**
+ * Find coffees similar to user's loved products
+ */
+async function findSimilarToLoved() {
+    if (userPreferences.loved.length === 0) {
+        displayMessage('Please add some coffees to your "Love" list first!', 'bot');
+        return;
+    }
+
+    // Hide personalized actions after clicking
+    const actionsDiv = document.getElementById('personalized-actions');
+    if (actionsDiv) {
+        actionsDiv.classList.add('hidden');
+    }
+
+    // Build query with user context
+    const lovedIds = userPreferences.loved.map(p => p.productId);
+    const dislikedIds = userPreferences.disliked.map(p => p.productId);
+
+    // Display user message
+    const query = 'Find coffees similar to the ones I love';
+    displayMessage(query, 'user');
+    conversationHistory.push({ role: 'user', content: query });
+
+    // Show loading
+    showLoadingIndicator();
+    isWaitingForResponse = true;
+    updateSendButton(true);
+
+    try {
+        const request = {
+            query: query,
+            messages: conversationHistory,
+            shownProductIds: shownProductIds,
+            referenceProductId: referenceProductId,
+            lovedProductIds: lovedIds,
+            dislikedProductIds: dislikedIds
+        };
+
+        const response = await fetch(`${CHATBOT_API_BASE}/query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Add to history
+        conversationHistory.push({
+            role: 'assistant',
+            content: data.explanation,
+            products: data.products || []
+        });
+
+        // Track shown products
+        if (data.products && data.products.length > 0) {
+            data.products.forEach(p => {
+                if (!shownProductIds.includes(p.id)) {
+                    shownProductIds.push(p.id);
+                }
+            });
+            if (!referenceProductId) {
+                referenceProductId = data.products[0].id;
+            }
+        }
+
+        saveStateToStorage();
+        incrementAnonymousChatCount();
+        removeLoadingIndicator();
+        displayBotResponse(data);
+
+    } catch (err) {
+        console.error('Error:', err);
+        removeLoadingIndicator();
+        displayMessage('Sorry, I encountered an error. Please try again.', 'bot');
+    } finally {
+        isWaitingForResponse = false;
+        updateSendButton(false);
+    }
+}
+
+/**
+ * Find coffees similar to user's pinned (want to try) products
+ */
+async function findSimilarToPinned() {
+    if (userPreferences.pinned.length === 0) {
+        displayMessage('Please add some coffees to your "Want to Try" list first!', 'bot');
+        return;
+    }
+
+    // Hide personalized actions after clicking
+    const actionsDiv = document.getElementById('personalized-actions');
+    if (actionsDiv) {
+        actionsDiv.classList.add('hidden');
+    }
+
+    // Build query with user context
+    const pinnedIds = userPreferences.pinned.map(p => p.productId);
+    const dislikedIds = userPreferences.disliked.map(p => p.productId);
+
+    // Display user message
+    const query = 'Find coffees similar to the ones I want to try';
+    displayMessage(query, 'user');
+    conversationHistory.push({ role: 'user', content: query });
+
+    // Show loading
+    showLoadingIndicator();
+    isWaitingForResponse = true;
+    updateSendButton(true);
+
+    try {
+        const request = {
+            query: query,
+            messages: conversationHistory,
+            shownProductIds: shownProductIds,
+            referenceProductId: referenceProductId,
+            lovedProductIds: pinnedIds,  // Use pinned as positive reference
+            dislikedProductIds: dislikedIds
+        };
+
+        const response = await fetch(`${CHATBOT_API_BASE}/query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(request)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Add to history
+        conversationHistory.push({
+            role: 'assistant',
+            content: data.explanation,
+            products: data.products || []
+        });
+
+        // Track shown products
+        if (data.products && data.products.length > 0) {
+            data.products.forEach(p => {
+                if (!shownProductIds.includes(p.id)) {
+                    shownProductIds.push(p.id);
+                }
+            });
+            if (!referenceProductId) {
+                referenceProductId = data.products[0].id;
+            }
+        }
+
+        saveStateToStorage();
+        incrementAnonymousChatCount();
+        removeLoadingIndicator();
+        displayBotResponse(data);
+
+    } catch (err) {
+        console.error('Error:', err);
+        removeLoadingIndicator();
+        displayMessage('Sorry, I encountered an error. Please try again.', 'bot');
+    } finally {
+        isWaitingForResponse = false;
+        updateSendButton(false);
     }
 }
 

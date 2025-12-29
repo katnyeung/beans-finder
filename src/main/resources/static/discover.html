@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasting Notes Explorer - Graphee.link</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/" class="logo-link">
+                    <img src="/graphee_logo.png" alt="Graphee.link" class="nav-logo">
+                    <span class="brand-name">Graphee.link</span>
+                </a>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle active">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">🎨 By Flavor</a>
+                        <a href="/filter-products.html">🔍 By Product</a>
+                        <a href="/discover.html" class="active">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
+                <a href="/brands.html">Brands</a>
+                <a href="/insights.html">Insights</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <h2>Tasting Notes Explorer</h2>
+            <p>Explore flavor combinations to find coffees that match your taste preferences</p>
+        </section>
+
+        <!-- Tasting Notes Explorer -->
+        <section class="discover-grid">
+            <div class="discover-card discover-card-full" id="flavor-explorer-card">
+                <div class="discover-card-header">
+                    <span class="discover-icon">🍒</span>
+                    <h3>Explore by Tasting Notes</h3>
+                    <button id="random-rare-btn" class="btn-small" onclick="loadRandomRareFlavor()">
+                        🎲 Try something unusual
+                    </button>
+                </div>
+                <div class="discover-card-body">
+                    <p class="discover-hint">Click a category to explore tasting notes and find matching coffees</p>
+                    <!-- Breadcrumb navigation -->
+                    <div id="flavor-breadcrumb" class="flavor-breadcrumb">
+                        <span class="breadcrumb-item active" onclick="clearExplorer()">Categories</span>
+                    </div>
+
+                    <!-- Category grid (default view) -->
+                    <div id="category-grid" class="category-grid">
+                        <div class="loading-placeholder">Loading categories...</div>
+                    </div>
+
+                    <!-- Flavor exploration area (shown after selection) -->
+                    <div id="flavor-exploration" class="flavor-exploration hidden">
+                        <div class="exploration-section">
+                            <h4>Related Flavors <span class="hint">(click to explore)</span></h4>
+                            <div id="related-flavors" class="related-flavors"></div>
+                        </div>
+                        <div class="exploration-section rare-section">
+                            <h4>💎 Rare Finds</h4>
+                            <div id="rare-flavors" class="rare-flavors"></div>
+                        </div>
+                    </div>
+
+                    <!-- Products list -->
+                    <div id="explorer-products" class="explorer-products hidden">
+                        <h4>Products with these flavors (<span id="product-count">0</span> found)</h4>
+                        <div id="explorer-products-list"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Link to Filter Products -->
+        <section class="discover-link-section">
+            <p>Looking for more filters?</p>
+            <a href="/filter-products.html" class="btn btn-primary">🔍 Filter by Origin, Process, Variety & Roast</a>
+        </section>
+    </main>
+
+    <!-- Modal for drill-down results -->
+    <div id="discover-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Products</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body" class="modal-body">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script src="/js/discover.js"></script>
+</body>
+</html>

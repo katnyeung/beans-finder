@@ -2,9 +2,12 @@ package com.coffee.beansfinder.controller;
 
 import com.coffee.beansfinder.entity.CoffeeBrand;
 import com.coffee.beansfinder.entity.CoffeeProduct;
+import com.coffee.beansfinder.entity.PriceHistory;
 import com.coffee.beansfinder.repository.CoffeeBrandRepository;
 import com.coffee.beansfinder.repository.CoffeeProductRepository;
+import com.coffee.beansfinder.repository.UserProductTrackingRepository;
 import com.coffee.beansfinder.service.CrawlerService;
+import com.coffee.beansfinder.service.PriceHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * REST API for managing coffee products
@@ -30,13 +34,15 @@ public class ProductController {
     private final CoffeeBrandRepository brandRepository;
     private final CrawlerService crawlerService;
     private final com.coffee.beansfinder.service.KnowledgeGraphService knowledgeGraphService;
+    private final PriceHistoryService priceHistoryService;
+    private final UserProductTrackingRepository trackingRepository;
 
     /**
-     * Get all products
+     * Get all active (non-deleted) products
      */
     @GetMapping
     public List<CoffeeProduct> getAllProducts() {
-        return productRepository.findAll();
+        return productRepository.findByDeletedAtIsNull();
     }
 
     /**
@@ -114,6 +120,7 @@ public class ProductController {
                             product.getCurrency(),
                             product.getInStock(),
                             product.getRawDescription(),
+                            product.getDescriptionSummary(),
                             product.getFlavorProfileJson(),
                             product.getCharacterAxesJson()
                     );
@@ -131,11 +138,11 @@ public class ProductController {
     }
 
     /**
-     * Get products by origin
+     * Get active products by origin
      */
     @GetMapping("/origin/{origin}")
     public List<CoffeeProduct> getProductsByOrigin(@PathVariable String origin) {
-        return productRepository.findByOrigin(origin);
+        return productRepository.findByOriginIgnoreCaseAndDeletedAtIsNull(origin);
     }
 
     /**
@@ -156,7 +163,7 @@ public class ProductController {
 
         log.info("Searching products for: '{}' (limit: {})", query, limit);
 
-        List<CoffeeProduct> products = productRepository.searchByProductOrBrandName(query.trim());
+        List<CoffeeProduct> products = productRepository.searchActiveByProductOrBrandName(query.trim());
 
         return products.stream()
                 .filter(p -> p.getBrand() != null)
@@ -342,6 +349,23 @@ public class ProductController {
         }
     }
 
+    /**
+     * Get price history for a product (for chart display)
+     */
+    @GetMapping("/{id}/price-history")
+    @Operation(summary = "Get price history", description = "Returns price history grouped by bag size for chart display")
+    public ResponseEntity<Map<String, List<PriceHistory>>> getPriceHistory(@PathVariable Long id) {
+        // Check if product exists
+        if (!productRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Map<String, List<PriceHistory>> history = priceHistoryService.getPriceHistoryBySize(id);
+
+        // Return empty map if no history (chart will not be shown)
+        return ResponseEntity.ok(history);
+    }
+
     // DTOs
     public record CrawlProductRequest(
             Long brandId,
@@ -385,6 +409,7 @@ public class ProductController {
             String currency,
             Boolean inStock,
             String rawDescription,
+            String descriptionSummary,
             String flavorProfileJson,
             String characterAxesJson
     ) {}
@@ -413,5 +438,40 @@ public class ProductController {
             String priceVariantsJson,
             String currency,
             LocalDateTime createdDate
+    ) {}
+
+    /**
+     * Get social proof stats for a product (love count, avg rating)
+     */
+    @GetMapping("/{id}/stats")
+    @Operation(summary = "Get product social stats", description = "Returns love count and average rating for a product")
+    public ResponseEntity<ProductStatsDTO> getProductStats(@PathVariable Long id) {
+        if (!productRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Object[] stats = trackingRepository.getProductStats(id);
+        if (stats == null || stats.length == 0) {
+            return ResponseEntity.ok(new ProductStatsDTO(0L, null, 0L));
+        }
+
+        // JPA may return Object[] directly or wrapped - handle both cases
+        Object[] row = stats;
+        if (stats[0] instanceof Object[]) {
+            row = (Object[]) stats[0];
+        }
+
+        // row[0] = loveCount, row[1] = avgRating, row[2] = ratingCount
+        Long loveCount = row[0] != null ? ((Number) row[0]).longValue() : 0L;
+        Double avgRating = row[1] != null ? ((Number) row[1]).doubleValue() : null;
+        Long ratingCount = row[2] != null ? ((Number) row[2]).longValue() : 0L;
+
+        return ResponseEntity.ok(new ProductStatsDTO(loveCount, avgRating, ratingCount));
+    }
+
+    public record ProductStatsDTO(
+            Long loveCount,
+            Double avgRating,
+            Long ratingCount
     ) {}
 }

@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     loadBrand();
     loadProducts();
+    loadBrandDiscount();
 });
 
 // Load brand information
@@ -105,18 +106,20 @@ function createProductRow(product) {
         tastingNotes = [];
     }
 
-    // Format tasting notes with maximum defensive checks
-    let tastingNotesText = 'N/A';
+    // Format tasting notes as clickable badge HTML (links to discover page with flavor param)
+    let tastingNotesHtml = '<span class="na">N/A</span>';
     try {
         if (tastingNotes && Array.isArray(tastingNotes) && tastingNotes.length > 0) {
-            tastingNotesText = tastingNotes.filter(note => note != null && note !== '').join(', ');
-            if (!tastingNotesText || tastingNotesText.trim() === '') {
-                tastingNotesText = 'N/A';
+            const validNotes = tastingNotes.filter(note => note != null && note !== '');
+            if (validNotes.length > 0) {
+                tastingNotesHtml = validNotes.map(note =>
+                    `<a href="/discover.html?flavor=${encodeURIComponent(note)}" class="tasting-note-badge" title="Explore ${escapeHtml(note)}">${escapeHtml(note)}</a>`
+                ).join('');
             }
         }
     } catch (e) {
         console.error('Error formatting tasting notes for product', product.id, ':', e);
-        tastingNotesText = 'N/A';
+        tastingNotesHtml = '<span class="na">N/A</span>';
     }
 
     // Format price with variants as mini table
@@ -161,8 +164,8 @@ function createProductRow(product) {
         <td>${escapeHtml(product.region || 'N/A')}</td>
         <td>${escapeHtml(product.process || 'N/A')}</td>
         <td>${escapeHtml(product.variety || 'N/A')}</td>
-        <td class="tasting-notes-cell" title="${escapeHtml(tastingNotesText)}">
-            ${escapeHtml(tastingNotesText)}
+        <td class="tasting-notes-cell">
+            ${tastingNotesHtml}
         </td>
         <td class="price-cell">${priceHtml}</td>
         <td class="${stockClass}">${stockStatus}</td>
@@ -203,4 +206,60 @@ function askChatbotAbout(productId, productName) {
         console.error('chatbot.js not loaded');
         alert('Chatbot is not available. Please refresh the page.');
     }
+}
+
+// Load brand discounts and display banner if available
+async function loadBrandDiscount() {
+    if (!brandId) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/discounts/brand/${brandId}`);
+        if (!response.ok) return;
+
+        const discounts = await response.json();
+        if (!discounts || discounts.length === 0) return;
+
+        const banner = document.getElementById('brand-discount-banner');
+        const textEl = document.getElementById('discount-text');
+        const codeEl = document.getElementById('discount-code-badge');
+
+        // Build HTML for all discounts
+        const discountHtml = discounts.map(discount => {
+            const hasCode = discount.discountCode && discount.discountCode.trim() && discount.discountCode !== 'null';
+            const hasDesc = discount.description && discount.description !== discount.title && discount.description !== 'null';
+
+            let html = `<div class="discount-item-inline">
+                <strong>${escapeHtml(discount.title)}</strong>`;
+
+            if (hasDesc) {
+                html += `<span class="discount-desc-inline"> - ${escapeHtml(discount.description)}</span>`;
+            }
+
+            if (hasCode) {
+                html += ` <code class="discount-code-inline" onclick="copyDiscountCode('${escapeHtml(discount.discountCode)}')">${escapeHtml(discount.discountCode)}</code>`;
+            }
+
+            html += `</div>`;
+            return html;
+        }).join('');
+
+        textEl.innerHTML = discountHtml;
+        codeEl.style.display = 'none'; // Hide the old single code badge
+
+        banner.style.display = 'block';
+
+    } catch (error) {
+        console.debug('No discounts for brand:', error);
+    }
+}
+
+// Copy discount code helper
+function copyDiscountCode(code) {
+    navigator.clipboard.writeText(code).then(() => {
+        // Brief visual feedback
+        const el = event.target;
+        const original = el.textContent;
+        el.textContent = 'Copied!';
+        setTimeout(() => { el.textContent = original; }, 1500);
+    });
 }

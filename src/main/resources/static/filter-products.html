@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filter Products - Graphee.link</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/graphee_logo.png">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="/" class="logo-link">
+                    <img src="/graphee_logo.png" alt="Graphee.link" class="nav-logo">
+                    <span class="brand-name">Graphee.link</span>
+                </a>
+                <p class="tagline">Discover Specialty Coffee</p>
+            </div>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/chat.html">Chat</a>
+                <div class="nav-dropdown">
+                    <button class="nav-dropdown-toggle active">Explore <span class="dropdown-arrow">▼</span></button>
+                    <div class="dropdown-menu">
+                        <a href="/flavor-wheel.html">🎨 By Flavor</a>
+                        <a href="/filter-products.html" class="active">🔍 By Product</a>
+                        <a href="/discover.html">🎵 Tasting Notes</a>
+                        <a href="/map.html">🗺️ By Map</a>
+                    </div>
+                </div>
+                <a href="/brands.html">Brands</a>
+                <a href="/insights.html">Insights</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <h2>Filter Products</h2>
+            <p>Combine Process, Origin, Variety, and Roast to find your perfect coffee</p>
+        </section>
+
+        <!-- Connected Filter Section -->
+        <section class="connected-filter-section">
+            <!-- TOP: Process Filter -->
+            <div class="filter-row filter-top">
+                <div class="filter-label">⚙️ Process</div>
+                <div id="process-filters" class="filter-chips">
+                    <span class="filter-chip selected" data-value="">All</span>
+                    <!-- Dynamic chips loaded here -->
+                </div>
+            </div>
+
+            <!-- MIDDLE: Origin (left) | Results (center) | Variety (right) -->
+            <div class="filter-middle">
+                <!-- LEFT: Origin Filter -->
+                <div class="filter-sidebar filter-left">
+                    <div class="filter-label">🌍 Origin</div>
+                    <div id="origin-filters" class="filter-list">
+                        <div class="filter-item selected" data-value="">All</div>
+                        <!-- Dynamic items loaded here -->
+                    </div>
+                </div>
+
+                <!-- CENTER: Results Table -->
+                <div class="results-center">
+                    <div class="results-header">
+                        <span id="results-count">Loading...</span>
+                        <button id="clear-filters-btn" class="btn-small" onclick="clearAllFilters()">Clear filters</button>
+                    </div>
+                    <div id="results-table-container" class="results-table-container">
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Brand</th>
+                                    <th>Origin</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-body">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                            <tfoot id="load-more-container" class="hidden">
+                                <tr>
+                                    <td colspan="4" class="load-more-cell">
+                                        <a href="#" id="load-more-btn" class="load-more-link" onclick="loadMoreProducts(); return false;">Show more...</a>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- RIGHT: Variety Filter -->
+                <div class="filter-sidebar filter-right">
+                    <div class="filter-label">🌱 Variety</div>
+                    <div id="variety-filters" class="filter-list">
+                        <div class="filter-item selected" data-value="">All</div>
+                        <!-- Dynamic items loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTTOM: Roast Filter -->
+            <div class="filter-row filter-bottom">
+                <div class="filter-label">🔥 Roast</div>
+                <div id="roast-filters" class="filter-chips">
+                    <span class="filter-chip selected" data-value="">All</span>
+                    <!-- Dynamic chips loaded here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Link to Tasting Notes Explorer -->
+        <section class="discover-link-section">
+            <p>Want to explore by flavor?</p>
+            <a href="/discover.html" class="btn btn-primary">🎵 Tasting Notes Explorer</a>
+        </section>
+    </main>
+
+    <script src="/js/common.js"></script>
+    <script src="/js/filter-products.js"></script>
+</body>
+</html>

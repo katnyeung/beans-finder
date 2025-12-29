@@ -37,4 +37,16 @@ public class ChatbotRequest {
      * (e.g., "Show me something similar to this product")
      */
     private Long referenceProductId;
+
+    /**
+     * Product IDs user loves (for personalized recommendations)
+     * Used as positive reference for "Find similar to loved" feature
+     */
+    private List<Long> lovedProductIds;
+
+    /**
+     * Product IDs user dislikes (for negative filtering)
+     * Products matching these patterns will be deprioritized
+     */
+    private List<Long> dislikedProductIds;
 }

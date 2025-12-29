@@ -7,6 +7,14 @@ let countryBoundaries = null;
 let mapData = null;
 let countryFlavorData = null; // Flavor data by country
 
+// Tile layers
+let osmLayer = null;
+let topoLayer = null;
+let currentLayer = 'osm'; // 'osm' or 'topo'
+
+// Elevation cache to avoid repeated API calls
+let elevationCache = {};
+
 // Storage for mappings
 let brandToOrigins = {}; // Maps brand ID to related origin markers
 let originToBrands = {}; // Maps origin coords to brand IDs
@@ -44,6 +52,9 @@ document.addEventListener('DOMContentLoaded', function() {
     loadMapData();
     loadFlavorData();
     setupEventListeners();
+
+    // Handle URL parameters for deep linking from product detail
+    handleUrlParams();
 });
 
 function initMap() {
@@ -55,10 +66,95 @@ function initMap() {
         maxZoom: 18
     });
 
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Standard OpenStreetMap layer
+    osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19
+    });
+
+    // OpenTopoMap layer (shows terrain, contour lines, elevation)
+    topoLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        attribution: 'Map data: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: © <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
+        maxZoom: 17,
+        subdomains: ['a', 'b', 'c']
+    });
+
+    // Add Standard OpenStreetMap layer by default (easier to read)
+    osmLayer.addTo(map);
+    currentLayer = 'osm';
+
+    // Add Coffee Belt lines (Equator + Tropics)
+    addCoffeeBeltLines();
+}
+
+/**
+ * Add Equator and Tropic lines to show the Coffee Belt
+ * Coffee grows between Tropic of Cancer (23.5°N) and Tropic of Capricorn (23.5°S)
+ */
+function addCoffeeBeltLines() {
+    const lineStyle = {
+        color: '#8B4513',  // Coffee brown
+        weight: 1,
+        opacity: 0.6,
+        dashArray: '10, 5'
+    };
+
+    // Custom CSS class for line labels
+    const labelClass = 'coffee-belt-label';
+
+    // Equator (0°)
+    L.polyline([[0, -180], [0, 180]], {
+        ...lineStyle,
+        color: '#D2691E',  // Darker brown for equator
+        weight: 2
+    }).addTo(map);
+
+    // Equator label
+    L.marker([0, 0], {
+        icon: L.divIcon({
+            className: labelClass,
+            html: '<span style="background: rgba(255,255,255,0.5); padding: 1px 6px; border-radius: 3px; font-size: 10px; color: #6B4513; white-space: nowrap;">☕ Equator</span>',
+            iconSize: [80, 16],
+            iconAnchor: [40, 8]
+        }),
+        interactive: false
+    }).addTo(map);
+
+    // Tropic of Cancer (23.5°N) - Northern boundary of coffee belt
+    L.polyline([[23.43656, -180], [23.43656, 180]], lineStyle).addTo(map);
+
+    // Tropic of Cancer label
+    L.marker([23.43656, 0], {
+        icon: L.divIcon({
+            className: labelClass,
+            html: '<span style="background: rgba(255,255,255,0.5); padding: 1px 6px; border-radius: 3px; font-size: 10px; color: #6B4513; white-space: nowrap;">Tropic of Cancer</span>',
+            iconSize: [100, 16],
+            iconAnchor: [50, 8]
+        }),
+        interactive: false
+    }).addTo(map);
+
+    // Tropic of Capricorn (23.5°S) - Southern boundary of coffee belt
+    L.polyline([[-23.43656, -180], [-23.43656, 180]], lineStyle).addTo(map);
+
+    // Tropic of Capricorn label
+    L.marker([-23.43656, 0], {
+        icon: L.divIcon({
+            className: labelClass,
+            html: '<span style="background: rgba(255,255,255,0.5); padding: 1px 6px; border-radius: 3px; font-size: 10px; color: #6B4513; white-space: nowrap;">Tropic of Capricorn</span>',
+            iconSize: [110, 16],
+            iconAnchor: [55, 8]
+        }),
+        interactive: false
+    }).addTo(map);
+
+    // Optional: Add subtle shading for the coffee belt region
+    L.rectangle([[-23.43656, -180], [23.43656, 180]], {
+        color: '#8B4513',
+        weight: 0,
+        fillColor: '#D2691E',
+        fillOpacity: 0.05,
+        interactive: false
     }).addTo(map);
 }
 
@@ -118,6 +214,28 @@ function setupEventListeners() {
             } else if (currentlySelectedBrand) {
                 // If turning on and brand is selected, draw lines
                 drawBrandConnectionLines(currentlySelectedBrand);
+            }
+        });
+    }
+
+    // Terrain toggle - switch between OSM (Standard) and OpenTopoMap (Terrain)
+    const terrainBtn = document.getElementById('toggle-terrain');
+    if (terrainBtn) {
+        terrainBtn.addEventListener('click', function() {
+            this.classList.toggle('active');
+
+            if (currentLayer === 'osm') {
+                // Switch to terrain view
+                map.removeLayer(osmLayer);
+                topoLayer.addTo(map);
+                currentLayer = 'topo';
+                this.textContent = '🗺️ Standard';  // Show option to go back to standard
+            } else {
+                // Switch to standard view
+                map.removeLayer(topoLayer);
+                osmLayer.addTo(map);
+                currentLayer = 'osm';
+                this.textContent = '🏔️ Terrain';  // Show option to switch to terrain
             }
         });
     }
@@ -414,6 +532,31 @@ function updateFlavorLabelsVisibility() {
 function capitalizeFirstLetter(string) {
     if (!string) return '';
     return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+/**
+ * Format price with correct currency symbol
+ */
+function formatPrice(price, currency) {
+    const currencySymbols = {
+        'GBP': '£',
+        'USD': '$',
+        'EUR': '€',
+        'JPY': '¥',
+        'CNY': '¥',
+        'AUD': 'A$',
+        'CAD': 'C$',
+        'CHF': 'CHF ',
+        'KRW': '₩',
+        'SGD': 'S$',
+        'HKD': 'HK$',
+        'NZD': 'NZ$',
+        'SEK': 'kr',
+        'NOK': 'kr',
+        'DKK': 'kr'
+    };
+    const symbol = currencySymbols[currency] || currencySymbols['GBP'];
+    return `${symbol}${price}`;
 }
 
 /**
@@ -890,15 +1033,20 @@ async function showOriginProducts(origin) {
     }
 }
 
-function displayProductsPopup(origin, products) {
+async function displayProductsPopup(origin, products) {
+    // Fetch elevation for this origin
+    const elevation = await fetchElevation(origin.latitude, origin.longitude);
+    const elevationHtml = formatElevationWithQuality(elevation);
+
     // Create popup content with products
     let content = `<div style="max-height: 400px; overflow-y: auto; min-width: 300px;">`;
     content += `<h3 style="color: #005F73; margin-bottom: 10px;">☕ Products from ${origin.region || origin.country}</h3>`;
+    content += `<div style="font-size: 0.9rem; color: #666; margin-bottom: 5px;">📍 <strong>Elevation:</strong> ${elevationHtml}</div>`;
     content += `<div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">Total: ${products.length} product${products.length !== 1 ? 's' : ''}</div>`;
 
     products.forEach(product => {
         const productUrl = product.sellerUrl || '#';
-        const price = product.price ? `£${product.price}` : 'N/A';
+        const price = product.price ? formatPrice(product.price, product.currency) : 'N/A';
         const productName = product.productName || 'Unnamed Product';
         const brandName = product.brandName || 'Unknown Brand';
 
@@ -1537,4 +1685,172 @@ function showErrorPopup(countryName, latlng) {
         .setLatLng(latlng)
         .setContent(content)
         .openOn(map);
+}
+
+// ==================== Elevation Lookup ====================
+
+/**
+ * Fetch elevation for a given latitude/longitude using Open-Meteo API
+ * @param {number} lat - Latitude
+ * @param {number} lon - Longitude
+ * @returns {Promise<number|null>} - Elevation in meters or null if failed
+ */
+async function fetchElevation(lat, lon) {
+    // Check cache first
+    const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    if (elevationCache[cacheKey] !== undefined) {
+        return elevationCache[cacheKey];
+    }
+
+    try {
+        const response = await fetch(
+            `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`
+        );
+
+        if (!response.ok) {
+            console.warn('Elevation API error:', response.status);
+            return null;
+        }
+
+        const data = await response.json();
+        const elevation = data.elevation?.[0] ?? null;
+
+        // Cache the result
+        elevationCache[cacheKey] = elevation;
+
+        return elevation;
+    } catch (error) {
+        console.error('Error fetching elevation:', error);
+        return null;
+    }
+}
+
+/**
+ * Format elevation with coffee quality indicator
+ * @param {number} elevation - Elevation in meters
+ * @returns {string} - Formatted elevation string with quality badge
+ */
+function formatElevationWithQuality(elevation) {
+    if (elevation === null || elevation === undefined) {
+        return '<span style="color: #999;">Unknown</span>';
+    }
+
+    const meters = Math.round(elevation);
+    let quality = '';
+    let color = '';
+
+    // Coffee altitude quality tiers
+    if (meters >= 1800) {
+        quality = '🌟 Exceptional';
+        color = '#27ae60'; // Green
+    } else if (meters >= 1400) {
+        quality = '⭐ Very High';
+        color = '#3498db'; // Blue
+    } else if (meters >= 1000) {
+        quality = '☀️ High';
+        color = '#f39c12'; // Yellow/Orange
+    } else if (meters >= 600) {
+        quality = '🌤️ Medium';
+        color = '#e67e22'; // Orange
+    } else {
+        quality = '🏝️ Low';
+        color = '#95a5a6'; // Gray
+    }
+
+    return `<span style="color: ${color}; font-weight: 600;">${meters.toLocaleString()}m</span> <span style="font-size: 0.85rem;">${quality}</span>`;
+}
+
+// ==================== URL Parameter Handling (Deep Link from Product Detail) ====================
+
+/**
+ * Handle URL parameters for deep linking from product detail page
+ * Example: /map.html?origin=Colombia&region=Tolima&lat=4.43&lng=-75.23
+ */
+function handleUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const origin = urlParams.get('origin');
+    const region = urlParams.get('region');
+    const lat = parseFloat(urlParams.get('lat'));
+    const lng = parseFloat(urlParams.get('lng'));
+
+    if (!origin) return;
+
+    // Wait for map data to load, then zoom and show popup
+    const checkDataLoaded = setInterval(() => {
+        if (mapData && mapData.origins && mapData.origins.length > 0) {
+            clearInterval(checkDataLoaded);
+            zoomToOrigin(origin, region, lat, lng);
+        }
+    }, 200);
+
+    // Timeout after 10 seconds
+    setTimeout(() => clearInterval(checkDataLoaded), 10000);
+}
+
+/**
+ * Zoom to an origin and show its products popup
+ */
+async function zoomToOrigin(originCountry, region, lat, lng) {
+    // Find matching origin marker(s)
+    let targetOrigin = null;
+    let targetLat = lat;
+    let targetLng = lng;
+
+    // Search for matching origin in mapData
+    if (mapData && mapData.origins) {
+        // First try to match by region if provided
+        if (region) {
+            targetOrigin = mapData.origins.find(o =>
+                o.country && o.country.toLowerCase() === originCountry.toLowerCase() &&
+                o.region && o.region.toLowerCase().includes(region.toLowerCase())
+            );
+        }
+
+        // If no region match, find by country
+        if (!targetOrigin) {
+            targetOrigin = mapData.origins.find(o =>
+                o.country && o.country.toLowerCase() === originCountry.toLowerCase()
+            );
+        }
+
+        // Update coordinates if we found a match
+        if (targetOrigin) {
+            targetLat = targetOrigin.latitude;
+            targetLng = targetOrigin.longitude;
+        }
+    }
+
+    // Zoom to location
+    if (!isNaN(targetLat) && !isNaN(targetLng)) {
+        map.setView([targetLat, targetLng], 8);
+
+        // Find and click the origin marker to show popup
+        setTimeout(async () => {
+            // Use region if available, otherwise use country
+            const originToFetch = (targetOrigin && targetOrigin.region) ? targetOrigin.region : originCountry;
+
+            // Fetch products and show popup using ProductController endpoint
+            try {
+                const response = await fetch(`/api/products/origin/${encodeURIComponent(originToFetch)}/with-brand`);
+                if (response.ok) {
+                    const products = await response.json();
+                    // Create origin object for popup display
+                    const originForPopup = targetOrigin || {
+                        country: originCountry,
+                        region: region,
+                        latitude: targetLat,
+                        longitude: targetLng
+                    };
+                    displayProductsPopup(originForPopup, products);
+                }
+            } catch (error) {
+                console.error('Error fetching origin products:', error);
+                // Fallback: show simple popup
+                const popup = L.popup()
+                    .setLatLng([targetLat, targetLng])
+                    .setContent(`<strong>${originCountry}</strong>${region ? '<br>' + region : ''}`)
+                    .openOn(map);
+            }
+        }, 500);
+    }
 }

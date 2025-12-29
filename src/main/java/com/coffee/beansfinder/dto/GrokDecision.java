@@ -34,6 +34,11 @@ public class GrokDecision {
     private String response;
 
     /**
+     * Optional clarifying question when queryType is CLARIFY_NEEDED
+     */
+    private String clarifyingQuestion;
+
+    /**
      * Suggested next actions for the user
      */
     private List<SuggestedAction> suggestedActions;
@@ -115,6 +120,7 @@ public class GrokDecision {
      * Types of graph queries Grok can request
      */
     public enum GraphQueryType {
+        // === SEARCH INTENTS (require graph query) ===
         SEARCH_BY_NAME,            // Search for a specific product by name
         SEARCH_BY_BRAND,           // Search for products by brand name
         SIMILAR_FLAVORS,           // Products with overlapping flavors
@@ -125,10 +131,29 @@ public class GrokDecision {
         LESS_CATEGORY,             // Products with LESS of a specific SCA category
         SAME_ORIGIN_MORE_CATEGORY, // Same origin + more of a category
         SAME_ORIGIN_DIFFERENT_ROAST, // Same origin + different roast level
-        // Character axes queries (4-dimensional: acidity, body, roast, complexity)
-        MORE_CHARACTER,            // Products with MORE of a character axis (e.g., more acidity, more body)
-        LESS_CHARACTER,            // Products with LESS of a character axis (e.g., less acidic, lighter body)
-        SIMILAR_PROFILE,           // Products with similar overall profile (cosine similarity)
-        CUSTOM                     // Custom combination of filters
+        MORE_CHARACTER,            // Products with MORE of a character axis
+        LESS_CHARACTER,            // Products with LESS of a character axis
+        SIMILAR_PROFILE,           // Products with similar overall profile
+        CUSTOM,                    // Custom combination of filters
+
+        // === NON-SEARCH INTENTS (response-only, no graph query) ===
+        EXPLAIN_ORIGIN,            // User wants to learn about an origin
+        EXPLAIN_PROCESS,           // User wants to learn about a process
+        EXPLAIN_PRODUCT,           // User wants to understand a specific product
+        COMPARE_PRODUCTS,          // User wants to compare two or more coffees
+        DISCOVER_RANDOM,           // User wants surprise recommendations
+        BREWING_GUIDANCE,          // User wants brewing advice
+        CLARIFY_NEEDED             // Bot needs more information from user
+    }
+
+    /**
+     * Check if this query type requires a graph query execution
+     */
+    public boolean requiresGraphQuery() {
+        return queryType != null && switch (queryType) {
+            case EXPLAIN_ORIGIN, EXPLAIN_PROCESS, EXPLAIN_PRODUCT,
+                 COMPARE_PRODUCTS, BREWING_GUIDANCE, CLARIFY_NEEDED -> false;
+            default -> true;
+        };
     }
 }
