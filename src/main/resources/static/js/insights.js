@@ -46,7 +46,7 @@ async function loadArchiveSidebar() {
 }
 
 /**
- * Group digests by month and quarter (1st, 2nd, 3rd, 4th week)
+ * Group digests by month with date-based labels
  */
 function groupByMonthQuarter(digests) {
     const groups = {};
@@ -56,12 +56,19 @@ function groupByMonthQuarter(digests) {
         const monthYear = date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
         const day = date.getDate();
 
-        // Determine quarter of month
-        let quarter;
-        if (day <= 7) quarter = '1st week';
-        else if (day <= 14) quarter = '2nd week';
-        else if (day <= 21) quarter = '3rd week';
-        else quarter = '4th week';
+        // Show date range for clarity (e.g., "23rd - 29th" or "30th - 5th")
+        const endDate = new Date(d.weekEnd);
+        const startDay = day;
+        const endDay = endDate.getDate();
+
+        // Format with ordinal suffix
+        const ordinal = (n) => {
+            const s = ['th', 'st', 'nd', 'rd'];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        };
+
+        const quarter = `${ordinal(startDay)} - ${ordinal(endDay)}`;
 
         if (!groups[monthYear]) {
             groups[monthYear] = [];
@@ -87,13 +94,20 @@ function renderArchiveGroups(grouped) {
     const urlParams = new URLSearchParams(window.location.search);
     const currentWeek = urlParams.get('week');
 
+    // Find the latest digest (first entry of first month) for default highlighting
+    const allMonths = Object.keys(grouped);
+    const latestWeekStart = allMonths.length > 0 && grouped[allMonths[0]].length > 0
+        ? grouped[allMonths[0]][0].weekStart
+        : null;
+
     for (const [monthYear, digests] of Object.entries(grouped)) {
         html += `<div class="archive-month">
             <h4>${monthYear}</h4>
             <ul class="archive-links">`;
 
         digests.forEach(d => {
-            const isActive = currentWeek === d.weekStart || (!currentWeek && digests[0] === d);
+            // Highlight: either matches URL param, or is the latest digest when no param
+            const isActive = currentWeek === d.weekStart || (!currentWeek && d.weekStart === latestWeekStart);
             html += `<li>
                 <a href="?week=${d.weekStart}" class="${isActive ? 'active' : ''}">${d.quarter}</a>
             </li>`;

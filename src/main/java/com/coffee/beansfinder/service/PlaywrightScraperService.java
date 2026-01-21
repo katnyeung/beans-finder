@@ -35,6 +35,11 @@ public class PlaywrightScraperService {
     private int consecutiveFailures = 0;
     private static final int MAX_CONSECUTIVE_FAILURES_BEFORE_RESTART = 3;
 
+    // Lazy initialization - browser idle timeout (15 minutes)
+    private static final long BROWSER_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+    private volatile long lastBrowserUseTime = 0;
+    private final Object browserLock = new Object();
+
     public PlaywrightScraperService(ObjectMapper objectMapper, CrawlClientService crawlClientService) {
         this.objectMapper = objectMapper;
         this.crawlClientService = crawlClientService;
@@ -65,14 +70,29 @@ public class PlaywrightScraperService {
 
     @PostConstruct
     public void init() {
-        log.info("Initializing Playwright browser");
-        initBrowser();
+        log.info("PlaywrightScraperService initialized (browser will be started on-demand)");
+        // Browser is now lazily initialized - don't start it at application startup
+        // This saves ~200-400MB of memory when not actively crawling
+    }
+
+    /**
+     * Get browser instance, initializing lazily if needed.
+     * Thread-safe lazy initialization with idle timeout support.
+     */
+    private Browser getBrowser() {
+        synchronized (browserLock) {
+            if (browser == null || !browser.isConnected()) {
+                initBrowser();
+            }
+            lastBrowserUseTime = System.currentTimeMillis();
+            return browser;
+        }
     }
 
     /**
      * Initialize or reinitialize the browser
      */
-    private synchronized void initBrowser() {
+    private void initBrowser() {
         try {
             // Close existing browser if any
             if (browser != null) {
@@ -97,7 +117,8 @@ public class PlaywrightScraperService {
                         "--disable-web-security",
                         "--disable-features=IsolateOrigins,site-per-process"
                     )));
-            log.info("Playwright browser initialized successfully");
+            lastBrowserUseTime = System.currentTimeMillis();
+            log.info("Playwright browser initialized successfully (lazy init)");
         } catch (Exception e) {
             log.error("Failed to initialize Playwright browser: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to initialize browser", e);
@@ -105,11 +126,35 @@ public class PlaywrightScraperService {
     }
 
     /**
+     * Close browser if idle for too long. Called periodically by scheduler.
+     * Releases ~200-400MB of memory when browser is not in use.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 300000) // Check every 5 minutes
+    public void closeIdleBrowser() {
+        synchronized (browserLock) {
+            if (browser != null && lastBrowserUseTime > 0) {
+                long idleTime = System.currentTimeMillis() - lastBrowserUseTime;
+                if (idleTime > BROWSER_IDLE_TIMEOUT_MS) {
+                    log.info("Closing idle Playwright browser (idle for {} minutes)", idleTime / 60000);
+                    try {
+                        browser.close();
+                    } catch (Exception e) {
+                        log.warn("Error closing idle browser: {}", e.getMessage());
+                    }
+                    browser = null;
+                }
+            }
+        }
+    }
+
+    /**
      * Restart browser if it seems stuck (called after consecutive failures)
      */
-    public synchronized void restartBrowser() {
-        log.warn("Restarting Playwright browser due to failures");
-        initBrowser();
+    public void restartBrowser() {
+        synchronized (browserLock) {
+            log.warn("Restarting Playwright browser due to failures");
+            initBrowser();
+        }
     }
 
     /**
@@ -136,7 +181,7 @@ public class PlaywrightScraperService {
         log.debug("Using fingerprint: UA={}, viewport={}x{}",
                 userAgent.substring(0, 50) + "...", viewport[0], viewport[1]);
 
-        return browser.newContext(new Browser.NewContextOptions()
+        return getBrowser().newContext(new Browser.NewContextOptions()
                 .setUserAgent(userAgent)
                 .setViewportSize(viewport[0], viewport[1])
                 .setLocale("en-GB")
@@ -149,13 +194,25 @@ public class PlaywrightScraperService {
 
     @PreDestroy
     public void cleanup() {
-        if (browser != null) {
-            browser.close();
+        synchronized (browserLock) {
+            if (browser != null) {
+                try {
+                    browser.close();
+                } catch (Exception e) {
+                    log.warn("Error closing browser during cleanup: {}", e.getMessage());
+                }
+                browser = null;
+            }
+            if (playwright != null) {
+                try {
+                    playwright.close();
+                } catch (Exception e) {
+                    log.warn("Error closing playwright during cleanup: {}", e.getMessage());
+                }
+                playwright = null;
+            }
+            log.info("Playwright browser closed");
         }
-        if (playwright != null) {
-            playwright.close();
-        }
-        log.info("Playwright browser closed");
     }
 
     /**
@@ -893,7 +950,7 @@ public class PlaywrightScraperService {
         data.setProductUrl(url);
 
         // Try to extract basic info from meta tags if possible
-        BrowserContext context = browser.newContext();
+        BrowserContext context = getBrowser().newContext();
         Page page = context.newPage();
         try {
             page.navigate(url);

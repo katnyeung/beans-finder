@@ -862,9 +862,13 @@ public class CrawlerService {
             product = productRepository.save(product);
             log.info("Saved product to database: {} (ID: {})", product.getProductName(), product.getId());
 
+            // Re-fetch with brand to avoid LazyInitializationException in subsequent operations
+            CoffeeProduct productWithBrand = productRepository.findByIdWithBrand(product.getId())
+                    .orElse(product);
+
             // Record price history (for price tracking and trend analysis)
             try {
-                priceHistoryService.recordPrice(product);
+                priceHistoryService.recordPrice(productWithBrand);
             } catch (Exception e) {
                 log.warn("Failed to record price history for product {}: {}", product.getId(), e.getMessage());
                 // Continue even if price history fails
@@ -872,7 +876,7 @@ public class CrawlerService {
 
             // Sync to knowledge graph
             try {
-                graphService.syncProductToGraph(product);
+                graphService.syncProductToGraph(productWithBrand);
             } catch (Exception e) {
                 log.error("Failed to sync product to knowledge graph: {}", e.getMessage());
                 // Continue even if graph sync fails

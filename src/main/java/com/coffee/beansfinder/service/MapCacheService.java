@@ -770,8 +770,8 @@ public class MapCacheService {
             return connections;
         }
 
-        // Load ALL products once (uses the same data from preloadProductCounts)
-        List<CoffeeProduct> allProducts = productRepository.findAll();
+        // Load ALL products once with brand eagerly fetched
+        List<CoffeeProduct> allProducts = productRepository.findAllWithBrand();
 
         // Group products by brand ID
         Map<Long, List<CoffeeProduct>> productsByBrand = allProducts.stream()

@@ -300,7 +300,7 @@ public class AdminController {
             description = "Re-crawl a specific product and clear its update flag")
     public ResponseEntity<Map<String, Object>> refreshProduct(@PathVariable Long id) {
         try {
-            CoffeeProduct product = productRepository.findById(id)
+            CoffeeProduct product = productRepository.findByIdWithBrand(id)
                     .orElseThrow(() -> new IllegalArgumentException("Product not found: " + id));
 
             if (product.getSellerUrl() == null || product.getSellerUrl().isEmpty()) {

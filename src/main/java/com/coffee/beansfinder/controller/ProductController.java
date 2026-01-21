@@ -38,11 +38,16 @@ public class ProductController {
     private final UserProductTrackingRepository trackingRepository;
 
     /**
-     * Get all active (non-deleted) products
+     * Get active (non-deleted) products with pagination
+     * Default limit of 50 to prevent OOM
      */
     @GetMapping
-    public List<CoffeeProduct> getAllProducts() {
-        return productRepository.findByDeletedAtIsNull();
+    public List<CoffeeProduct> getAllProducts(
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "0") int page) {
+        int safeLimit = Math.min(limit, 100); // Cap at 100 to prevent OOM
+        return productRepository.findActiveProductsPaginated(
+                org.springframework.data.domain.PageRequest.of(page, safeLimit));
     }
 
     /**
@@ -98,7 +103,7 @@ public class ProductController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ProductDetailDTO> getProductById(@PathVariable Long id) {
-        return productRepository.findById(id)
+        return productRepository.findByIdWithBrand(id)
                 .map(product -> {
                     ProductDetailDTO dto = new ProductDetailDTO(
                             product.getId(),
@@ -260,7 +265,7 @@ public class ProductController {
     public ResponseEntity<List<CoffeeProduct>> getRelatedProducts(
             @PathVariable Long id,
             @Parameter(description = "Maximum number of related products to return") @RequestParam(defaultValue = "6") int limit) {
-        return productRepository.findById(id)
+        return productRepository.findByIdWithBrand(id)
                 .map(product -> {
                     List<CoffeeProduct> related = productRepository.findByBrandId(product.getBrand().getId())
                             .stream()

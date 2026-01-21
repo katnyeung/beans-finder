@@ -23,6 +23,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            .cors(cors -> cors.configurationSource(request -> {
+                var config = new org.springframework.web.cors.CorsConfiguration();
+                config.setAllowedOrigins(java.util.List.of("https://graphee.link", "http://localhost:8080"));
+                config.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                config.setAllowedHeaders(java.util.List.of("*"));
+                config.setAllowCredentials(true);
+                return config;
+            }))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints - everything except /api/user/**
@@ -56,7 +64,10 @@ public class SecurityConfig {
                     "/api/geolocation/**",
                     "/api/auth/me",
                     "/swagger-ui/**",
-                    "/v3/api-docs/**"
+                    "/v3/api-docs/**",
+                    "/api/health/**",
+                    "/api/images/**",
+                    "/actuator/**"
                 ).permitAll()
                 // Protected endpoints
                 .requestMatchers("/api/user/**").authenticated()

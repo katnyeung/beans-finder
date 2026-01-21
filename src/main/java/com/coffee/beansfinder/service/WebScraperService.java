@@ -420,7 +420,19 @@ public class WebScraperService {
                         }
                     }
 
-                    if (!title.isEmpty() && !isCoffeeProductTitle(title)) {
+                    // Step 3: Check image:loc filename for coffee keywords
+                    // e.g., "china_pacamara.png", "ethiopia_guji.jpg" contain country/variety names
+                    Element imageLoc = urlElement.selectFirst("image|loc");
+                    boolean hasImageCoffeeSignal = false;
+                    if (imageLoc != null && !imageLoc.text().trim().isEmpty()) {
+                        hasImageCoffeeSignal = hasCoffeePatternInImageUrl(imageLoc.text());
+                        if (hasImageCoffeeSignal) {
+                            log.debug("Coffee signal found in image URL: {}", imageLoc.text());
+                        }
+                    }
+
+                    // Skip title filtering if image filename indicates coffee product
+                    if (!hasImageCoffeeSignal && !title.isEmpty() && !isCoffeeProductTitle(title)) {
                         log.debug("Filtered by title '{}': {}", title, url);
                         titleFilteredOut++;
                         continue;
@@ -534,7 +546,18 @@ public class WebScraperService {
                         }
                     }
 
-                    if (!title.isEmpty() && !isCoffeeProductTitle(title)) {
+                    // Step 4: Check image:loc filename for coffee keywords
+                    Element imageLoc = urlElement.selectFirst("image|loc");
+                    boolean hasImageCoffeeSignal = false;
+                    if (imageLoc != null && !imageLoc.text().trim().isEmpty()) {
+                        hasImageCoffeeSignal = hasCoffeePatternInImageUrl(imageLoc.text());
+                        if (hasImageCoffeeSignal) {
+                            log.debug("Coffee signal found in image URL: {}", imageLoc.text());
+                        }
+                    }
+
+                    // Skip title filtering if image filename indicates coffee product
+                    if (!hasImageCoffeeSignal && !title.isEmpty() && !isCoffeeProductTitle(title)) {
                         log.debug("Filtered by title '{}': {}", title, url);
                         titleFilteredOut++;
                         continue;
@@ -806,7 +829,9 @@ public class WebScraperService {
             "training",       // Training
             "shipping-protection", // Shipping insurance
             "project-waterfall",   // Charity addon
-            "tea",            // Tea products
+            "/tea/",          // Tea category path (not matching "coffee-and-tea")
+            "/tea-",          // Tea products path prefix
+            "-tea-box",       // Tea box products
             "nemi-teas",      // Tea brand
             "recycler",       // Pod recycler
             "ecopress"        // Pod recycler
@@ -897,7 +922,8 @@ public class WebScraperService {
             "ethiopia", "colombia", "brazil", "kenya", "guatemala", "honduras",
             "costa rica", "peru", "rwanda", "burundi", "uganda", "tanzania",
             "indonesia", "yemen", "panama", "nicaragua", "el salvador", "mexico",
-            "myanmar", "china", "india", "malawi", "zambia", "timor", "burundi",
+            "myanmar", "china", "india", "malawi", "zambia", "timor", "malaysia",
+            "vietnam", "laos", "thailand", "philippines",
 
             // Coffee-specific terms
             "espresso", "filter", "omni", "house", "village", "decaf", "organic",
@@ -906,6 +932,9 @@ public class WebScraperService {
 
             // Processing methods
             "natural", "washed", "honey", "anaerobic", "carbonic", "fermented",
+
+            // Coffee species
+            "liberica", "robusta", "arabica", "excelsa",
 
             // Coffee varieties
             "geisha", "bourbon", "typica", "caturra", "catuai", "pacamara", "sl28",
@@ -925,6 +954,66 @@ public class WebScraperService {
         // STEP 3: DEFAULT - If no exclusion matched and no coffee pattern matched
         // Assume it's NOT coffee (conservative approach to save OpenAI costs)
         // Better to miss a few edge cases than crawl equipment
+        return false;
+    }
+
+    /**
+     * Check if image URL contains coffee-related patterns (country names, varieties)
+     * Used to identify coffee products when URL slug is generic (e.g., "example-product-1")
+     * but image filename contains meaningful info (e.g., "china_pacamara.png")
+     */
+    private boolean hasCoffeePatternInImageUrl(String imageUrl) {
+        if (imageUrl == null || imageUrl.isEmpty()) {
+            return false;
+        }
+
+        String lowerUrl = imageUrl.toLowerCase();
+
+        // Extract filename from URL (after last /)
+        int lastSlash = lowerUrl.lastIndexOf('/');
+        String filename = lastSlash >= 0 ? lowerUrl.substring(lastSlash + 1) : lowerUrl;
+
+        // Remove query params and file extension for cleaner matching
+        int queryStart = filename.indexOf('?');
+        if (queryStart > 0) {
+            filename = filename.substring(0, queryStart);
+        }
+
+        // Coffee-related patterns to look for in image filename
+        String[] coffeePatterns = {
+            // Country names (coffee origins)
+            "ethiopia", "colombia", "brazil", "kenya", "guatemala", "honduras",
+            "costa_rica", "costarica", "peru", "rwanda", "burundi", "uganda",
+            "tanzania", "indonesia", "yemen", "panama", "nicaragua", "el_salvador",
+            "elsalvador", "mexico", "myanmar", "china", "india", "malawi", "zambia",
+            "timor", "sumatra", "java", "sulawesi", "bali", "malaysia", "vietnam",
+            "laos", "thailand", "philippines",
+
+            // Coffee species
+            "liberica", "robusta", "arabica", "excelsa",
+
+            // Coffee varieties
+            "geisha", "gesha", "bourbon", "typica", "caturra", "catuai", "pacamara",
+            "sl28", "sl34", "sidra", "castillo", "colombia_variety", "tabi",
+            "pink_bourbon", "red_bourbon", "yellow_bourbon", "maragogipe",
+
+            // Processing methods
+            "natural", "washed", "honey", "anaerobic", "carbonic", "fermented",
+
+            // Famous regions
+            "yirgacheffe", "sidamo", "guji", "huila", "narino", "cauca",
+            "cerrado", "mogiana", "nyeri", "kirinyaga",
+
+            // Coffee-specific terms
+            "espresso", "single_origin", "singleorigin", "roast", "blend"
+        };
+
+        for (String pattern : coffeePatterns) {
+            if (filename.contains(pattern)) {
+                return true;
+            }
+        }
+
         return false;
     }
 

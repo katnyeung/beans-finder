@@ -8193,6 +8193,31 @@ svg path.producer-marker {
     display: none !important;
 }
 
+/* Hero Instagram Link */
+.hero-instagram {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    padding: 0.6rem 1.2rem;
+    background: linear-gradient(135deg, #E1306C 0%, #C13584 50%, #833AB4 100%);
+    color: white;
+    text-decoration: none;
+    border-radius: 25px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.hero-instagram:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(193, 53, 132, 0.4);
+}
+
+.hero-instagram svg {
+    flex-shrink: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .digest-narrative {

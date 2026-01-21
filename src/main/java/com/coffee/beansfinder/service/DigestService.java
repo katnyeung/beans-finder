@@ -66,6 +66,7 @@ public class DigestService {
 
     private String analysisPromptTemplate;
     private String narrativePromptTemplate;
+    private String rankingPromptTemplate;
 
     @PostConstruct
     public void loadPromptTemplates() {
@@ -77,6 +78,10 @@ public class DigestService {
             ClassPathResource narrativeResource = new ClassPathResource("prompts/digest_narrative_prompt.txt");
             narrativePromptTemplate = StreamUtils.copyToString(narrativeResource.getInputStream(), StandardCharsets.UTF_8);
             log.info("Loaded narrative prompt template ({} chars)", narrativePromptTemplate.length());
+
+            ClassPathResource rankingResource = new ClassPathResource("prompts/digest_ranking_prompt.txt");
+            rankingPromptTemplate = StreamUtils.copyToString(rankingResource.getInputStream(), StandardCharsets.UTF_8);
+            log.info("Loaded ranking prompt template ({} chars)", rankingPromptTemplate.length());
         } catch (Exception e) {
             log.error("Failed to load prompt templates: {}", e.getMessage());
         }
@@ -89,7 +94,8 @@ public class DigestService {
      * Weekly scheduled job - runs every Saturday at 8:00 AM
      * Includes retry logic to handle Neon serverless cold starts
      */
-    @Scheduled(cron = "0 0 8 * * SAT")
+    // TODO: Investigate network issues on production server - DNS/firewall blocking external domains
+    // @Scheduled(cron = "0 0 8 * * SAT")
     public void generateWeeklyDigestScheduled() {
         log.info("=== Starting scheduled weekly digest generation ===");
 
@@ -184,13 +190,18 @@ public class DigestService {
         List<CoffeeNews> newsArticles = fetchFresh ? fetchAndSaveNews() : getExistingNews();
         log.info("Using {} news articles", newsArticles.size());
 
-        // Step 1b: Score and rank news articles by relevance
+        // Step 1b: Score and rank news articles by keyword relevance
         List<CoffeeNews> scoredNews = scoreAndRankNews(newsArticles);
-        log.info("Scored news - top articles: {}",
+        log.info("Keyword-scored news - top articles: {}",
                 scoredNews.stream().limit(5).map(CoffeeNews::getTitle).collect(Collectors.joining(", ")));
 
-        // Step 2: LLM Call 1 - Analyze news to decide what queries to run
-        DigestAnalysis analysis = analyzeNewsForQueries(scoredNews);
+        // Step 1c: LLM-based ranking to surface most interesting/important news
+        List<CoffeeNews> rankedNews = rankNewsByInterest(scoredNews);
+        log.info("LLM-ranked news - top articles: {}",
+                rankedNews.stream().limit(5).map(CoffeeNews::getTitle).collect(Collectors.joining(", ")));
+
+        // Step 2: LLM Call 2 - Analyze news to decide what queries to run
+        DigestAnalysis analysis = analyzeNewsForQueries(rankedNews);
         log.info("Analysis decided on {} queries: {}",
                 analysis.getQueries().size(),
                 analysis.getQueries().stream().map(q -> q.getType().name()).collect(Collectors.joining(", ")));
@@ -199,8 +210,8 @@ public class DigestService {
         Map<String, Object> queryResults = executeQueries(analysis.getQueries());
         log.info("Query results: {}", queryResults.keySet());
 
-        // Step 4: LLM Call 2 - Generate narrative (use top 12 scored articles)
-        List<CoffeeNews> topNews = scoredNews.stream().limit(12).collect(Collectors.toList());
+        // Step 4: LLM Call 3 - Generate narrative (use top 12 ranked articles)
+        List<CoffeeNews> topNews = rankedNews.stream().limit(12).collect(Collectors.toList());
         String narrative = generateNarrative(topNews, queryResults);
         log.info("Generated narrative ({} chars)", narrative.length());
 
@@ -212,7 +223,7 @@ public class DigestService {
                 .narrative(narrative)
                 .metrics(objectMapper.valueToTree(queryResults).toString())
                 .newsArticleIds(objectMapper.valueToTree(
-                        scoredNews.stream().map(CoffeeNews::getId).collect(Collectors.toList())).toString())
+                        rankedNews.stream().map(CoffeeNews::getId).collect(Collectors.toList())).toString())
                 .generationCost(new BigDecimal("0.003"))
                 .status("draft")
                 .build();
@@ -406,9 +417,19 @@ public class DigestService {
     /**
      * Score and rank news articles by relevance to coffee topics
      * Higher scores = more relevant to our audience
+     *
+     * Scoring factors:
+     * - Origin keywords (coffee-producing countries)
+     * - Process keywords (fermentation, processing methods)
+     * - Trend keywords (market-relevant terms)
+     * - Variety keywords (coffee cultivars)
+     * - Urgent keywords (breaking news indicators) - HIGH BONUS
+     * - Negative keywords (press releases, promotions) - PENALTY
+     * - Source authority (trusted sources get bonus)
+     * - Recency boost (articles < 3 days old)
      */
     private List<CoffeeNews> scoreAndRankNews(List<CoffeeNews> articles) {
-        // Keywords with scores
+        // Positive keywords with scores
         Map<String, Integer> originKeywords = Map.ofEntries(
                 Map.entry("ethiopia", 10), Map.entry("colombian", 10), Map.entry("brazil", 10),
                 Map.entry("kenya", 8), Map.entry("guatemala", 8), Map.entry("costa rica", 8),
@@ -432,6 +453,52 @@ public class DigestService {
                 "pacamara", 7, "caturra", 5, "heirloom", 6
         );
 
+        // URGENT keywords - breaking news indicators (HIGH bonus)
+        Map<String, Integer> urgentKeywords = Map.ofEntries(
+                Map.entry("shortage", 15),
+                Map.entry("crisis", 15),
+                Map.entry("frost", 12),
+                Map.entry("drought", 12),
+                Map.entry("price surge", 12),
+                Map.entry("supply chain", 10),
+                Map.entry("recall", 15),
+                Map.entry("warning", 10),
+                Map.entry("emergency", 12),
+                Map.entry("record high", 10),
+                Map.entry("record low", 10),
+                Map.entry("world champion", 12),
+                Map.entry("cup of excellence", 10)
+        );
+
+        // NEGATIVE keywords - press releases, promotions (PENALTY)
+        Map<String, Integer> negativeKeywords = Map.ofEntries(
+                Map.entry("press release", -10),
+                Map.entry("announces", -5),
+                Map.entry("partnership", -5),
+                Map.entry("sponsored", -15),
+                Map.entry("webinar", -8),
+                Map.entry("event registration", -10),
+                Map.entry("now available", -5),
+                Map.entry("launches new", -3),
+                Map.entry("proud to announce", -8),
+                Map.entry("excited to share", -6),
+                Map.entry("sign up", -8),
+                Map.entry("register now", -10),
+                Map.entry("free download", -8)
+        );
+
+        // SOURCE AUTHORITY weights (trusted sources get bonus)
+        Map<String, Integer> sourceBonus = Map.of(
+                "daily_coffee_news", 5,      // Primary industry source
+                "perfect_daily_grind", 4,
+                "roast_magazine", 4,
+                "sprudge", 3,
+                "barista_magazine", 3
+        );
+
+        // Recency threshold (articles < 3 days old get bonus)
+        LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
+
         // Score each article
         List<Map.Entry<CoffeeNews, Integer>> scoredArticles = articles.stream()
                 .map(article -> {
@@ -439,7 +506,7 @@ public class DigestService {
                     String text = ((article.getTitle() != null ? article.getTitle() : "") + " " +
                             (article.getSummary() != null ? article.getSummary() : "")).toLowerCase();
 
-                    // Score based on keyword matches
+                    // Score based on positive keyword matches
                     for (Map.Entry<String, Integer> kw : originKeywords.entrySet()) {
                         if (text.contains(kw.getKey())) score += kw.getValue();
                     }
@@ -453,6 +520,26 @@ public class DigestService {
                         if (text.contains(kw.getKey())) score += kw.getValue();
                     }
 
+                    // Add urgent keyword bonus (breaking news)
+                    for (Map.Entry<String, Integer> kw : urgentKeywords.entrySet()) {
+                        if (text.contains(kw.getKey())) score += kw.getValue();
+                    }
+
+                    // Apply negative keyword penalties
+                    for (Map.Entry<String, Integer> kw : negativeKeywords.entrySet()) {
+                        if (text.contains(kw.getKey())) score += kw.getValue();
+                    }
+
+                    // Source authority bonus
+                    if (article.getSource() != null) {
+                        score += sourceBonus.getOrDefault(article.getSource().toLowerCase(), 0);
+                    }
+
+                    // Recency boost (+8 for articles < 3 days old)
+                    if (article.getPublishedAt() != null && article.getPublishedAt().isAfter(threeDaysAgo)) {
+                        score += 8;
+                    }
+
                     // Bonus for longer content (more detailed articles)
                     if (article.getSummary() != null && article.getSummary().length() > 500) {
                         score += 5;
@@ -463,7 +550,7 @@ public class DigestService {
                 .sorted((a, b) -> b.getValue().compareTo(a.getValue())) // Sort descending by score
                 .collect(Collectors.toList());
 
-        log.info("News scores: {}", scoredArticles.stream()
+        log.info("News scores (with urgency/penalties): {}", scoredArticles.stream()
                 .limit(5)
                 .map(e -> e.getKey().getTitle() + "=" + e.getValue())
                 .collect(Collectors.joining(", ")));
@@ -471,6 +558,124 @@ public class DigestService {
         return scoredArticles.stream()
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * LLM-based news ranking to surface the most interesting/important articles
+     * Uses Grok to evaluate interestingness based on editorial criteria
+     *
+     * @param scoredNews Pre-scored articles (keyword scoring already applied)
+     * @return Reordered list with most interesting articles first
+     */
+    private List<CoffeeNews> rankNewsByInterest(List<CoffeeNews> scoredNews) {
+        if (rankingPromptTemplate == null) {
+            log.warn("Ranking prompt template not loaded, using keyword-scored order");
+            return scoredNews;
+        }
+
+        // Take top 20 keyword-scored articles for LLM ranking (cost optimization)
+        List<CoffeeNews> candidateArticles = scoredNews.stream().limit(20).collect(Collectors.toList());
+
+        // Build news list with IDs for prompt
+        StringBuilder newsList = new StringBuilder();
+        for (CoffeeNews article : candidateArticles) {
+            newsList.append("ID: ").append(article.getId()).append("\n")
+                    .append("Title: ").append(article.getTitle()).append("\n")
+                    .append("Source: ").append(article.getSource()).append("\n");
+            if (article.getSummary() != null && !article.getSummary().isEmpty()) {
+                String content = article.getSummary();
+                if (content.length() > 500) {
+                    content = content.substring(0, 500) + "...";
+                }
+                newsList.append("Content: ").append(content).append("\n");
+            }
+            newsList.append("\n");
+        }
+
+        String prompt = rankingPromptTemplate.replace("{{NEWS}}", newsList.toString());
+
+        try {
+            // Call Grok with low temperature for consistent ranking
+            String response = grokService.callGrokWithTemperature(
+                    "You are a coffee news editor. Respond with valid JSON only.",
+                    prompt,
+                    0.2  // Low temperature for deterministic ranking
+            );
+
+            // Parse ranking result
+            NewsRankingResult result = objectMapper.readValue(response, NewsRankingResult.class);
+
+            if (result == null || result.getRankings() == null || result.getRankings().isEmpty()) {
+                log.warn("Empty ranking result from LLM, using keyword-scored order");
+                return scoredNews;
+            }
+
+            // Log top themes identified by LLM
+            if (result.getTopThemes() != null && !result.getTopThemes().isEmpty()) {
+                log.info("LLM identified themes: {}", String.join(", ", result.getTopThemes()));
+            }
+
+            // Build ID-to-article map for reordering
+            Map<Long, CoffeeNews> articleMap = candidateArticles.stream()
+                    .collect(Collectors.toMap(CoffeeNews::getId, a -> a, (a, b) -> a));
+
+            // Create reordered list based on LLM rankings
+            List<CoffeeNews> reorderedNews = new ArrayList<>();
+            Set<Long> skipIds = result.getSkipArticles() != null
+                    ? new HashSet<>(result.getSkipArticles())
+                    : new HashSet<>();
+
+            // Add articles in LLM-ranked order
+            for (NewsRankingResult.ArticleRanking ranking : result.getRankings()) {
+                CoffeeNews article = articleMap.get(ranking.getId());
+                if (article != null && !skipIds.contains(ranking.getId())) {
+                    reorderedNews.add(article);
+                    log.debug("Rank {}: {} - {}", ranking.getRank(), article.getTitle(), ranking.getReason());
+                }
+            }
+
+            // Log skipped articles
+            if (!skipIds.isEmpty()) {
+                log.info("LLM flagged {} articles to skip (promotional/non-newsworthy)", skipIds.size());
+            }
+
+            // Add any remaining articles not in the ranking (fallback)
+            for (CoffeeNews article : candidateArticles) {
+                if (!reorderedNews.contains(article) && !skipIds.contains(article.getId())) {
+                    reorderedNews.add(article);
+                }
+            }
+
+            log.info("LLM reranked news - top 3: {}",
+                    reorderedNews.stream().limit(3).map(CoffeeNews::getTitle).collect(Collectors.joining(", ")));
+
+            return reorderedNews;
+
+        } catch (Exception e) {
+            log.error("Failed to LLM-rank news: {}, using keyword-scored order", e.getMessage());
+            return scoredNews;
+        }
+    }
+
+    /**
+     * DTO for LLM ranking response
+     */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class NewsRankingResult {
+        private List<ArticleRanking> rankings;
+        private List<String> topThemes;
+        private List<Long> skipArticles;
+
+        @lombok.Data
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class ArticleRanking {
+            private Long id;
+            private Integer rank;
+            private String reason;
+        }
     }
 
     private String getElementText(Element parent, String tagName) {

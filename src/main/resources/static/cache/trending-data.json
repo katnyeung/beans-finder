@@ -1,0 +1,459 @@
+{
+  "all" : {
+    "newProducts" : [ {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:21:21.487058",
+      "price" : 8.50,
+      "brandId" : 74,
+      "origin" : "Kenya",
+      "currency" : "GBP",
+      "id" : 2113,
+      "productName" : "Kangocho • Washed • SL-28, SL-34 • Kenya"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:20:43.244614",
+      "price" : 4.50,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2112,
+      "productName" : "El Paraiso Decaf • Anaerobic Decaf • Castillo • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:20:07.553663",
+      "price" : 10.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2111,
+      "productName" : "El Paraiso Cardamomo • Double Anaerobic Washed Thermal Shock • Castillo • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:19:31.881153",
+      "price" : 4.40,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2110,
+      "productName" : "Sebastian Ramirez Session IPA • Honey Session IPA • Pink Bourbon • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:18:57.110668",
+      "price" : 5.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2109,
+      "productName" : "Edinson Argote • Watermelon Co-Ferment • Caturra • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:16:36.908198",
+      "price" : 7.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2108,
+      "productName" : "Sudan Rume • Natural • Yellow Sudan Rume • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:16:02.573671",
+      "price" : 14.00,
+      "brandId" : 74,
+      "origin" : "Kenya",
+      "currency" : "GBP",
+      "id" : 2107,
+      "productName" : "Great Rift • Natural • Ruiri 11, Batian • Kenya"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:12:57.414938",
+      "price" : 5.60,
+      "brandId" : 74,
+      "origin" : "India",
+      "currency" : "GBP",
+      "id" : 2106,
+      "productName" : "Against the Odds • Black Honey • Arabica Selection 9 • India"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:12:22.373046",
+      "price" : 4.30,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2105,
+      "productName" : "Sebastian Ramirez • Honey Thermal Shock • Pink Bourbon • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:10:30.014415",
+      "price" : 4.60,
+      "brandId" : 74,
+      "origin" : "India",
+      "currency" : "GBP",
+      "id" : 2104,
+      "productName" : "Gems of Araku Crimson Gains • Natural • Arabica Selection 9 • India"
+    } ],
+    "period" : "all",
+    "topFlavors" : [ {
+      "flavor" : "chocolate",
+      "productCount" : 228
+    }, {
+      "flavor" : "caramel",
+      "productCount" : 178
+    }, {
+      "flavor" : "milk chocolate",
+      "productCount" : 97
+    }, {
+      "flavor" : "orange",
+      "productCount" : 72
+    }, {
+      "flavor" : "brown sugar",
+      "productCount" : 68
+    }, {
+      "flavor" : "dark chocolate",
+      "productCount" : 63
+    }, {
+      "flavor" : "hazelnut",
+      "productCount" : 61
+    }, {
+      "flavor" : "floral",
+      "productCount" : 52
+    }, {
+      "flavor" : "peach",
+      "productCount" : 52
+    }, {
+      "flavor" : "citrus",
+      "productCount" : 47
+    } ],
+    "newProductsCount" : 1226,
+    "topOrigins" : [ {
+      "origin" : "Colombia",
+      "productCount" : 231
+    }, {
+      "origin" : "Ethiopia",
+      "productCount" : 108
+    }, {
+      "origin" : "Brazil",
+      "productCount" : 95
+    }, {
+      "origin" : "Costa Rica",
+      "productCount" : 51
+    }, {
+      "origin" : "Peru",
+      "productCount" : 50
+    } ]
+  },
+  "week" : {
+    "newProducts" : [ {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:21:21.487058",
+      "price" : 8.50,
+      "brandId" : 74,
+      "origin" : "Kenya",
+      "currency" : "GBP",
+      "id" : 2113,
+      "productName" : "Kangocho • Washed • SL-28, SL-34 • Kenya"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:20:43.244614",
+      "price" : 4.50,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2112,
+      "productName" : "El Paraiso Decaf • Anaerobic Decaf • Castillo • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:20:07.553663",
+      "price" : 10.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2111,
+      "productName" : "El Paraiso Cardamomo • Double Anaerobic Washed Thermal Shock • Castillo • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:19:31.881153",
+      "price" : 4.40,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2110,
+      "productName" : "Sebastian Ramirez Session IPA • Honey Session IPA • Pink Bourbon • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:18:57.110668",
+      "price" : 5.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2109,
+      "productName" : "Edinson Argote • Watermelon Co-Ferment • Caturra • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:16:36.908198",
+      "price" : 7.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2108,
+      "productName" : "Sudan Rume • Natural • Yellow Sudan Rume • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:16:02.573671",
+      "price" : 14.00,
+      "brandId" : 74,
+      "origin" : "Kenya",
+      "currency" : "GBP",
+      "id" : 2107,
+      "productName" : "Great Rift • Natural • Ruiri 11, Batian • Kenya"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:12:57.414938",
+      "price" : 5.60,
+      "brandId" : 74,
+      "origin" : "India",
+      "currency" : "GBP",
+      "id" : 2106,
+      "productName" : "Against the Odds • Black Honey • Arabica Selection 9 • India"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:12:22.373046",
+      "price" : 4.30,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2105,
+      "productName" : "Sebastian Ramirez • Honey Thermal Shock • Pink Bourbon • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:10:30.014415",
+      "price" : 4.60,
+      "brandId" : 74,
+      "origin" : "India",
+      "currency" : "GBP",
+      "id" : 2104,
+      "productName" : "Gems of Araku Crimson Gains • Natural • Arabica Selection 9 • India"
+    } ],
+    "period" : "week",
+    "topFlavors" : [ {
+      "flavor" : "chocolate",
+      "rankChange" : null,
+      "productCount" : 12
+    }, {
+      "flavor" : "peach",
+      "rankChange" : null,
+      "productCount" : 9
+    }, {
+      "flavor" : "raspberry",
+      "rankChange" : 16,
+      "productCount" : 8
+    }, {
+      "flavor" : "honey",
+      "rankChange" : 7,
+      "productCount" : 8
+    }, {
+      "flavor" : "brown sugar",
+      "rankChange" : 11,
+      "productCount" : 7
+    }, {
+      "flavor" : "orange",
+      "rankChange" : null,
+      "productCount" : 7
+    }, {
+      "flavor" : "red apple",
+      "rankChange" : null,
+      "productCount" : 6
+    }, {
+      "flavor" : "milk chocolate",
+      "rankChange" : -2,
+      "productCount" : 6
+    }, {
+      "flavor" : "caramel",
+      "rankChange" : 12,
+      "productCount" : 6
+    }, {
+      "flavor" : "grape",
+      "rankChange" : 14,
+      "productCount" : 6
+    } ],
+    "newProductsCount" : 87,
+    "topOrigins" : [ {
+      "rankChange" : null,
+      "origin" : "Colombia",
+      "productCount" : 28
+    }, {
+      "rankChange" : null,
+      "origin" : "Kenya",
+      "productCount" : 10
+    }, {
+      "rankChange" : 1,
+      "origin" : "Ethiopia",
+      "productCount" : 10
+    }, {
+      "rankChange" : null,
+      "origin" : "Peru",
+      "productCount" : 5
+    }, {
+      "rankChange" : null,
+      "origin" : "Nicaragua",
+      "productCount" : 4
+    } ]
+  },
+  "month" : {
+    "newProducts" : [ {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:21:21.487058",
+      "price" : 8.50,
+      "brandId" : 74,
+      "origin" : "Kenya",
+      "currency" : "GBP",
+      "id" : 2113,
+      "productName" : "Kangocho • Washed • SL-28, SL-34 • Kenya"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:20:43.244614",
+      "price" : 4.50,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2112,
+      "productName" : "El Paraiso Decaf • Anaerobic Decaf • Castillo • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:20:07.553663",
+      "price" : 10.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2111,
+      "productName" : "El Paraiso Cardamomo • Double Anaerobic Washed Thermal Shock • Castillo • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:19:31.881153",
+      "price" : 4.40,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2110,
+      "productName" : "Sebastian Ramirez Session IPA • Honey Session IPA • Pink Bourbon • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:18:57.110668",
+      "price" : 5.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2109,
+      "productName" : "Edinson Argote • Watermelon Co-Ferment • Caturra • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:16:36.908198",
+      "price" : 7.00,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2108,
+      "productName" : "Sudan Rume • Natural • Yellow Sudan Rume • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:16:02.573671",
+      "price" : 14.00,
+      "brandId" : 74,
+      "origin" : "Kenya",
+      "currency" : "GBP",
+      "id" : 2107,
+      "productName" : "Great Rift • Natural • Ruiri 11, Batian • Kenya"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:12:57.414938",
+      "price" : 5.60,
+      "brandId" : 74,
+      "origin" : "India",
+      "currency" : "GBP",
+      "id" : 2106,
+      "productName" : "Against the Odds • Black Honey • Arabica Selection 9 • India"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:12:22.373046",
+      "price" : 4.30,
+      "brandId" : 74,
+      "origin" : "Colombia",
+      "currency" : "GBP",
+      "id" : 2105,
+      "productName" : "Sebastian Ramirez • Honey Thermal Shock • Pink Bourbon • Colombia"
+    }, {
+      "brandName" : "Taith Coffee",
+      "createdDate" : "2026-01-16T13:10:30.014415",
+      "price" : 4.60,
+      "brandId" : 74,
+      "origin" : "India",
+      "currency" : "GBP",
+      "id" : 2104,
+      "productName" : "Gems of Araku Crimson Gains • Natural • Arabica Selection 9 • India"
+    } ],
+    "period" : "month",
+    "topFlavors" : [ {
+      "flavor" : "chocolate",
+      "rankChange" : 0,
+      "productCount" : 17
+    }, {
+      "flavor" : "peach",
+      "rankChange" : 15,
+      "productCount" : 10
+    }, {
+      "flavor" : "caramel",
+      "rankChange" : -1,
+      "productCount" : 10
+    }, {
+      "flavor" : "honey",
+      "rankChange" : 19,
+      "productCount" : 10
+    }, {
+      "flavor" : "raspberry",
+      "rankChange" : 29,
+      "productCount" : 9
+    }, {
+      "flavor" : "brown sugar",
+      "rankChange" : 2,
+      "productCount" : 9
+    }, {
+      "flavor" : "milk chocolate",
+      "rankChange" : -4,
+      "productCount" : 8
+    }, {
+      "flavor" : "sweet",
+      "rankChange" : 1,
+      "productCount" : 7
+    }, {
+      "flavor" : "grape",
+      "rankChange" : 29,
+      "productCount" : 7
+    }, {
+      "flavor" : "smooth",
+      "rankChange" : 4,
+      "productCount" : 7
+    } ],
+    "newProductsCount" : 110,
+    "topOrigins" : [ {
+      "rankChange" : 0,
+      "origin" : "Colombia",
+      "productCount" : 28
+    }, {
+      "rankChange" : 0,
+      "origin" : "Ethiopia",
+      "productCount" : 14
+    }, {
+      "rankChange" : 2,
+      "origin" : "Kenya",
+      "productCount" : 10
+    }, {
+      "rankChange" : 2,
+      "origin" : "Guatemala",
+      "productCount" : 6
+    }, {
+      "rankChange" : -1,
+      "origin" : "Peru",
+      "productCount" : 5
+    } ]
+  },
+  "generatedAt" : "2026-01-19T16:43:50.9632759"
+}

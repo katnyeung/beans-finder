@@ -28,9 +28,10 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     List<CoffeeProduct> findByBrand(CoffeeBrand brand);
 
     /**
-     * Find products by brand ID
+     * Find products by brand ID with brand eagerly fetched
      */
-    List<CoffeeProduct> findByBrandId(Long brandId);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.brand.id = :brandId")
+    List<CoffeeProduct> findByBrandId(@Param("brandId") Long brandId);
 
     /**
      * Find products by origin (country) - case sensitive
@@ -39,18 +40,24 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
 
     /**
      * Find products by origin (country) - case insensitive
+     * Eagerly fetches brand to avoid LazyInitializationException
      */
-    List<CoffeeProduct> findByOriginIgnoreCase(String origin);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE LOWER(p.origin) = LOWER(:origin)")
+    List<CoffeeProduct> findByOriginIgnoreCase(@Param("origin") String origin);
 
     /**
      * Find products by region (exact match, case-insensitive)
+     * Eagerly fetches brand to avoid LazyInitializationException
      */
-    List<CoffeeProduct> findByRegionIgnoreCase(String region);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE LOWER(p.region) = LOWER(:region)")
+    List<CoffeeProduct> findByRegionIgnoreCase(@Param("region") String region);
 
     /**
      * Find products by region containing (partial match, case-insensitive)
+     * Eagerly fetches brand to avoid LazyInitializationException
      */
-    List<CoffeeProduct> findByRegionContainingIgnoreCase(String region);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE LOWER(p.region) LIKE LOWER(CONCAT('%', :region, '%'))")
+    List<CoffeeProduct> findByRegionContainingIgnoreCase(@Param("region") String region);
 
     /**
      * Find products by origin (country) and region (exact match)
@@ -58,14 +65,16 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     List<CoffeeProduct> findByOriginAndRegionIgnoreCase(String origin, String region);
 
     /**
-     * Find products by process
+     * Find products by process with brand eagerly fetched
      */
-    List<CoffeeProduct> findByProcess(String process);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.process = :process")
+    List<CoffeeProduct> findByProcess(@Param("process") String process);
 
     /**
-     * Find products by crawl status
+     * Find products by crawl status with brand eagerly fetched
      */
-    List<CoffeeProduct> findByCrawlStatus(String status);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.crawlStatus = :status")
+    List<CoffeeProduct> findByCrawlStatus(@Param("status") String status);
 
     /**
      * Find product by brand and product name
@@ -83,13 +92,15 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     boolean existsByBrandAndProductName(CoffeeBrand brand, String productName);
 
     /**
-     * Find products by variety
+     * Find products by variety with brand eagerly fetched
      */
-    List<CoffeeProduct> findByVariety(String variety);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.variety = :variety")
+    List<CoffeeProduct> findByVariety(@Param("variety") String variety);
 
     /**
-     * Find in-stock products
+     * Find in-stock products with brand eagerly fetched
      */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.inStock = true")
     List<CoffeeProduct> findByInStockTrue();
 
     /**
@@ -110,6 +121,8 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
 
     /**
      * Find products by brand ID - only valid coffee products with tasting notes (excludes deleted)
+     * Note: Uses native query for JSONB comparison. Brand is NOT eagerly fetched -
+     * caller already knows brand from brandId parameter.
      */
     @Query(value = "SELECT * FROM coffee_products p WHERE p.brand_id = :brandId " +
            "AND p.deleted_at IS NULL " +
@@ -174,14 +187,18 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     /**
      * Find products created after a specific date (new products)
      * Ordered by createdDate descending (newest first)
+     * Eagerly fetches brand to avoid LazyInitializationException
      */
-    List<CoffeeProduct> findByCreatedDateAfterOrderByCreatedDateDesc(LocalDateTime cutoffDate);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.createdDate > :cutoffDate ORDER BY p.createdDate DESC")
+    List<CoffeeProduct> findByCreatedDateAfterOrderByCreatedDateDesc(@Param("cutoffDate") LocalDateTime cutoffDate);
 
     /**
      * Find products updated after a specific date
      * Ordered by lastUpdateDate descending (most recently updated first)
+     * Eagerly fetches brand to avoid LazyInitializationException
      */
-    List<CoffeeProduct> findByLastUpdateDateAfterOrderByLastUpdateDateDesc(LocalDateTime cutoffDate);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.lastUpdateDate > :cutoffDate ORDER BY p.lastUpdateDate DESC")
+    List<CoffeeProduct> findByLastUpdateDateAfterOrderByLastUpdateDateDesc(@Param("cutoffDate") LocalDateTime cutoffDate);
 
     /**
      * Find all products with brand eagerly fetched (for trending cache rebuild)
@@ -189,6 +206,13 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
      */
     @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand")
     List<CoffeeProduct> findAllWithBrand();
+
+    /**
+     * Find product by ID with brand eagerly fetched
+     * Avoids LazyInitializationException when accessing brand outside session
+     */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.id = :id")
+    Optional<CoffeeProduct> findByIdWithBrand(@Param("id") Long id);
 
     /**
      * Find product by brand and seller URL (for efficient lookup during crawl)
@@ -206,7 +230,9 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
 
     /**
      * Find products flagged for update
+     * Eagerly fetches brand to avoid LazyInitializationException
      */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.updateRequested = true")
     List<CoffeeProduct> findByUpdateRequestedTrue();
 
     /**
@@ -259,9 +285,17 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     Optional<CoffeeProduct> findBySellerUrlIncludeDeleted(@Param("sellerUrl") String sellerUrl);
 
     /**
-     * Find all active products
+     * Find all active products with brand eagerly fetched (WARNING: loads all into memory)
+     * Use findActiveProductsPaginated for large datasets
      */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.deletedAt IS NULL")
     List<CoffeeProduct> findByDeletedAtIsNull();
+
+    /**
+     * Find active products with pagination (memory-safe)
+     */
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.deletedAt IS NULL ORDER BY p.id")
+    List<CoffeeProduct> findActiveProductsPaginated(org.springframework.data.domain.Pageable pageable);
 
     /**
      * Find all soft-deleted products
@@ -274,9 +308,10 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
     long countByBrandIdAndDeletedAtIsNull(Long brandId);
 
     /**
-     * Find active products by origin
+     * Find active products by origin with brand eagerly fetched
      */
-    List<CoffeeProduct> findByOriginIgnoreCaseAndDeletedAtIsNull(String origin);
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.deletedAt IS NULL AND LOWER(p.origin) = LOWER(:origin)")
+    List<CoffeeProduct> findByOriginIgnoreCaseAndDeletedAtIsNull(@Param("origin") String origin);
 
     /**
      * Search active products by name
@@ -285,8 +320,9 @@ public interface CoffeeProductRepository extends JpaRepository<CoffeeProduct, Lo
 
     /**
      * Search active products by product name OR brand name
+     * Eagerly fetches brand to avoid LazyInitializationException
      */
-    @Query("SELECT p FROM CoffeeProduct p WHERE p.deletedAt IS NULL AND (" +
+    @Query("SELECT p FROM CoffeeProduct p LEFT JOIN FETCH p.brand WHERE p.deletedAt IS NULL AND (" +
            "LOWER(p.productName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(p.brand.name) LIKE LOWER(CONCAT('%', :query, '%')))")
     List<CoffeeProduct> searchActiveByProductOrBrandName(@Param("query") String query);

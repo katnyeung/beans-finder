@@ -13,14 +13,26 @@ import java.util.Optional;
 @Repository
 public interface UserProductTrackingRepository extends JpaRepository<UserProductTracking, Long> {
 
-    // Find user's tracking for a specific product
-    Optional<UserProductTracking> findByUserIdAndProductId(Long userId, Long productId);
+    // Find user's tracking for a specific product with product and brand eagerly fetched
+    @Query("SELECT t FROM UserProductTracking t " +
+           "LEFT JOIN FETCH t.product p " +
+           "LEFT JOIN FETCH p.brand " +
+           "WHERE t.user.id = :userId AND t.product.id = :productId")
+    Optional<UserProductTracking> findByUserIdAndProductId(@Param("userId") Long userId, @Param("productId") Long productId);
 
-    // Find all tracking entries for a user
-    List<UserProductTracking> findByUserIdOrderByUpdatedAtDesc(Long userId);
+    // Find all tracking entries for a user with product and brand eagerly fetched
+    @Query("SELECT t FROM UserProductTracking t " +
+           "LEFT JOIN FETCH t.product p " +
+           "LEFT JOIN FETCH p.brand " +
+           "WHERE t.user.id = :userId ORDER BY t.updatedAt DESC")
+    List<UserProductTracking> findByUserIdOrderByUpdatedAtDesc(@Param("userId") Long userId);
 
-    // Find by user and status
-    List<UserProductTracking> findByUserIdAndStatusOrderByUpdatedAtDesc(Long userId, TrackingStatus status);
+    // Find by user and status with product and brand eagerly fetched
+    @Query("SELECT t FROM UserProductTracking t " +
+           "LEFT JOIN FETCH t.product p " +
+           "LEFT JOIN FETCH p.brand " +
+           "WHERE t.user.id = :userId AND t.status = :status ORDER BY t.updatedAt DESC")
+    List<UserProductTracking> findByUserIdAndStatusOrderByUpdatedAtDesc(@Param("userId") Long userId, @Param("status") TrackingStatus status);
 
     // Delete user's tracking for a product
     void deleteByUserIdAndProductId(Long userId, Long productId);

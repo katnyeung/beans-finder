@@ -56,7 +56,7 @@ public class AnalyticsController {
             @PathVariable Long productId,
             HttpServletRequest httpRequest) {
 
-        return productRepository.findById(productId)
+        return productRepository.findByIdWithBrand(productId)
                 .map(product -> {
                     String clientIp = getClientIp(httpRequest);
                     Long brandId = product.getBrand() != null ? product.getBrand().getId() : null;
