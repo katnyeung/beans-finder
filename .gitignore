@@ -22,6 +22,24 @@ application-dev.properties
 .idea/
 *.swp
 *.swo
+.classpath
+.factorypath
+.project
+.settings/
+
+# Claude Code
+.claude/
+
+# Maven build
+target/
+
+# Secrets & deployment
+*.pem
+prod-settings/
+deploy.sh
+
+# Test/example data
+examples/
 
 # Logs
 *.log
@@ -32,3 +50,7 @@ Thumbs.db
 
 # Playwright
 playwright/.auth/
+
+# Instagram generated images (stored externally)
+instagram-images/
+/src/main/resources/static/cache/
