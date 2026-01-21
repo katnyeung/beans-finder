@@ -1,0 +1,94 @@
+{
+  "varieties" : [ {
+    "typicalFlavors" : [ "chocolate", "caramel", "orange", "milk chocolate", "citrus" ],
+    "avgPrice" : 71.73,
+    "name" : "Bourbon",
+    "origins" : [ "Burundi", "Colombia / Ethiopia", "El Salvador / Guatemala", "Ecuador / Colombia", "Brazil / Colombia / Ethiopia / El Salvador", "Ecuador / Kenya / Colombia", "Brazil, Colombia", "Colombia / Ethiopia / Kenya", "El Salvador", "Costa Rica / Rwanda", "Guatemala", "Brazil", "Honduras / Peru", "Ethiopia / Honduras / Guatemala / Brazil", "Colombia", "Ecuador", "Colombia / Guatemala", "Rwanda", "Tanzania", "Kenya", "Brazil / DR Congo", "Brazil / Costa Rica / El Salvador / Mexico", "Nicaragua", "Colombia / Rwanda", "Ethiopia / Nicaragua", "Mexico", "Honduras", "Uganda", "Brazil / El Salvador / Mexico", "El Salvador / Colombia / Honduras / Guatemala", "Peru", "Guatemala / Ethiopia", "Guatemala / Honduras", "Indonesia" ],
+    "productCount" : 179
+  }, {
+    "typicalFlavors" : [ "chocolate", "caramel", "milk chocolate", "vanilla", "honey" ],
+    "avgPrice" : 366.75,
+    "name" : "Caturra",
+    "origins" : [ "Colombia", "Myanmar", "Bolivia", "Costa Rica / Nicaragua", "Kenya / Peru", "Costa Rica", "Ethiopia / Colombia / Brazil", "Nicaragua", "El Salvador", "Colombia / China", "Panama", "Guatemala", "Brazil", "Mexico", "Peru" ],
+    "productCount" : 71
+  }, {
+    "typicalFlavors" : [ "jasmine", "peach", "floral", "honey", "orange" ],
+    "avgPrice" : 710.15,
+    "name" : "Geisha",
+    "origins" : [ "Colombia", "Ecuador", "Panama", "Guatemala", "Honduras", "Colombia / Brazil / Rwanda", "Peru", "Ethiopia", "Costa Rica" ],
+    "productCount" : 71
+  }, {
+    "typicalFlavors" : [ "milk chocolate", "caramel", "hazelnut", "brown sugar", "orange" ],
+    "avgPrice" : 13.66,
+    "name" : "Catuai",
+    "origins" : [ "Myanmar", "Brazil / El Salvador", "Guatemala / Brazil / Nicaragua", "Brazil / Nicaragua", "Bolivia", "Brazil / India / Ethiopia", "Costa Rica", "Brazil / Costa Rica", "Nicaragua", "Panama", "Brazil", "Guatemala", "Honduras", "Colombia / Costa Rica" ],
+    "productCount" : 55
+  }, {
+    "typicalFlavors" : [ "chocolate", "brown sugar", "milk chocolate", "strawberry", "citrus" ],
+    "avgPrice" : 251.98,
+    "name" : "Typica",
+    "origins" : [ "Colombia", "Ecuador", "China", "Panama", "Timor-Leste", "Brazil", "Honduras", "Peru", "Ethiopia", "Indonesia", "Costa Rica" ],
+    "productCount" : 35
+  }, {
+    "typicalFlavors" : [ "blackcurrant", "juicy", "grapefruit", "caramel", "brown sugar" ],
+    "avgPrice" : 589.10,
+    "name" : "SL28",
+    "origins" : [ "Malawi", "Uganda", "Kenya", "Costa Rica" ],
+    "productCount" : 29
+  }, {
+    "typicalFlavors" : [ "brown sugar", "black tea", "chocolate", "floral", "juicy" ],
+    "avgPrice" : 819.16,
+    "name" : "Heirloom",
+    "origins" : [ "Ethiopia" ],
+    "productCount" : 21
+  }, {
+    "typicalFlavors" : [ "juicy", "floral", "apricot", "raspberry", "cherry" ],
+    "avgPrice" : 12784.41,
+    "name" : "Castillo",
+    "origins" : [ "Colombia" ],
+    "productCount" : 18
+  }, {
+    "typicalFlavors" : [ "caramel", "almond", "brown sugar", "plum", "peach" ],
+    "avgPrice" : 13.15,
+    "name" : "Pacamara",
+    "origins" : [ "Colombia", "El Salvador", "China", "Guatemala" ],
+    "productCount" : 11
+  }, {
+    "typicalFlavors" : [ "gardenia", "jasmine", "white tea", "apple blossom", "peach ice cream" ],
+    "avgPrice" : 15.05,
+    "name" : "Landrace",
+    "origins" : [ "Ethiopia" ],
+    "productCount" : 11
+  }, {
+    "typicalFlavors" : [ "chocolate", "hazelnut", "caramel", "toffee", "dark chocolate" ],
+    "avgPrice" : 13.94,
+    "name" : "Arabica",
+    "origins" : [ "Colombia / Uganda / Mexico", "Colombia", "Kenya / Brazil / India", "Brazil", "Mexico", "Peru", "India", "Indonesia" ],
+    "productCount" : 10
+  }, {
+    "typicalFlavors" : [ "grape", "dried fig", "blueberry", "red apple", "raisin" ],
+    "avgPrice" : 2582.78,
+    "name" : "74158",
+    "origins" : [ "Ethiopia" ],
+    "productCount" : 9
+  }, {
+    "typicalFlavors" : [ "milk chocolate", "chocolate", "caramel", "toffee", "almond" ],
+    "avgPrice" : 10.36,
+    "name" : "Mixed",
+    "origins" : [ "Colombia", "Sumatra / Uganda", "Brazil", "Colombia / Brazil", "Honduras / Colombia", "Brazil & Nicaragua", "Yemen", "Costa Rica" ],
+    "productCount" : 9
+  }, {
+    "typicalFlavors" : [ "raisin", "apricot", "honey", "smooth", "chocolate" ],
+    "avgPrice" : 1354.71,
+    "name" : "Java",
+    "origins" : [ "Colombia", "Nicaragua", "Costa Rica" ],
+    "productCount" : 7
+  }, {
+    "typicalFlavors" : [ "hazelnut", "silky", "raisin", "orange", "milk chocolate" ],
+    "avgPrice" : 2926.71,
+    "name" : "Arara",
+    "origins" : [ "Brazil" ],
+    "productCount" : 7
+  } ],
+  "generatedAt" : 1768841031527
+}

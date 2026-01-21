@@ -1,0 +1,154 @@
+{
+  "journeys" : [ {
+    "paths" : [ {
+      "next" : "caramel",
+      "confidence" : 0.39,
+      "then" : [ "hazelnut", "dark chocolate", "milk chocolate" ]
+    }, {
+      "next" : "hazelnut",
+      "confidence" : 0.09,
+      "then" : [ "milk chocolate", "caramel", "dark chocolate" ]
+    }, {
+      "next" : "citrus",
+      "confidence" : 0.07,
+      "then" : [ "caramel", "floral", "milk chocolate" ]
+    } ],
+    "start" : "chocolate"
+  }, {
+    "paths" : [ {
+      "next" : "chocolate",
+      "confidence" : 0.45,
+      "then" : [ "hazelnut", "citrus", "orange" ]
+    }, {
+      "next" : "hazelnut",
+      "confidence" : 0.1,
+      "then" : [ "milk chocolate", "chocolate", "dark chocolate" ]
+    }, {
+      "next" : "dark chocolate",
+      "confidence" : 0.09,
+      "then" : [ "hazelnut", "brown sugar", "cherry" ]
+    } ],
+    "start" : "caramel"
+  }, {
+    "paths" : [ {
+      "next" : "hazelnut",
+      "confidence" : 0.24,
+      "then" : [ "chocolate", "caramel", "dark chocolate" ]
+    }, {
+      "next" : "caramel",
+      "confidence" : 0.17,
+      "then" : [ "chocolate", "hazelnut", "dark chocolate" ]
+    }, {
+      "next" : "toffee",
+      "confidence" : 0.15,
+      "then" : [ "chocolate", "caramel", "hazelnut" ]
+    } ],
+    "start" : "milk chocolate"
+  }, {
+    "paths" : [ {
+      "next" : "chocolate",
+      "confidence" : 0.19,
+      "then" : [ "caramel", "hazelnut", "citrus" ]
+    }, {
+      "next" : "caramel",
+      "confidence" : 0.17,
+      "then" : [ "chocolate", "hazelnut", "dark chocolate" ]
+    }, {
+      "next" : "brown sugar",
+      "confidence" : 0.13,
+      "then" : [ "chocolate", "milk chocolate", "dark chocolate" ]
+    } ],
+    "start" : "orange"
+  }, {
+    "paths" : [ {
+      "next" : "chocolate",
+      "confidence" : 0.19,
+      "then" : [ "caramel", "hazelnut", "citrus" ]
+    }, {
+      "next" : "milk chocolate",
+      "confidence" : 0.16,
+      "then" : [ "hazelnut", "caramel", "toffee" ]
+    }, {
+      "next" : "orange",
+      "confidence" : 0.13,
+      "then" : [ "chocolate", "caramel", "milk chocolate" ]
+    } ],
+    "start" : "brown sugar"
+  }, {
+    "paths" : [ {
+      "next" : "caramel",
+      "confidence" : 0.25,
+      "then" : [ "chocolate", "hazelnut", "milk chocolate" ]
+    }, {
+      "next" : "hazelnut",
+      "confidence" : 0.13,
+      "then" : [ "milk chocolate", "chocolate", "caramel" ]
+    }, {
+      "next" : "brown sugar",
+      "confidence" : 0.13,
+      "then" : [ "chocolate", "milk chocolate", "orange" ]
+    } ],
+    "start" : "dark chocolate"
+  }, {
+    "paths" : [ {
+      "next" : "milk chocolate",
+      "confidence" : 0.37,
+      "then" : [ "caramel", "toffee", "brown sugar" ]
+    }, {
+      "next" : "chocolate",
+      "confidence" : 0.3,
+      "then" : [ "caramel", "citrus", "orange" ]
+    }, {
+      "next" : "caramel",
+      "confidence" : 0.28,
+      "then" : [ "chocolate", "dark chocolate", "milk chocolate" ]
+    } ],
+    "start" : "hazelnut"
+  }, {
+    "paths" : [ {
+      "next" : "juicy",
+      "confidence" : 0.13,
+      "then" : [ "chocolate", "grape", "bright" ]
+    }, {
+      "next" : "raspberry",
+      "confidence" : 0.12,
+      "then" : [ "honey", "strawberry", "peach" ]
+    }, {
+      "next" : "fruity",
+      "confidence" : 0.12,
+      "then" : [ "sweet", "chocolate", "bright" ]
+    } ],
+    "start" : "floral"
+  }, {
+    "paths" : [ {
+      "next" : "milk chocolate",
+      "confidence" : 0.13,
+      "then" : [ "hazelnut", "caramel", "toffee" ]
+    }, {
+      "next" : "honey",
+      "confidence" : 0.13,
+      "then" : [ "raspberry", "strawberry", "milk chocolate" ]
+    }, {
+      "next" : "brown sugar",
+      "confidence" : 0.1,
+      "then" : [ "chocolate", "milk chocolate", "orange" ]
+    } ],
+    "start" : "peach"
+  }, {
+    "paths" : [ {
+      "next" : "chocolate",
+      "confidence" : 0.3,
+      "then" : [ "caramel", "hazelnut", "orange" ]
+    }, {
+      "next" : "caramel",
+      "confidence" : 0.28,
+      "then" : [ "chocolate", "hazelnut", "dark chocolate" ]
+    }, {
+      "next" : "floral",
+      "confidence" : 0.13,
+      "then" : [ "juicy", "raspberry", "fruity" ]
+    } ],
+    "start" : "citrus"
+  } ],
+  "generatedAt" : 1768841031737
+}

@@ -1,0 +1,1147 @@
+[ {
+  "countryCode" : "AF",
+  "countryName" : "Africa",
+  "topFlavors" : [ {
+    "flavor" : "variety of Central, South American and African flavours",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 50.0
+  }, {
+    "flavor" : "medium-dark roast",
+    "category" : "roasted",
+    "productCount" : 1,
+    "percentage" : 50.0
+  } ]
+}, {
+  "countryCode" : "BO",
+  "countryName" : "Bolivia",
+  "topFlavors" : [ {
+    "flavor" : "Honey",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 11.0
+  }, {
+    "flavor" : "red grape",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 11.0
+  }, {
+    "flavor" : "black cherry",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 11.0
+  }, {
+    "flavor" : "Sencha",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 11.0
+  }, {
+    "flavor" : "Apricot",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 11.0
+  } ]
+}, {
+  "countryCode" : "BR",
+  "countryName" : "Brazil",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 58,
+    "percentage" : 9.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 44,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 36,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "Hazelnut",
+    "category" : "nutty",
+    "productCount" : 30,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 20,
+    "percentage" : 3.0
+  } ]
+}, {
+  "countryCode" : "BR",
+  "countryName" : "Brazil & Nicaragua",
+  "topFlavors" : [ {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "plum",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 33.0
+  } ]
+}, {
+  "countryCode" : "BI",
+  "countryName" : "Burundi",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 3,
+    "percentage" : 8.0
+  }, {
+    "flavor" : "black tea",
+    "category" : "floral",
+    "productCount" : 3,
+    "percentage" : 8.0
+  }, {
+    "flavor" : "Cherry",
+    "category" : "fruity",
+    "productCount" : 2,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "apple juice",
+    "category" : "fruity",
+    "productCount" : 2,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "vanilla syrup",
+    "category" : "sweet",
+    "productCount" : 2,
+    "percentage" : 6.0
+  } ]
+}, {
+  "countryCode" : "CE",
+  "countryName" : "Central America",
+  "topFlavors" : [ {
+    "flavor" : "variety of Central, South American and African flavours",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 14.0
+  }, {
+    "flavor" : "medium-dark roast",
+    "category" : "roasted",
+    "productCount" : 1,
+    "percentage" : 14.0
+  }, {
+    "flavor" : "luxurious",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 14.0
+  }, {
+    "flavor" : "velvety smooth body",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 14.0
+  }, {
+    "flavor" : "great aroma of warming spices",
+    "category" : "spices",
+    "productCount" : 1,
+    "percentage" : 14.0
+  } ]
+}, {
+  "countryCode" : "CH",
+  "countryName" : "China",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 5,
+    "percentage" : 8.0
+  }, {
+    "flavor" : "strawberry",
+    "category" : "fruity",
+    "productCount" : 4,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "lychee",
+    "category" : "other",
+    "productCount" : 4,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Peach",
+    "category" : "fruity",
+    "productCount" : 4,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Oolong Tea",
+    "category" : "floral",
+    "productCount" : 4,
+    "percentage" : 7.0
+  } ]
+}, {
+  "countryCode" : "CO",
+  "countryName" : "Colombia",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 63,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 54,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 20,
+    "percentage" : 2.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 18,
+    "percentage" : 2.0
+  }, {
+    "flavor" : "raspberry",
+    "category" : "fruity",
+    "productCount" : 16,
+    "percentage" : 2.0
+  } ]
+}, {
+  "countryCode" : "CR",
+  "countryName" : "Costa Rica",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 12,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 10,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "Cherry",
+    "category" : "fruity",
+    "productCount" : 6,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "Cocoa",
+    "category" : "nutty",
+    "productCount" : 6,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "Peach",
+    "category" : "fruity",
+    "productCount" : 5,
+    "percentage" : 2.0
+  } ]
+}, {
+  "countryCode" : "DR",
+  "countryName" : "DR Congo",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 2,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "Sweet spice",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 17.0
+  }, {
+    "flavor" : "Blackberry",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 17.0
+  }, {
+    "flavor" : "syrupy",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 17.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 17.0
+  } ]
+}, {
+  "countryCode" : "DE",
+  "countryName" : "Democratic Republic of the Congo",
+  "topFlavors" : [ {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "Orange Rind",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "raspberry candy",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 33.0
+  } ]
+}, {
+  "countryCode" : "EC",
+  "countryName" : "Ecuador",
+  "topFlavors" : [ {
+    "flavor" : "Hibiscus",
+    "category" : "floral",
+    "productCount" : 3,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Honey",
+    "category" : "sweet",
+    "productCount" : 2,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "strawberry",
+    "category" : "fruity",
+    "productCount" : 2,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "guava",
+    "category" : "fruity",
+    "productCount" : 2,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "raspberry",
+    "category" : "fruity",
+    "productCount" : 2,
+    "percentage" : 5.0
+  } ]
+}, {
+  "countryCode" : "SV",
+  "countryName" : "El Salvador",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 11,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 9,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 8,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "orange",
+    "category" : "fruity",
+    "productCount" : 7,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "brown sugar",
+    "category" : "sweet",
+    "productCount" : 6,
+    "percentage" : 3.0
+  } ]
+}, {
+  "countryCode" : "ET",
+  "countryName" : "Ethiopia",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 20,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "Apricot",
+    "category" : "fruity",
+    "productCount" : 14,
+    "percentage" : 2.0
+  }, {
+    "flavor" : "floral",
+    "category" : "floral",
+    "productCount" : 14,
+    "percentage" : 2.0
+  }, {
+    "flavor" : "blueberry",
+    "category" : "fruity",
+    "productCount" : 14,
+    "percentage" : 2.0
+  }, {
+    "flavor" : "Peach",
+    "category" : "fruity",
+    "productCount" : 12,
+    "percentage" : 2.0
+  } ]
+}, {
+  "countryCode" : "GT",
+  "countryName" : "Guatemala",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 24,
+    "percentage" : 10.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 19,
+    "percentage" : 8.0
+  }, {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 8,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "Hazelnut",
+    "category" : "nutty",
+    "productCount" : 7,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "Toffee",
+    "category" : "sweet",
+    "productCount" : 7,
+    "percentage" : 3.0
+  } ]
+}, {
+  "countryCode" : "GU",
+  "countryName" : "Guyana",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "vanilla",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "Cacao",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  } ]
+}, {
+  "countryCode" : "HN",
+  "countryName" : "Honduras",
+  "topFlavors" : [ {
+    "flavor" : "orange",
+    "category" : "fruity",
+    "productCount" : 12,
+    "percentage" : 9.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 7,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 5,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "nectarine",
+    "category" : "fruity",
+    "productCount" : 4,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "nutmeg",
+    "category" : "spices",
+    "productCount" : 4,
+    "percentage" : 3.0
+  } ]
+}, {
+  "countryCode" : "IN",
+  "countryName" : "India",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 5,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "Earthy",
+    "category" : "other",
+    "productCount" : 5,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "Smoky",
+    "category" : "roasted",
+    "productCount" : 4,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 4,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "spicy",
+    "category" : "spices",
+    "productCount" : 4,
+    "percentage" : 3.0
+  } ]
+}, {
+  "countryCode" : "ID",
+  "countryName" : "Indonesia",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 9,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 6,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "brown sugar",
+    "category" : "sweet",
+    "productCount" : 4,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "Earthy",
+    "category" : "other",
+    "productCount" : 4,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "vanilla",
+    "category" : "sweet",
+    "productCount" : 3,
+    "percentage" : 2.0
+  } ]
+}, {
+  "countryCode" : "JA",
+  "countryName" : "Japan",
+  "topFlavors" : [ {
+    "flavor" : "cinnamon",
+    "category" : "spices",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "Matcha",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "umami",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "sweet",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "grassy",
+    "category" : "green",
+    "productCount" : 1,
+    "percentage" : 20.0
+  } ]
+}, {
+  "countryCode" : "KE",
+  "countryName" : "Kenya",
+  "topFlavors" : [ {
+    "flavor" : "blackcurrant",
+    "category" : "other",
+    "productCount" : 10,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "Blackberry",
+    "category" : "fruity",
+    "productCount" : 10,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "Juicy",
+    "category" : "other",
+    "productCount" : 9,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "brown sugar",
+    "category" : "sweet",
+    "productCount" : 7,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "floral",
+    "category" : "floral",
+    "productCount" : 6,
+    "percentage" : 2.0
+  } ]
+}, {
+  "countryCode" : "MA",
+  "countryName" : "Madagascar",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "vanilla",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "Cacao",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  } ]
+}, {
+  "countryCode" : "MW",
+  "countryName" : "Malawi",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 25.0
+  }, {
+    "flavor" : "sweet",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 25.0
+  }, {
+    "flavor" : "citrus",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 25.0
+  }, {
+    "flavor" : "tropical fruits",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 25.0
+  } ]
+}, {
+  "countryCode" : "MA",
+  "countryName" : "Malaysia",
+  "topFlavors" : [ {
+    "flavor" : "jackfruit",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "dried longan",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "Cacao",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "liquorice",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "Assam Tea",
+    "category" : "floral",
+    "productCount" : 1,
+    "percentage" : 20.0
+  } ]
+}, {
+  "countryCode" : "MX",
+  "countryName" : "Mexico",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 5,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 3,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "Hazelnut",
+    "category" : "nutty",
+    "productCount" : 3,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 3,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "brown sugar",
+    "category" : "sweet",
+    "productCount" : 3,
+    "percentage" : 4.0
+  } ]
+}, {
+  "countryCode" : "MY",
+  "countryName" : "Myanmar",
+  "topFlavors" : [ {
+    "flavor" : "floral",
+    "category" : "floral",
+    "productCount" : 3,
+    "percentage" : 9.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 2,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "raspberry",
+    "category" : "fruity",
+    "productCount" : 2,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "Fudge",
+    "category" : "other",
+    "productCount" : 2,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "plum",
+    "category" : "other",
+    "productCount" : 2,
+    "percentage" : 6.0
+  } ]
+}, {
+  "countryCode" : "NI",
+  "countryName" : "Nicaragua",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 8,
+    "percentage" : 9.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 6,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 5,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "orange",
+    "category" : "fruity",
+    "productCount" : 4,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 4,
+    "percentage" : 4.0
+  } ]
+}, {
+  "countryCode" : "PA",
+  "countryName" : "Panama",
+  "topFlavors" : [ {
+    "flavor" : "floral",
+    "category" : "floral",
+    "productCount" : 4,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 3,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "Jasmine",
+    "category" : "floral",
+    "productCount" : 3,
+    "percentage" : 4.0
+  }, {
+    "flavor" : "mango",
+    "category" : "fruity",
+    "productCount" : 2,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "graham cracker",
+    "category" : "other",
+    "productCount" : 2,
+    "percentage" : 3.0
+  } ]
+}, {
+  "countryCode" : "PG",
+  "countryName" : "Papua New Guinea",
+  "topFlavors" : [ {
+    "flavor" : "Malt",
+    "category" : "nutty",
+    "productCount" : 2,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "berry",
+    "category" : "fruity",
+    "productCount" : 2,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "Cedar",
+    "category" : "other",
+    "productCount" : 2,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 10.0
+  }, {
+    "flavor" : "Cocoa",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 10.0
+  } ]
+}, {
+  "countryCode" : "PE",
+  "countryName" : "Peru",
+  "topFlavors" : [ {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 19,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 15,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 8,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "brown sugar",
+    "category" : "sweet",
+    "productCount" : 8,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "Cherry",
+    "category" : "fruity",
+    "productCount" : 7,
+    "percentage" : 3.0
+  } ]
+}, {
+  "countryCode" : "RW",
+  "countryName" : "Rwanda",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 13,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "orange",
+    "category" : "fruity",
+    "productCount" : 12,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 11,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "strawberry",
+    "category" : "fruity",
+    "productCount" : 5,
+    "percentage" : 3.0
+  }, {
+    "flavor" : "citrus",
+    "category" : "fruity",
+    "productCount" : 5,
+    "percentage" : 3.0
+  } ]
+}, {
+  "countryCode" : "SC",
+  "countryName" : "Scotland",
+  "topFlavors" : [ {
+    "flavor" : "buttery",
+    "category" : "other",
+    "productCount" : 2,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "sweet cranberries",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 17.0
+  }, {
+    "flavor" : "citrus",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 17.0
+  }, {
+    "flavor" : "rich",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 17.0
+  }, {
+    "flavor" : "delicately crisp",
+    "category" : "floral",
+    "productCount" : 1,
+    "percentage" : 17.0
+  } ]
+}, {
+  "countryCode" : "SO",
+  "countryName" : "South America",
+  "topFlavors" : [ {
+    "flavor" : "variety of Central, South American and African flavours",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 50.0
+  }, {
+    "flavor" : "medium-dark roast",
+    "category" : "roasted",
+    "productCount" : 1,
+    "percentage" : 50.0
+  } ]
+}, {
+  "countryCode" : "SU",
+  "countryName" : "Sumatra",
+  "topFlavors" : [ {
+    "flavor" : "Redcurrant",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "plum",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Maple Syrup",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 7.0
+  }, {
+    "flavor" : "Tangerine",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 7.0
+  } ]
+}, {
+  "countryCode" : "TZ",
+  "countryName" : "Tanzania",
+  "topFlavors" : [ {
+    "flavor" : "Fruity",
+    "category" : "other",
+    "productCount" : 2,
+    "percentage" : 13.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "sweet",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "spiced apple",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "black tea",
+    "category" : "floral",
+    "productCount" : 1,
+    "percentage" : 6.0
+  } ]
+}, {
+  "countryCode" : "TH",
+  "countryName" : "Thailand",
+  "topFlavors" : [ {
+    "flavor" : "bold chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 50.0
+  }, {
+    "flavor" : "spice",
+    "category" : "spices",
+    "productCount" : 1,
+    "percentage" : 50.0
+  } ]
+}, {
+  "countryCode" : "TI",
+  "countryName" : "Timor-Leste",
+  "topFlavors" : [ {
+    "flavor" : "creamy",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "Perry",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "Spiced Shortbread",
+    "category" : "spices",
+    "productCount" : 1,
+    "percentage" : 33.0
+  } ]
+}, {
+  "countryCode" : "UK",
+  "countryName" : "UK",
+  "topFlavors" : [ {
+    "flavor" : "buttery",
+    "category" : "other",
+    "productCount" : 2,
+    "percentage" : 25.0
+  }, {
+    "flavor" : "sweet cranberries",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 13.0
+  }, {
+    "flavor" : "citrus",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 13.0
+  }, {
+    "flavor" : "rich",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 13.0
+  }, {
+    "flavor" : "delicately crisp",
+    "category" : "floral",
+    "productCount" : 1,
+    "percentage" : 13.0
+  } ]
+}, {
+  "countryCode" : "US",
+  "countryName" : "USA",
+  "topFlavors" : [ {
+    "flavor" : "consistent extraction",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 25.0
+  }, {
+    "flavor" : "durability",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 25.0
+  }, {
+    "flavor" : "flavour clarity",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 25.0
+  }, {
+    "flavor" : "clean",
+    "category" : "other",
+    "productCount" : 1,
+    "percentage" : 25.0
+  } ]
+}, {
+  "countryCode" : "UG",
+  "countryName" : "Uganda",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 8,
+    "percentage" : 10.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 8,
+    "percentage" : 10.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 5,
+    "percentage" : 6.0
+  }, {
+    "flavor" : "orange",
+    "category" : "fruity",
+    "productCount" : 4,
+    "percentage" : 5.0
+  }, {
+    "flavor" : "Hazelnut",
+    "category" : "nutty",
+    "productCount" : 3,
+    "percentage" : 4.0
+  } ]
+}, {
+  "countryCode" : "VN",
+  "countryName" : "Vietnam",
+  "topFlavors" : [ {
+    "flavor" : "bittersweetness",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "dark chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  }, {
+    "flavor" : "Nuts",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 33.0
+  } ]
+}, {
+  "countryCode" : "YE",
+  "countryName" : "Yemen",
+  "topFlavors" : [ {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 9.0
+  }, {
+    "flavor" : "raspberry",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 9.0
+  }, {
+    "flavor" : "Raisin",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 9.0
+  }, {
+    "flavor" : "Molasses",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 9.0
+  }, {
+    "flavor" : "Grape",
+    "category" : "fruity",
+    "productCount" : 1,
+    "percentage" : 9.0
+  } ]
+}, {
+  "countryCode" : "ZA",
+  "countryName" : "Zambia",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "Milk chocolate",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "Toffee",
+    "category" : "sweet",
+    "productCount" : 1,
+    "percentage" : 20.0
+  }, {
+    "flavor" : "pecan",
+    "category" : "nutty",
+    "productCount" : 1,
+    "percentage" : 20.0
+  } ]
+}, {
+  "countryCode" : "NU",
+  "countryName" : "null",
+  "topFlavors" : [ {
+    "flavor" : "Caramel",
+    "category" : "sweet",
+    "productCount" : 2,
+    "percentage" : 50.0
+  }, {
+    "flavor" : "Chocolate",
+    "category" : "nutty",
+    "productCount" : 2,
+    "percentage" : 50.0
+  } ]
+} ]

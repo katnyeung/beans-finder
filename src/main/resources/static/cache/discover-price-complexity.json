@@ -1,0 +1,1605 @@
+{
+  "totalProducts" : 1097,
+  "generatedAt" : 1768841031841,
+  "products" : [ {
+    "flavorCount" : 12,
+    "origin" : "Brazil / India / Ethiopia",
+    "name" : "AeroPress Go (+Free Bag of Coffee)",
+    "id" : 810,
+    "pricePer100g" : 45.00,
+    "complexityScore" : 1.0,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 54,
+    "origin" : "Brazil / Indonesia / Peru / Ethiopia / India / Colombia / El Salvador / Kenya",
+    "name" : "Grind Control to Major Tom",
+    "id" : 799,
+    "pricePer100g" : 9.75,
+    "complexityScore" : 1.0,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 10,
+    "origin" : "Ecuador / Colombia",
+    "name" : "Espresso - San Ramon, Nicaragua",
+    "id" : 1549,
+    "pricePer100g" : 52.95,
+    "complexityScore" : 1.0,
+    "brand" : "Carnival Coffee Roasters"
+  }, {
+    "flavorCount" : 12,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia - Megadu Community Natural",
+    "id" : 788,
+    "pricePer100g" : 9.50,
+    "complexityScore" : 1.0,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 10,
+    "origin" : "Ecuador / Kenya / Colombia",
+    "name" : "Filter Coffee Tasting Pack 4 x 100g",
+    "id" : 1562,
+    "pricePer100g" : 29.95,
+    "complexityScore" : 1.0,
+    "brand" : "Carnival Coffee Roasters"
+  }, {
+    "flavorCount" : 13,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia - Rumudamo Natural [24/25]",
+    "id" : 790,
+    "pricePer100g" : 13.75,
+    "complexityScore" : 1.0,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 11,
+    "origin" : "Colombia",
+    "name" : "Colombia - Quebraditas Gesha Thermal Shock Washed [25/26]",
+    "id" : 792,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 1.0,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 15,
+    "origin" : "Indonesia",
+    "name" : "Indonesia - Kerinci Barokah Espresso",
+    "id" : 797,
+    "pricePer100g" : 23.00,
+    "complexityScore" : 1.0,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 12,
+    "origin" : "Costa Rica / Nicaragua",
+    "name" : "Honey Tasting Pack",
+    "id" : 1658,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 1.0,
+    "brand" : "Ozone Coffee"
+  }, {
+    "flavorCount" : 15,
+    "origin" : null,
+    "name" : "Test Roast Coffee",
+    "id" : 1009,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 1.0,
+    "brand" : "Clifton Coffee Roasters"
+  }, {
+    "flavorCount" : 10,
+    "origin" : "Honduras / Peru",
+    "name" : "Decaf Blend",
+    "id" : 332,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 1.0,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 10,
+    "origin" : "Brazil",
+    "name" : "Bobolink Brazil",
+    "id" : 338,
+    "pricePer100g" : 10.00,
+    "complexityScore" : 1.0,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 10,
+    "origin" : "Colombia",
+    "name" : "Timana Colombia",
+    "id" : 343,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 1.0,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 10,
+    "origin" : "Brazil",
+    "name" : "Espresso Bundle 4 pack",
+    "id" : 1331,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 1.0,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 10,
+    "origin" : "Rwanda",
+    "name" : "Decaf Maraba Rwanda",
+    "id" : 339,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 1.0,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Colombia / Uganda / Mexico",
+    "name" : "Single Origin Taster Pack",
+    "id" : 136,
+    "pricePer100g" : 48.99,
+    "complexityScore" : 0.9,
+    "brand" : "Balance Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Brazil / El Salvador / Mexico",
+    "name" : "The Docks House Blend",
+    "id" : 1028,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.9,
+    "brand" : "North Star Coffee Roasters"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Brazil / Colombia / Ethiopia",
+    "name" : "Artisan Christmas Coffee Hamper",
+    "id" : 1394,
+    "pricePer100g" : 70.00,
+    "complexityScore" : 0.9,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Colombia / Ethiopia / Kenya",
+    "name" : "Christmas All Day Bundle",
+    "id" : 1725,
+    "pricePer100g" : 42.95,
+    "complexityScore" : 0.9,
+    "brand" : "Carnival Coffee Roasters"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia - Gash Sentayehu Special Prep",
+    "id" : 791,
+    "pricePer100g" : 15.00,
+    "complexityScore" : 0.9,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : null,
+    "name" : "Espresso Tasting Pack",
+    "id" : 1190,
+    "pricePer100g" : 30.00,
+    "complexityScore" : 0.9,
+    "brand" : "Ozone Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : null,
+    "name" : "Filter Tasting Pack",
+    "id" : 1189,
+    "pricePer100g" : 30.00,
+    "complexityScore" : 0.9,
+    "brand" : "Ozone Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Brazil / Ethiopia",
+    "name" : "Facility Blend",
+    "id" : 1846,
+    "pricePer100g" : 9.00,
+    "complexityScore" : 0.9,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Ethiopia",
+    "name" : "Yirgacheffe Organic Ethiopia",
+    "id" : 331,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.9,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Guatemala",
+    "name" : "Liberacion Guatemala",
+    "id" : 341,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.9,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 9,
+    "origin" : "Brazil / Costa Rica / El Salvador / Mexico",
+    "name" : "Festive Blend",
+    "id" : 1720,
+    "pricePer100g" : 10.00,
+    "complexityScore" : 0.9,
+    "brand" : "North Star Coffee Roasters"
+  }, {
+    "flavorCount" : 8,
+    "origin" : "Colombia / China",
+    "name" : "Filter - Llano Grande, El Salvador - Lychees, Grapes, Cream Soda",
+    "id" : 1550,
+    "pricePer100g" : 43.95,
+    "complexityScore" : 0.8,
+    "brand" : "Carnival Coffee Roasters"
+  }, {
+    "flavorCount" : 8,
+    "origin" : "Colombia",
+    "name" : "Espresso - La Familia, Colombia",
+    "id" : 1566,
+    "pricePer100g" : 18.95,
+    "complexityScore" : 0.8,
+    "brand" : "Carnival Coffee Roasters"
+  }, {
+    "flavorCount" : 8,
+    "origin" : "Brazil",
+    "name" : "Brazil (You Gotta) Fight For Your Right (To Latte)",
+    "id" : 798,
+    "pricePer100g" : 11.00,
+    "complexityScore" : 0.8,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 8,
+    "origin" : "Peru / Honduras / Ethiopia",
+    "name" : "Natural Spirit Organic Blend",
+    "id" : 335,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.8,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 8,
+    "origin" : "Indonesia / Brazil / Colombia",
+    "name" : "Espresso Yourself: Cold Brew Coffee and Vanilla Liqueur",
+    "id" : 1393,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.8,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 8,
+    "origin" : "Guatemala / Colombia",
+    "name" : "Filter Lover Coffee Bundle",
+    "id" : 1291,
+    "pricePer100g" : 26.60,
+    "complexityScore" : 0.8,
+    "brand" : "RAVE Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Colombia",
+    "name" : "Serrania Colombia Decaf Washed",
+    "id" : 1814,
+    "pricePer100g" : 11.00,
+    "complexityScore" : 0.7,
+    "brand" : "Artisan Roast"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Yemen",
+    "name" : "Yemen Al Hayma & Anis Decaf",
+    "id" : 2025,
+    "pricePer100g" : 12.00,
+    "complexityScore" : 0.7,
+    "brand" : "Rish Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Ethiopia / Guatemala",
+    "name" : "Cold Brew Coffee Bundle - Guatemala Antigua & Ethiopian Sidamo Medium-Dark",
+    "id" : 1538,
+    "pricePer100g" : 11.50,
+    "complexityScore" : 0.7,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : null,
+    "name" : "Monin Coffee Syrup 1L - Roasted Hazelnut",
+    "id" : 1651,
+    "pricePer100g" : 8.45,
+    "complexityScore" : 0.7,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Kenya",
+    "name" : "Kenya Nyeri Chorongi",
+    "id" : 1912,
+    "pricePer100g" : 2200.00,
+    "complexityScore" : 0.7,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Colombia",
+    "name" : "Colombia - Nimbus Rosado Decaf",
+    "id" : 789,
+    "pricePer100g" : 10.00,
+    "complexityScore" : 0.7,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Ethiopia",
+    "name" : "Yayu Wild Forest Ethiopia",
+    "id" : 337,
+    "pricePer100g" : 10.00,
+    "complexityScore" : 0.7,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "India",
+    "name" : "India - Ratnagiri Estate LBS-01",
+    "id" : 796,
+    "pricePer100g" : 13.75,
+    "complexityScore" : 0.7,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Colombia",
+    "name" : "William Cruz Finca Jericó",
+    "id" : 1797,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.7,
+    "brand" : "Crankhouse Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Rwanda",
+    "name" : "Maraba Rwanda",
+    "id" : 342,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.7,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 7,
+    "origin" : "Colombia",
+    "name" : "Sugarcane Decaf",
+    "id" : 1000,
+    "pricePer100g" : 14.00,
+    "complexityScore" : 0.7,
+    "brand" : "Clifton Coffee Roasters"
+  }, {
+    "flavorCount" : 6,
+    "origin" : null,
+    "name" : "Pink Ceramic V60 Bundle",
+    "id" : 1721,
+    "pricePer100g" : 14.00,
+    "complexityScore" : 0.6,
+    "brand" : "North Star Coffee Roasters"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Colombia / Brazil / Rwanda",
+    "name" : "Astro Seasonal Blend",
+    "id" : 1722,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.6,
+    "brand" : "North Star Coffee Roasters"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Rwanda / Sumatra",
+    "name" : "Decaf Twin Pack",
+    "id" : 1333,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.6,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Costa Rica",
+    "name" : "Sweet",
+    "id" : 608,
+    "pricePer100g" : 13.75,
+    "complexityScore" : 0.6,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Brazil",
+    "name" : "Beija Flor - Origin Coffee - Brazil",
+    "id" : 1342,
+    "pricePer100g" : 12.00,
+    "complexityScore" : 0.6,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Ethiopia",
+    "name" : "El Salvador You Can Foam Your Own Way",
+    "id" : 801,
+    "pricePer100g" : 11.50,
+    "complexityScore" : 0.6,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Colombia",
+    "name" : "Colombia Medellin Mountain Water Decaf Coffee - Medium-Dark Roast Coffee",
+    "id" : 1441,
+    "pricePer100g" : 8.50,
+    "complexityScore" : 0.6,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Colombia",
+    "name" : "Colombia Medellin Mountain Water Decaf Coffee - Dark Roast Coffee",
+    "id" : 1442,
+    "pricePer100g" : 8.50,
+    "complexityScore" : 0.6,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Brazil",
+    "name" : "Super Crema Blend Coffee Beans",
+    "id" : 1839,
+    "pricePer100g" : 8.09,
+    "complexityScore" : 0.6,
+    "brand" : "Spiller & Tait"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Rwanda",
+    "name" : "Meridian - 15 Grams Coffee",
+    "id" : 1346,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.6,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Brazil / Colombia / Ethiopia",
+    "name" : "Espresso Yourself: Cold Brew Coffee and Vanilla Liqueur",
+    "id" : 1395,
+    "pricePer100g" : 55.00,
+    "complexityScore" : 0.6,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Colombia",
+    "name" : "Colombia Cauca El Paraiso \"Lychee\"",
+    "id" : 1890,
+    "pricePer100g" : 40000.00,
+    "complexityScore" : 0.6,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Kenya",
+    "name" : "Kenya Kiambu Handage AA",
+    "id" : 2081,
+    "pricePer100g" : 3000.00,
+    "complexityScore" : 0.6,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : null,
+    "name" : "Midnight Oil Amaro Espresso Martini",
+    "id" : 1366,
+    "pricePer100g" : 32.00,
+    "complexityScore" : 0.6,
+    "brand" : "Climpson and Sons"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Colombia",
+    "name" : "Colombia Cauca El Paraiso \"Lychee\"",
+    "id" : 1910,
+    "pricePer100g" : 40000.00,
+    "complexityScore" : 0.6,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Colombia",
+    "name" : "Colombia, Papayo",
+    "id" : 459,
+    "pricePer100g" : 13.00,
+    "complexityScore" : 0.6,
+    "brand" : "Kiss the Hippo"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Kenya",
+    "name" : "NEW Kenya Kiambu Handage AA",
+    "id" : 2091,
+    "pricePer100g" : 3000.00,
+    "complexityScore" : 0.6,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Guatemala / Ethiopia",
+    "name" : "Yuletide Espresso Festive Blend",
+    "id" : 1780,
+    "pricePer100g" : 10.00,
+    "complexityScore" : 0.6,
+    "brand" : "Curve Coffee Roasters"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Ethiopia / El Salvador",
+    "name" : "Winter Blend",
+    "id" : 1674,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.6,
+    "brand" : "Rounton Coffee Roasters"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Brazil, Colombia",
+    "name" : "Fortis Green Espresso",
+    "id" : 605,
+    "pricePer100g" : 15.00,
+    "complexityScore" : 0.6,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Colombia / Costa Rica",
+    "name" : "Bright Note Blend",
+    "id" : 1717,
+    "pricePer100g" : 10.00,
+    "complexityScore" : 0.6,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Costa Rica",
+    "name" : "Costa Rica - Corazón de Jesús \"El Salitre\" Typica",
+    "id" : 793,
+    "pricePer100g" : 39.00,
+    "complexityScore" : 0.6,
+    "brand" : "Scenery Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Peru",
+    "name" : "Community Blend",
+    "id" : 1718,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.6,
+    "brand" : "Union Hand-Roasted Coffee"
+  }, {
+    "flavorCount" : 6,
+    "origin" : "Brazil",
+    "name" : "Love Decaf Brazil Montanari CO2",
+    "id" : 1030,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.6,
+    "brand" : "North Star Coffee Roasters"
+  }, {
+    "flavorCount" : 6,
+    "origin" : null,
+    "name" : "Espresso Yourself: Cold Brew Coffee and Vanilla Liqueur",
+    "id" : 814,
+    "pricePer100g" : 15.00,
+    "complexityScore" : 0.6,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Brazil",
+    "name" : "ICON 58 - Daterra, Ceuci Anoxic Natural",
+    "id" : 987,
+    "pricePer100g" : 21.50,
+    "complexityScore" : 0.5,
+    "brand" : "Plot Roasting"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Rumudamo Natural",
+    "id" : 1815,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Artisan Roast"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Decaf Lover Coffee Bundle",
+    "id" : 1293,
+    "pricePer100g" : 18.90,
+    "complexityScore" : 0.5,
+    "brand" : "RAVE Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Costa Rica",
+    "name" : "Costa Rica - La Isla SL28 Honey",
+    "id" : 1088,
+    "pricePer100g" : 9.00,
+    "complexityScore" : 0.5,
+    "brand" : "Horsham Coffee Roaster"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "The Estate - Climpson & Sons - Ethiopia",
+    "id" : 1416,
+    "pricePer100g" : 10.50,
+    "complexityScore" : 0.5,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Dark Roast Bundle",
+    "id" : 557,
+    "pricePer100g" : 22.90,
+    "complexityScore" : 0.5,
+    "brand" : "RAVE Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia — Jhoan Vergara Chiroso",
+    "id" : 1316,
+    "pricePer100g" : 30.00,
+    "complexityScore" : 0.5,
+    "brand" : "Assembly Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Malaysia",
+    "name" : "Malaysia My Liberica 1.0",
+    "id" : 2023,
+    "pricePer100g" : 13.50,
+    "complexityScore" : 0.5,
+    "brand" : "Rish Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia / Brazil",
+    "name" : "You've Got a Blend in Me",
+    "id" : 809,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia / Guatemala / Sumatra / Brazil",
+    "name" : "Tait's Gold - Gourmet Blend Coffee Beans",
+    "id" : 1840,
+    "pricePer100g" : 17.99,
+    "complexityScore" : 0.5,
+    "brand" : "Spiller & Tait"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia Huila Oporapa - Tamarind Twist",
+    "id" : 1889,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Kenya",
+    "name" : "Oh Frappé Day",
+    "id" : 820,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia / Brazil / Honduras",
+    "name" : "Spiller's Gold - Gourmet Blend",
+    "id" : 1841,
+    "pricePer100g" : 8.09,
+    "complexityScore" : 0.5,
+    "brand" : "Spiller & Tait"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Brazil",
+    "name" : "Brazil, Nossa Senhora",
+    "id" : 431,
+    "pricePer100g" : 25.00,
+    "complexityScore" : 0.5,
+    "brand" : "Kiss the Hippo"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "China",
+    "name" : "Original Drip-Bag 10PC | China Dehong Yuan Yi Yuan",
+    "id" : 2075,
+    "pricePer100g" : 3600.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Kenya",
+    "name" : "Kenya Nyeri Chorongi （ケニア・ニエリ・チョロンギ）",
+    "id" : 1892,
+    "pricePer100g" : 2200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "iX Filter 01/02 Refill Insert",
+    "id" : 1487,
+    "pricePer100g" : 54.99,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Honduras",
+    "name" : "Honduras Gea Medium Roast",
+    "id" : 1241,
+    "pricePer100g" : 7.99,
+    "complexityScore" : 0.5,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Sidama Elto Hamasho",
+    "id" : 1902,
+    "pricePer100g" : 3900.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Central America",
+    "name" : "Central American Decaf Blend - Medium-Dark Roast (Filter Ground / 40 Sachets)",
+    "id" : 1490,
+    "pricePer100g" : 59.88,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Espresso Gear Vacuum Storage Can 500g - Amber",
+    "id" : 1495,
+    "pricePer100g" : 16.49,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Espresso Gear Vacuum Storage Can 500g - Black",
+    "id" : 1496,
+    "pricePer100g" : 16.49,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Espresso Gear Vacuum Storage Can 250g - Black",
+    "id" : 1497,
+    "pricePer100g" : 11.95,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Kenya",
+    "name" : "Kenya Gicherori",
+    "id" : 1644,
+    "pricePer100g" : 15.00,
+    "complexityScore" : 0.5,
+    "brand" : "Hard Lines Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Melitta Original Coffee Paper Filters for AromaBoy Size 100 (40 pcs)",
+    "id" : 1506,
+    "pricePer100g" : 1.79,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Costa Rica",
+    "name" : "Costa Rica Microdota Mujer Medium Roast",
+    "id" : 1249,
+    "pricePer100g" : 8.65,
+    "complexityScore" : 0.5,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "NEW Ethiopia Sidama Bensa Alo Village",
+    "id" : 2077,
+    "pricePer100g" : 4700.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Decaffeinated - Colombian Huila",
+    "id" : 1404,
+    "pricePer100g" : 8.99,
+    "complexityScore" : 0.5,
+    "brand" : "Spiller & Tait"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "House Party Coffee Liqueur",
+    "id" : 1641,
+    "pricePer100g" : 35.00,
+    "complexityScore" : 0.5,
+    "brand" : "Hard Lines Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia Huila El Porvenir",
+    "id" : 2078,
+    "pricePer100g" : 10200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Guji Masina（エチオピア・グジ・マシナ）",
+    "id" : 1891,
+    "pricePer100g" : 3000.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Brazil / Colombia / Peru",
+    "name" : "South American Blend",
+    "id" : 1842,
+    "pricePer100g" : 19.99,
+    "complexityScore" : 0.5,
+    "brand" : "Spiller & Tait"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "NEW Colombia Quindio Campo Hermoso",
+    "id" : 2082,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia, Virginia Salazar, Pink Bourbon",
+    "id" : 428,
+    "pricePer100g" : 14.50,
+    "complexityScore" : 0.5,
+    "brand" : "Kiss the Hippo"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Aarke Enriched Filter Granules",
+    "id" : 1289,
+    "pricePer100g" : 75.00,
+    "complexityScore" : 0.5,
+    "brand" : "Kiss the Hippo"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Indonesia",
+    "name" : "SUMATRA MANDHELING (GRADE 1) - Medium-Dark Roast Coffee",
+    "id" : 1464,
+    "pricePer100g" : 9.00,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Kenya / Peru",
+    "name" : "Winter Filter",
+    "id" : 378,
+    "pricePer100g" : 19.50,
+    "complexityScore" : 0.5,
+    "brand" : "Square Mile Coffee Roasters"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia Huila El Diviso（コロンビア・ウィラ・エル・ディヴィソ）",
+    "id" : 1894,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Bodum Pour Over 0.5L with Permanent Filter - Black",
+    "id" : 1648,
+    "pricePer100g" : 17.95,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Sidama Kenean Dukamo",
+    "id" : 1898,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "China",
+    "name" : "Original Drip-Bag 10PC | China Dehong Yuan Yi Yuan",
+    "id" : 2085,
+    "pricePer100g" : 3600.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Kenya",
+    "name" : "NEW in Dec 2025 Kenya Nyari Thunguri",
+    "id" : 1899,
+    "pricePer100g" : 3200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Guji Dimtu",
+    "id" : 1900,
+    "pricePer100g" : 2200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Roaster's Choice (3 Months)",
+    "id" : 1277,
+    "pricePer100g" : 44.00,
+    "complexityScore" : 0.5,
+    "brand" : "Rounton Coffee Roasters"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Yiergacheffe Aricha Natural",
+    "id" : 1917,
+    "pricePer100g" : 2500.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Honduras",
+    "name" : "New Dec 2025 Honduras Santa Barbara Pierdas Amarillas \"2025 COE No.2\"",
+    "id" : 1903,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Guji Dimtu",
+    "id" : 1920,
+    "pricePer100g" : 2200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia Huila Oporapa - Tamarind Twist",
+    "id" : 1909,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Guji Masina（エチオピア・グジ・マシナ）",
+    "id" : 1911,
+    "pricePer100g" : 3000.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "El Salvador / Guatemala",
+    "name" : "Broadway Blend",
+    "id" : 1376,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Climpson and Sons"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "NEW Ethiopia Sidama Bensa Alo Village",
+    "id" : 2087,
+    "pricePer100g" : 4700.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "FLOW STATE Espresso",
+    "id" : 986,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Plot Roasting"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "China",
+    "name" : "China Celebration Duo",
+    "id" : 1286,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Kiss the Hippo"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia Huila El Porvenir",
+    "id" : 2088,
+    "pricePer100g" : 10200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Sidama Gr. 2 - Medium Roast Coffee",
+    "id" : 1426,
+    "pricePer100g" : 8.50,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "ETHIOPIA SIDAMA GR. 2 - Medium-Dark Roast Coffee",
+    "id" : 1427,
+    "pricePer100g" : 8.50,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia Risaralda Milan \"Logan\"",
+    "id" : 1913,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Indonesia",
+    "name" : "SUMATRA MANDHELING (GRADE 1) - Dark Roast Coffee",
+    "id" : 1429,
+    "pricePer100g" : 9.00,
+    "complexityScore" : 0.5,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Carnival Christmas Colouring Sheet",
+    "id" : 1726,
+    "pricePer100g" : 13.95,
+    "complexityScore" : 0.5,
+    "brand" : "Carnival Coffee Roasters"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia Huila El Diviso（コロンビア・ウィラ・エル・ディヴィソ）",
+    "id" : 1914,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia / Guatemala",
+    "name" : "Half Caf the World Away",
+    "id" : 803,
+    "pricePer100g" : 10.75,
+    "complexityScore" : 0.5,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "SUPERNATURAL",
+    "id" : 990,
+    "pricePer100g" : 16.00,
+    "complexityScore" : 0.5,
+    "brand" : "Plot Roasting"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Roaster's Choice (6 Months)",
+    "id" : 1278,
+    "pricePer100g" : 88.00,
+    "complexityScore" : 0.5,
+    "brand" : "Rounton Coffee Roasters"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Roaster's Choice (12 Months)",
+    "id" : 1279,
+    "pricePer100g" : 176.00,
+    "complexityScore" : 0.5,
+    "brand" : "Rounton Coffee Roasters"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Peru",
+    "name" : "Frutos del Corcovado",
+    "id" : 614,
+    "pricePer100g" : 9.66,
+    "complexityScore" : 0.5,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Sidama Kenean Dukamo",
+    "id" : 1918,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Colombia Quindio Campo Hermoso",
+    "id" : 2092,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Festive Filter Ethiopia Natural",
+    "id" : 1785,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Curve Coffee Roasters"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Kenya",
+    "name" : "NEW in Dec 2025 Kenya Nyari Thunguri",
+    "id" : 1919,
+    "pricePer100g" : 3200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Sidama Elto Hamasho",
+    "id" : 1922,
+    "pricePer100g" : 3900.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Honduras",
+    "name" : "New Dec 2025 Honduras Santa Barbara Pierdas Amarillas \"2025 COE No.2\"",
+    "id" : 1923,
+    "pricePer100g" : 4200.00,
+    "complexityScore" : 0.5,
+    "brand" : "Glitch Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Honduras",
+    "name" : "Honduras, Victorio Cruz",
+    "id" : 483,
+    "pricePer100g" : 17.00,
+    "complexityScore" : 0.5,
+    "brand" : "Kiss the Hippo"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Peru",
+    "name" : "Decaf Common",
+    "id" : 607,
+    "pricePer100g" : 13.75,
+    "complexityScore" : 0.5,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "El Salvador",
+    "name" : "San Antonio - Christmas Single Origin",
+    "id" : 675,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Origin Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Honduras",
+    "name" : "Honduras, Jazmin",
+    "id" : 386,
+    "pricePer100g" : 15.50,
+    "complexityScore" : 0.5,
+    "brand" : "Kiss the Hippo"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "House Coffee",
+    "id" : 1152,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Pact Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Finca Pact",
+    "id" : 1693,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Pact Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Terras Altas",
+    "id" : 1159,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Pact Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Brazil / Mexico",
+    "name" : "Espresso Yourself Coffee Beans",
+    "id" : 808,
+    "pricePer100g" : 9.75,
+    "complexityScore" : 0.5,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Blendsmiths - Masala Chai Blend",
+    "id" : 2064,
+    "pricePer100g" : 11.40,
+    "complexityScore" : 0.5,
+    "brand" : "Rounton Coffee Roasters"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Panama",
+    "name" : "Panama Lerida Estate Gesha Washed",
+    "id" : 1971,
+    "pricePer100g" : 23.00,
+    "complexityScore" : 0.5,
+    "brand" : "Shoebox Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Rwanda",
+    "name" : "Pathfinder - Origin Coffee Roasters - Rwanda",
+    "id" : 1353,
+    "pricePer100g" : 11.50,
+    "complexityScore" : 0.5,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 5,
+    "origin" : null,
+    "name" : "Z1 FAST FILTERS - OREA",
+    "id" : 1338,
+    "pricePer100g" : 13.99,
+    "complexityScore" : 0.5,
+    "brand" : "Dark Arts Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Indonesia",
+    "name" : "Pantan Musara - Campbell & Syme - Indonesia",
+    "id" : 1340,
+    "pricePer100g" : 16.50,
+    "complexityScore" : 0.5,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Panama",
+    "name" : "ICON 59 - La Fortuna, Gesha Honey",
+    "id" : 991,
+    "pricePer100g" : 26.75,
+    "complexityScore" : 0.5,
+    "brand" : "Plot Roasting"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Colombia",
+    "name" : "Fazenda Reis",
+    "id" : 1158,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.5,
+    "brand" : "Pact Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "India",
+    "name" : "Peru Bohemian Like Brew",
+    "id" : 822,
+    "pricePer100g" : 15.00,
+    "complexityScore" : 0.5,
+    "brand" : "Neighbourhood Coffee"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Rwanda",
+    "name" : "Rwanda Ingagi Medium Roast Coffee",
+    "id" : 1269,
+    "pricePer100g" : 7.99,
+    "complexityScore" : 0.5,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 5,
+    "origin" : "Rwanda",
+    "name" : "Liza anaerobic natural",
+    "id" : 1075,
+    "pricePer100g" : 10.25,
+    "complexityScore" : 0.5,
+    "brand" : "Horsham Coffee Roaster"
+  }, {
+    "flavorCount" : 4,
+    "origin" : null,
+    "name" : "Christmas Coffee Chocolate Bar",
+    "id" : 1705,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.4,
+    "brand" : "Origin Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "El Salvador",
+    "name" : "Christmas Coffee Gift Set",
+    "id" : 1706,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.4,
+    "brand" : "Origin Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Kenya",
+    "name" : "Muchagara Festive Filter",
+    "id" : 603,
+    "pricePer100g" : 16.00,
+    "complexityScore" : 0.4,
+    "brand" : "Workshop Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Ethiopia",
+    "name" : "FEATURE FILTER | Lalesa (Anaerobic Natural) | Ethiopia",
+    "id" : 2006,
+    "pricePer100g" : 15.00,
+    "complexityScore" : 0.4,
+    "brand" : "Curve Coffee Roasters"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Ethiopia",
+    "name" : "FEATURE ESPRESSO | Megadu Duba by Bette Buna (Natural) | Ethiopia",
+    "id" : 2007,
+    "pricePer100g" : 14.00,
+    "complexityScore" : 0.4,
+    "brand" : "Curve Coffee Roasters"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Guatemala",
+    "name" : "Guatemala Brew Coffee Plus",
+    "id" : 1343,
+    "pricePer100g" : 13.00,
+    "complexityScore" : 0.4,
+    "brand" : "Brew Coffee Plus"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Guatemala",
+    "name" : "FEATURE ESPRESSO | TINAMIT Cooperative (Honey) | Guatemala",
+    "id" : 2008,
+    "pricePer100g" : 14.00,
+    "complexityScore" : 0.4,
+    "brand" : "Curve Coffee Roasters"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Colombia",
+    "name" : "House Espresso San Lorenzo",
+    "id" : 1790,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.4,
+    "brand" : "Curve Coffee Roasters"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Guatemala",
+    "name" : "Guatemala La Hermosa Orange Gesha Washed",
+    "id" : 2024,
+    "pricePer100g" : 15.00,
+    "complexityScore" : 0.4,
+    "brand" : "Rish Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Rumudamo Anaerobic Natural",
+    "id" : 1806,
+    "pricePer100g" : 24.00,
+    "complexityScore" : 0.4,
+    "brand" : "Crankhouse Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Colombia / Brazil / Kenya / Ethiopia / India",
+    "name" : "Signature Blend Whole Beans",
+    "id" : 1836,
+    "pricePer100g" : 7.64,
+    "complexityScore" : 0.4,
+    "brand" : "Spiller & Tait"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Colombia",
+    "name" : "Colombia Excelso Medium Roast",
+    "id" : 1230,
+    "pricePer100g" : 7.69,
+    "complexityScore" : 0.4,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Brazil / Colombia / Guatemala / Indonesia",
+    "name" : "Allpress Espresso Blend",
+    "id" : 1727,
+    "pricePer100g" : 11.50,
+    "complexityScore" : 0.4,
+    "brand" : "Allpress espresso"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Brazil / Colombia / Papua New Guinea",
+    "name" : "Art Espresso Roast",
+    "id" : 1729,
+    "pricePer100g" : 11.50,
+    "complexityScore" : 0.4,
+    "brand" : "Allpress espresso"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "China",
+    "name" : "Yunlan Estate Pacamara Washed",
+    "id" : 2026,
+    "pricePer100g" : 16.00,
+    "complexityScore" : 0.4,
+    "brand" : "Rish Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Guji Dimtu Natural",
+    "id" : 2022,
+    "pricePer100g" : 13.00,
+    "complexityScore" : 0.4,
+    "brand" : "Rish Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Brazil",
+    "name" : "Brazil Ipanema Yellow Bourbon Medium Roast",
+    "id" : 1234,
+    "pricePer100g" : 7.99,
+    "complexityScore" : 0.4,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Kenya",
+    "name" : "Kenya AA Samburu Medium Roast",
+    "id" : 1236,
+    "pricePer100g" : 7.99,
+    "complexityScore" : 0.4,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 4,
+    "origin" : null,
+    "name" : "Dear Green Roastery Tour",
+    "id" : 1134,
+    "pricePer100g" : 40.00,
+    "complexityScore" : 0.4,
+    "brand" : "Dear Green Coffee Roasters"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Yemen",
+    "name" : "001B - Al-lahaba Natural",
+    "id" : 1211,
+    "pricePer100g" : 12.50,
+    "complexityScore" : 0.4,
+    "brand" : "Colonna Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Colombia",
+    "name" : "COLOMBIA EXCELSO HUILA - Extra Dark Coffee",
+    "id" : 1467,
+    "pricePer100g" : 6.75,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Ethiopia",
+    "name" : "Ethiopia Yirgacheffe Medium Roast",
+    "id" : 1239,
+    "pricePer100g" : 8.29,
+    "complexityScore" : 0.4,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 4,
+    "origin" : null,
+    "name" : "Melitta Original Coffee Paper Filters 1 x 4 (80 pcs)",
+    "id" : 1473,
+    "pricePer100g" : 2.49,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Indonesia",
+    "name" : "Sumatra Lintong Medium/Dark Roast",
+    "id" : 1243,
+    "pricePer100g" : 8.29,
+    "complexityScore" : 0.4,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Malawi",
+    "name" : "Malawi Pamwamba Coffee Beans",
+    "id" : 1245,
+    "pricePer100g" : 7.95,
+    "complexityScore" : 0.4,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 4,
+    "origin" : null,
+    "name" : "Simply Coffee Syrup 1L - Honeycomb",
+    "id" : 1499,
+    "pricePer100g" : 6.95,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Colombia",
+    "name" : "100% Colombian Freeze Instant Dried Coffee",
+    "id" : 1503,
+    "pricePer100g" : 10.95,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Panama",
+    "name" : "Pricilla Gonzalez Natural Yellow Catuai Panama",
+    "id" : 1939,
+    "pricePer100g" : 7.00,
+    "complexityScore" : 0.4,
+    "brand" : "Taith Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Ethiopia",
+    "name" : "ETHIOPIA NATURAL DJIMMAH - Medium Roast Coffee",
+    "id" : 1504,
+    "pricePer100g" : 7.75,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Guatemala",
+    "name" : "Guatemala Pena Roja Medium Roast",
+    "id" : 1248,
+    "pricePer100g" : 7.99,
+    "complexityScore" : 0.4,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Guatemala",
+    "name" : "Filadelfia Bourbon Caturra Washed",
+    "id" : 1737,
+    "pricePer100g" : 14.00,
+    "complexityScore" : 0.4,
+    "brand" : "Rascal Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Ethiopia",
+    "name" : "ETHIOPIA YIRGACHEFFE KOKE - Medium-Dark Roast Coffee",
+    "id" : 1509,
+    "pricePer100g" : 8.50,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Colombia",
+    "name" : "Pure Colombian Huila Coffee Bags x 20 pack",
+    "id" : 1405,
+    "pricePer100g" : 5.99,
+    "complexityScore" : 0.4,
+    "brand" : "Spiller & Tait"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Guatemala",
+    "name" : "Finca La Esperanza Guatemalan Coffee",
+    "id" : 1739,
+    "pricePer100g" : 18.50,
+    "complexityScore" : 0.4,
+    "brand" : "Rascal Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : null,
+    "name" : "Simply Coffee Syrup 1L, Sugar Free - Honeycomb",
+    "id" : 1514,
+    "pricePer100g" : 6.95,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : null,
+    "name" : "Handmade Shortbread with Hazelnut and White Chocolate 140g",
+    "id" : 1528,
+    "pricePer100g" : 7.95,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Uganda",
+    "name" : "UGANDA RWENZORI KISINGA NATURAL - Medium-Dark Roast Coffee",
+    "id" : 1531,
+    "pricePer100g" : 8.50,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Tanzania",
+    "name" : "Tanzania AA Mbili Twiga Medium Roast",
+    "id" : 1255,
+    "pricePer100g" : 8.29,
+    "complexityScore" : 0.4,
+    "brand" : "Pebble & Pine"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Guatemala",
+    "name" : "GUATEMALA ANTIGUA LOS VOLCANES - Medium-Dark Roast Coffee",
+    "id" : 1420,
+    "pricePer100g" : 8.50,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Panama",
+    "name" : "PANAMA BOQUETE FINCA HORTIGAL - Dark Roast Coffee",
+    "id" : 1543,
+    "pricePer100g" : 10.50,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Panama",
+    "name" : "PANAMA BOQUETE FINCA HORTIGAL - Medium-Dark Roast Coffee",
+    "id" : 1544,
+    "pricePer100g" : 10.50,
+    "complexityScore" : 0.4,
+    "brand" : "Redber Coffee"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Colombia / Brazil / Kenya / Ethiopia / India",
+    "name" : "Signature Blend Coffee Bags",
+    "id" : 1844,
+    "pricePer100g" : 5.99,
+    "complexityScore" : 0.4,
+    "brand" : "Spiller & Tait"
+  }, {
+    "flavorCount" : 4,
+    "origin" : "Brazil / Mexico",
+    "name" : "House Decaf Blend",
+    "id" : 1728,
+    "pricePer100g" : 11.75,
+    "complexityScore" : 0.4,
+    "brand" : "Allpress espresso"
+  } ]
+}

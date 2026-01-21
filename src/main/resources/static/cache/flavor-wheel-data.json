@@ -1,0 +1,650 @@
+{
+  "totalProducts" : 3148,
+  "totalCategories" : 9,
+  "categories" : [ {
+    "moreCount" : 34,
+    "topFlavors" : [ {
+      "name" : "Berry",
+      "id" : "berry",
+      "productCount" : 135
+    }, {
+      "name" : "Orange",
+      "id" : "orange",
+      "productCount" : 120
+    }, {
+      "name" : "Citrus",
+      "id" : "citrus",
+      "productCount" : 107
+    }, {
+      "name" : "Peach",
+      "id" : "peach",
+      "productCount" : 69
+    }, {
+      "name" : "Apple",
+      "id" : "apple",
+      "productCount" : 65
+    }, {
+      "name" : "Lemon",
+      "id" : "lemon",
+      "productCount" : 62
+    }, {
+      "name" : "Cherry",
+      "id" : "cherry",
+      "productCount" : 56
+    }, {
+      "name" : "Apricot",
+      "id" : "apricot",
+      "productCount" : 48
+    }, {
+      "name" : "Raspberry",
+      "id" : "raspberry",
+      "productCount" : 41
+    }, {
+      "name" : "Strawberry",
+      "id" : "strawberry",
+      "productCount" : 40
+    } ],
+    "displayName" : "Fruity",
+    "moreFlavors" : [ {
+      "name" : "Berries",
+      "id" : "berries",
+      "productCount" : 35
+    }, {
+      "name" : "Raisin",
+      "id" : "raisin",
+      "productCount" : 34
+    }, {
+      "name" : "Lime",
+      "id" : "lime",
+      "productCount" : 31
+    }, {
+      "name" : "Grapefruit",
+      "id" : "grapefruit",
+      "productCount" : 31
+    }, {
+      "name" : "Blueberry",
+      "id" : "blueberry",
+      "productCount" : 30
+    }, {
+      "name" : "Grape",
+      "id" : "grape",
+      "productCount" : 24
+    }, {
+      "name" : "Blackberry",
+      "id" : "blackberry",
+      "productCount" : 23
+    }, {
+      "name" : "Fig",
+      "id" : "fig",
+      "productCount" : 23
+    }, {
+      "name" : "Tropical",
+      "id" : "tropical",
+      "productCount" : 22
+    }, {
+      "name" : "Pineapple",
+      "id" : "pineapple",
+      "productCount" : 20
+    }, {
+      "name" : "Nectarine",
+      "id" : "nectarine",
+      "productCount" : 18
+    }, {
+      "name" : "Mango",
+      "id" : "mango",
+      "productCount" : 18
+    }, {
+      "name" : "White Grape",
+      "id" : "white grape",
+      "productCount" : 17
+    }, {
+      "name" : "Prune",
+      "id" : "prune",
+      "productCount" : 16
+    }, {
+      "name" : "Dried Fruit",
+      "id" : "dried fruit",
+      "productCount" : 15
+    }, {
+      "name" : "Pear",
+      "id" : "pear",
+      "productCount" : 15
+    }, {
+      "name" : "Date",
+      "id" : "date",
+      "productCount" : 14
+    }, {
+      "name" : "Red Grape",
+      "id" : "red grape",
+      "productCount" : 13
+    }, {
+      "name" : "Pomegranate",
+      "id" : "pomegranate",
+      "productCount" : 9
+    }, {
+      "name" : "Guava",
+      "id" : "guava",
+      "productCount" : 9
+    }, {
+      "name" : "Melon",
+      "id" : "melon",
+      "productCount" : 9
+    }, {
+      "name" : "Stone Fruit",
+      "id" : "stone fruit",
+      "productCount" : 8
+    }, {
+      "name" : "Passion Fruit",
+      "id" : "passion fruit",
+      "productCount" : 8
+    }, {
+      "name" : "Bergamot",
+      "id" : "bergamot",
+      "productCount" : 6
+    }, {
+      "name" : "Coconut",
+      "id" : "coconut",
+      "productCount" : 6
+    }, {
+      "name" : "Watermelon",
+      "id" : "watermelon",
+      "productCount" : 6
+    }, {
+      "name" : "Papaya",
+      "id" : "papaya",
+      "productCount" : 5
+    }, {
+      "name" : "Dried",
+      "id" : "dried",
+      "productCount" : 4
+    }, {
+      "name" : "Red Grapes",
+      "id" : "red grapes",
+      "productCount" : 4
+    }, {
+      "name" : "Yuzu",
+      "id" : "yuzu",
+      "productCount" : 2
+    }, {
+      "name" : "Grapes",
+      "id" : "grapes",
+      "productCount" : 1
+    }, {
+      "name" : "Grape Jam",
+      "id" : "grape jam",
+      "productCount" : 1
+    }, {
+      "name" : "Candyfloss Grapes",
+      "id" : "candyfloss grapes",
+      "productCount" : 1
+    }, {
+      "name" : "Nashi Pear",
+      "id" : "nashi pear",
+      "productCount" : 1
+    } ],
+    "name" : "fruity",
+    "productCount" : 1222
+  }, {
+    "moreCount" : 10,
+    "topFlavors" : [ {
+      "name" : "Chocolate",
+      "id" : "chocolate",
+      "productCount" : 356
+    }, {
+      "name" : "Nutty",
+      "id" : "nutty",
+      "productCount" : 97
+    }, {
+      "name" : "Hazelnut",
+      "id" : "hazelnut",
+      "productCount" : 67
+    }, {
+      "name" : "Dark Chocolate",
+      "id" : "dark chocolate",
+      "productCount" : 63
+    }, {
+      "name" : "Cocoa",
+      "id" : "cocoa",
+      "productCount" : 42
+    }, {
+      "name" : "Almond",
+      "id" : "almond",
+      "productCount" : 41
+    }, {
+      "name" : "Malt",
+      "id" : "malt",
+      "productCount" : 12
+    }, {
+      "name" : "Marzipan",
+      "id" : "marzipan",
+      "productCount" : 10
+    } ],
+    "displayName" : "Nutty",
+    "moreFlavors" : [ {
+      "name" : "Praline",
+      "id" : "praline",
+      "productCount" : 7
+    }, {
+      "name" : "Peanut",
+      "id" : "peanut",
+      "productCount" : 4
+    }, {
+      "name" : "Pistachio",
+      "id" : "pistachio",
+      "productCount" : 3
+    }, {
+      "name" : "Nougat",
+      "id" : "nougat",
+      "productCount" : 3
+    }, {
+      "name" : "Walnut",
+      "id" : "walnut",
+      "productCount" : 3
+    }, {
+      "name" : "Toast",
+      "id" : "toast",
+      "productCount" : 3
+    }, {
+      "name" : "Pecan",
+      "id" : "pecan",
+      "productCount" : 1
+    }, {
+      "name" : "Cereal",
+      "id" : "cereal",
+      "productCount" : 1
+    }, {
+      "name" : "Bittersweet",
+      "id" : "bittersweet",
+      "productCount" : 1
+    }, {
+      "name" : "Cacao",
+      "id" : "cacao",
+      "productCount" : 1
+    } ],
+    "name" : "nutty",
+    "productCount" : 715
+  }, {
+    "moreCount" : 4,
+    "topFlavors" : [ {
+      "name" : "Caramel",
+      "id" : "caramel",
+      "productCount" : 236
+    }, {
+      "name" : "Honey",
+      "id" : "honey",
+      "productCount" : 77
+    }, {
+      "name" : "Brown Sugar",
+      "id" : "brown sugar",
+      "productCount" : 72
+    }, {
+      "name" : "Sweet",
+      "id" : "sweet",
+      "productCount" : 72
+    }, {
+      "name" : "Vanilla",
+      "id" : "vanilla",
+      "productCount" : 43
+    }, {
+      "name" : "Molasses",
+      "id" : "molasses",
+      "productCount" : 25
+    }, {
+      "name" : "Maple",
+      "id" : "maple",
+      "productCount" : 15
+    }, {
+      "name" : "Butterscotch",
+      "id" : "butterscotch",
+      "productCount" : 11
+    }, {
+      "name" : "Syrup",
+      "id" : "syrup",
+      "productCount" : 11
+    }, {
+      "name" : "Sugar",
+      "id" : "sugar",
+      "productCount" : 10
+    } ],
+    "displayName" : "Sweet",
+    "moreFlavors" : [ {
+      "name" : "Toffee",
+      "id" : "toffee",
+      "productCount" : 6
+    }, {
+      "name" : "Marshmallow",
+      "id" : "marshmallow",
+      "productCount" : 6
+    }, {
+      "name" : "Sweetness",
+      "id" : "sweetness",
+      "productCount" : 5
+    }, {
+      "name" : "Vanilla Bean",
+      "id" : "vanilla bean",
+      "productCount" : 3
+    } ],
+    "name" : "sweet",
+    "productCount" : 592
+  }, {
+    "moreCount" : 9,
+    "topFlavors" : [ {
+      "name" : "Floral",
+      "id" : "floral",
+      "productCount" : 69
+    }, {
+      "name" : "Tea",
+      "id" : "tea",
+      "productCount" : 31
+    }, {
+      "name" : "Jasmine",
+      "id" : "jasmine",
+      "productCount" : 25
+    }, {
+      "name" : "Black Tea",
+      "id" : "black tea",
+      "productCount" : 24
+    }, {
+      "name" : "Rose",
+      "id" : "rose",
+      "productCount" : 19
+    }, {
+      "name" : "Hibiscus",
+      "id" : "hibiscus",
+      "productCount" : 14
+    }, {
+      "name" : "Lavender",
+      "id" : "lavender",
+      "productCount" : 10
+    } ],
+    "displayName" : "Floral",
+    "moreFlavors" : [ {
+      "name" : "Chamomile",
+      "id" : "chamomile",
+      "productCount" : 6
+    }, {
+      "name" : "Violet",
+      "id" : "violet",
+      "productCount" : 5
+    }, {
+      "name" : "Tea-like",
+      "id" : "tea-like",
+      "productCount" : 4
+    }, {
+      "name" : "Blossom",
+      "id" : "blossom",
+      "productCount" : 3
+    }, {
+      "name" : "Oolong",
+      "id" : "oolong",
+      "productCount" : 3
+    }, {
+      "name" : "Elderflower",
+      "id" : "elderflower",
+      "productCount" : 2
+    }, {
+      "name" : "Aromatic",
+      "id" : "aromatic",
+      "productCount" : 2
+    }, {
+      "name" : "Earl Grey",
+      "id" : "earl grey",
+      "productCount" : 2
+    }, {
+      "name" : "Delicate",
+      "id" : "delicate",
+      "productCount" : 1
+    } ],
+    "name" : "floral",
+    "productCount" : 220
+  }, {
+    "moreCount" : 14,
+    "topFlavors" : [ {
+      "name" : "Smooth",
+      "id" : "smooth",
+      "productCount" : 36
+    }, {
+      "name" : "Juicy",
+      "id" : "juicy",
+      "productCount" : 33
+    }, {
+      "name" : "Creamy",
+      "id" : "creamy",
+      "productCount" : 20
+    }, {
+      "name" : "Bright",
+      "id" : "bright",
+      "productCount" : 15
+    }, {
+      "name" : "Earthy",
+      "id" : "earthy",
+      "productCount" : 11
+    }, {
+      "name" : "Woody",
+      "id" : "woody",
+      "productCount" : 10
+    } ],
+    "displayName" : "Other",
+    "moreFlavors" : [ {
+      "name" : "Buttery",
+      "id" : "buttery",
+      "productCount" : 8
+    }, {
+      "name" : "Silky",
+      "id" : "silky",
+      "productCount" : 7
+    }, {
+      "name" : "Balanced",
+      "id" : "balanced",
+      "productCount" : 7
+    }, {
+      "name" : "Complex",
+      "id" : "complex",
+      "productCount" : 7
+    }, {
+      "name" : "Clean",
+      "id" : "clean",
+      "productCount" : 6
+    }, {
+      "name" : "Crisp",
+      "id" : "crisp",
+      "productCount" : 5
+    }, {
+      "name" : "Round",
+      "id" : "round",
+      "productCount" : 4
+    }, {
+      "name" : "Clarity",
+      "id" : "clarity",
+      "productCount" : 4
+    }, {
+      "name" : "Elegant",
+      "id" : "elegant",
+      "productCount" : 4
+    }, {
+      "name" : "Rounded",
+      "id" : "rounded",
+      "productCount" : 2
+    }, {
+      "name" : "Paper",
+      "id" : "paper",
+      "productCount" : 1
+    }, {
+      "name" : "Wood",
+      "id" : "wood",
+      "productCount" : 1
+    }, {
+      "name" : "Oak",
+      "id" : "oak",
+      "productCount" : 1
+    }, {
+      "name" : "Pine",
+      "id" : "pine",
+      "productCount" : 1
+    } ],
+    "name" : "other",
+    "productCount" : 183
+  }, {
+    "moreCount" : 6,
+    "topFlavors" : [ {
+      "name" : "Spice",
+      "id" : "spice",
+      "productCount" : 25
+    }, {
+      "name" : "Cinnamon",
+      "id" : "cinnamon",
+      "productCount" : 24
+    }, {
+      "name" : "Nutmeg",
+      "id" : "nutmeg",
+      "productCount" : 13
+    } ],
+    "displayName" : "Spices",
+    "moreFlavors" : [ {
+      "name" : "Spicy",
+      "id" : "spicy",
+      "productCount" : 6
+    }, {
+      "name" : "Ginger",
+      "id" : "ginger",
+      "productCount" : 5
+    }, {
+      "name" : "Clove",
+      "id" : "clove",
+      "productCount" : 3
+    }, {
+      "name" : "Cardamom",
+      "id" : "cardamom",
+      "productCount" : 3
+    }, {
+      "name" : "Pepper",
+      "id" : "pepper",
+      "productCount" : 3
+    }, {
+      "name" : "Baking Spice",
+      "id" : "baking spice",
+      "productCount" : 2
+    } ],
+    "name" : "spices",
+    "productCount" : 84
+  }, {
+    "moreCount" : 5,
+    "topFlavors" : [ {
+      "name" : "Green",
+      "id" : "green",
+      "productCount" : 34
+    } ],
+    "displayName" : "Green",
+    "moreFlavors" : [ {
+      "name" : "Herbal",
+      "id" : "herbal",
+      "productCount" : 8
+    }, {
+      "name" : "Herb",
+      "id" : "herb",
+      "productCount" : 8
+    }, {
+      "name" : "Tomato",
+      "id" : "tomato",
+      "productCount" : 5
+    }, {
+      "name" : "Grass",
+      "id" : "grass",
+      "productCount" : 2
+    }, {
+      "name" : "Raw",
+      "id" : "raw",
+      "productCount" : 1
+    } ],
+    "name" : "green",
+    "productCount" : 58
+  }, {
+    "moreCount" : 8,
+    "topFlavors" : [ {
+      "name" : "Roasted",
+      "id" : "roasted",
+      "productCount" : 15
+    } ],
+    "displayName" : "Roasted",
+    "moreFlavors" : [ {
+      "name" : "Smoky",
+      "id" : "smoky",
+      "productCount" : 9
+    }, {
+      "name" : "Roast",
+      "id" : "roast",
+      "productCount" : 4
+    }, {
+      "name" : "Tobacco",
+      "id" : "tobacco",
+      "productCount" : 2
+    }, {
+      "name" : "Baked",
+      "id" : "baked",
+      "productCount" : 2
+    }, {
+      "name" : "Malty",
+      "id" : "malty",
+      "productCount" : 2
+    }, {
+      "name" : "Barley",
+      "id" : "barley",
+      "productCount" : 2
+    }, {
+      "name" : "Oat",
+      "id" : "oat",
+      "productCount" : 1
+    }, {
+      "name" : "Ash",
+      "id" : "ash",
+      "productCount" : 1
+    } ],
+    "name" : "roasted",
+    "productCount" : 38
+  }, {
+    "moreCount" : 8,
+    "topFlavors" : [ {
+      "name" : "Wine",
+      "id" : "wine",
+      "productCount" : 12
+    } ],
+    "displayName" : "Sour",
+    "moreFlavors" : [ {
+      "name" : "Bourbon",
+      "id" : "bourbon",
+      "productCount" : 7
+    }, {
+      "name" : "Rum",
+      "id" : "rum",
+      "productCount" : 5
+    }, {
+      "name" : "Fermented",
+      "id" : "fermented",
+      "productCount" : 3
+    }, {
+      "name" : "Winey",
+      "id" : "winey",
+      "productCount" : 3
+    }, {
+      "name" : "Boozy",
+      "id" : "boozy",
+      "productCount" : 3
+    }, {
+      "name" : "Vodka",
+      "id" : "vodka",
+      "productCount" : 1
+    }, {
+      "name" : "Tart",
+      "id" : "tart",
+      "productCount" : 1
+    }, {
+      "name" : "Citric",
+      "id" : "citric",
+      "productCount" : 1
+    } ],
+    "name" : "sour",
+    "productCount" : 36
+  } ],
+  "totalFlavors" : 47,
+  "totalMoreFlavors" : 98
+}

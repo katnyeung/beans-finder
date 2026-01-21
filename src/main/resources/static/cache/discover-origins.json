@@ -1,0 +1,1550 @@
+{
+  "generatedAt" : 1768841031178,
+  "origins" : [ {
+    "country" : "Colombia",
+    "topProcesses" : [ "Washed", "Natural", "Double Anaerobic Washed" ],
+    "topFlavors" : [ "chocolate", "caramel", "raspberry", "floral", "orange" ],
+    "topRegions" : [ "Huila", "Tolima", "Quindio", "Cauca", "Pitalito" ],
+    "avgPricePer100g" : 1793.44,
+    "productCount" : 231,
+    "priceRange" : {
+      "min" : 3.00,
+      "max" : 40000.00
+    }
+  }, {
+    "country" : "Ethiopia",
+    "topProcesses" : [ "Natural", "Washed", "Anaerobic Natural" ],
+    "topFlavors" : [ "apricot", "peach", "blueberry", "floral", "grape" ],
+    "topRegions" : [ "Sidama", "Yirgacheffe", "Guji", "Sidamo", "Megadu, Shakisso Woreda, Guji" ],
+    "avgPricePer100g" : 580.64,
+    "productCount" : 108,
+    "priceRange" : {
+      "min" : 4.20,
+      "max" : 4700.00
+    }
+  }, {
+    "country" : "Brazil",
+    "topProcesses" : [ "Natural", "Pulped Natural", "Anaerobic Natural" ],
+    "topFlavors" : [ "chocolate", "milk chocolate", "caramel", "hazelnut", "dark chocolate" ],
+    "topRegions" : [ "Minas Gerais", "Cerrado Mineiro", "São Paulo and surrounding areas", "Monte Santo de Minas", "Sul de Minas" ],
+    "avgPricePer100g" : 312.83,
+    "productCount" : 95,
+    "priceRange" : {
+      "min" : 3.00,
+      "max" : 10200.00
+    }
+  }, {
+    "country" : "Costa Rica",
+    "topProcesses" : [ "Natural", "Honey", "Washed" ],
+    "topFlavors" : [ "caramel", "peach", "cocoa", "honey", "chocolate" ],
+    "topRegions" : [ "Tarrazu", "Naranjo, West Valley", "Western Valley", "West Valley", "Santa Maria de Dota" ],
+    "avgPricePer100g" : 13.31,
+    "productCount" : 51,
+    "priceRange" : {
+      "min" : 7.99,
+      "max" : 40.00
+    }
+  }, {
+    "country" : "Peru",
+    "topProcesses" : [ "Washed", "Natural", "Washed, Wet Fermentation" ],
+    "topFlavors" : [ "caramel", "chocolate", "brown sugar", "milk chocolate", "hazelnut" ],
+    "topRegions" : [ "Cajamarca", "San Martin", "San Ignacio", "San Jose de Lourdes", "Jaén, El Porvenir" ],
+    "avgPricePer100g" : 16.79,
+    "productCount" : 50,
+    "priceRange" : {
+      "min" : 7.75,
+      "max" : 150.00
+    }
+  }, {
+    "country" : "Kenya",
+    "topProcesses" : [ "Washed", "Washed - Wet Fermentation", "Washed: Depulped and fermented in clean water 12-24 hours overnight before being dried on raised beds" ],
+    "topFlavors" : [ "blackcurrant", "blackberry", "juicy", "grapefruit", "brown sugar" ],
+    "topRegions" : [ "Nyeri", "Kiambu County", "Kirinyaga County", "Kirinyaga", "Tatu" ],
+    "avgPricePer100g" : 383.55,
+    "productCount" : 45,
+    "priceRange" : {
+      "min" : 3.00,
+      "max" : 3200.00
+    }
+  }, {
+    "country" : "Guatemala",
+    "topProcesses" : [ "Washed", "Natural", "Honey" ],
+    "topFlavors" : [ "chocolate", "caramel", "hazelnut", "brown sugar", "milk chocolate" ],
+    "topRegions" : [ "Huehuetenango", "Antigua", "Acatenango", "San Marcos", "Palencia" ],
+    "avgPricePer100g" : 14.05,
+    "productCount" : 43,
+    "priceRange" : {
+      "min" : 7.99,
+      "max" : 49.00
+    }
+  }, {
+    "country" : "Rwanda",
+    "topProcesses" : [ "Washed", "Natural", "Honey" ],
+    "topFlavors" : [ "orange", "caramel", "vanilla", "strawberry", "chocolate" ],
+    "topRegions" : [ "Kamembe", "Nyamasheke District", "Nyakabuye", "Near to Kamembe, South West Rwanda", "Karambi" ],
+    "avgPricePer100g" : 12.35,
+    "productCount" : 34,
+    "priceRange" : {
+      "min" : 7.99,
+      "max" : 33.50
+    }
+  }, {
+    "country" : "Honduras",
+    "topProcesses" : [ "Washed", "Semi-washed", "Natural" ],
+    "topFlavors" : [ "orange", "black tea", "nectarine", "nutmeg", "cacao" ],
+    "topRegions" : [ "La Paz", "El Paraiso", "Guajiquiro", "Santa Barbara", "Celaque area of the Copan region" ],
+    "avgPricePer100g" : 325.14,
+    "productCount" : 27,
+    "priceRange" : {
+      "min" : 6.75,
+      "max" : 4200.00
+    }
+  }, {
+    "country" : "Panama",
+    "topProcesses" : [ "Washed", "Natural", "Honey" ],
+    "topFlavors" : [ "floral", "jasmine", "chocolate", "milk chocolate", "bergamot" ],
+    "topRegions" : [ "Chiriqui", "Boquete", "Volcan, Chiriqui", "Volcan Baru National Park", "Bajo Mono" ],
+    "avgPricePer100g" : 17.88,
+    "productCount" : 22,
+    "priceRange" : {
+      "min" : 7.00,
+      "max" : 40.00
+    }
+  }, {
+    "country" : "El Salvador",
+    "topProcesses" : [ "Washed", "Natural", "Anaerobic natural" ],
+    "topFlavors" : [ "brown sugar", "milk chocolate", "orange", "cherry", "blood orange" ],
+    "topRegions" : [ "Ahuachapán", "Sierra Apaneca, Ilamatepec, Santa Ana, Izalco Volcanoes, Los Naranjos", "Chalatenango", "Slopes of the Santa Ana Volcano", "San Francisco, Santa Ana" ],
+    "avgPricePer100g" : 11.04,
+    "productCount" : 20,
+    "priceRange" : {
+      "min" : 6.75,
+      "max" : 18.95
+    }
+  }, {
+    "country" : "Indonesia",
+    "topProcesses" : [ "Wet Hulled", "Monsooning, dry-processed", "Giling Basah (wet-hulled)" ],
+    "topFlavors" : [ "dark chocolate", "chocolate", "earthy", "brown sugar", "pineapple" ],
+    "topRegions" : [ "West Java", "Java", "Batak", "Gunung Tujuh, Kerinci, Sumatra", "Lake Toba" ],
+    "avgPricePer100g" : 11.07,
+    "productCount" : 20,
+    "priceRange" : {
+      "min" : 7.75,
+      "max" : 23.00
+    }
+  }, {
+    "country" : "Nicaragua",
+    "topProcesses" : [ "Washed", "Natural", "Honey" ],
+    "topFlavors" : [ "caramel", "chocolate", "dark chocolate", "honey", "nutty" ],
+    "topRegions" : [ "Jinotega", "Matagalpa", "Cerro Bonetillo, Jinotega", "Nueva Segovia", "Finca San Ramon" ],
+    "avgPricePer100g" : 11.34,
+    "productCount" : 18,
+    "priceRange" : {
+      "min" : 6.75,
+      "max" : 15.50
+    }
+  }, {
+    "country" : "India",
+    "topProcesses" : [ "Dry Processed, Monsooned", "Honey DRD", "Monsooned" ],
+    "topFlavors" : [ "smoky", "earthy", "spicy", "chocolate", "cinnamon" ],
+    "topRegions" : [ "Chikmagalur", "Karnataka, Western Ghats", "Chikkamagaluru", "South India - Karnataka, Western Ghats", "Chikmagalur, Bababudangiri" ],
+    "avgPricePer100g" : 10.07,
+    "productCount" : 15,
+    "priceRange" : {
+      "min" : 4.60,
+      "max" : 16.00
+    }
+  }, {
+    "country" : "China",
+    "topProcesses" : [ "Yeast Fermentation Honey", "Washed", "Natural" ],
+    "topFlavors" : [ "oolong tea", "caramel", "peach", "strawberry", "lychee" ],
+    "topRegions" : [ "Yunnan", "Dehong", "Menglian Dai, Lahu and Va Autonomous County", "Xishuangbanna", "Menglian, Yunnan" ],
+    "avgPricePer100g" : 957.86,
+    "productCount" : 15,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 3600.00
+    }
+  }, {
+    "country" : "Uganda",
+    "topProcesses" : [ "Natural", "Washed", "Anaerobic Natural" ],
+    "topFlavors" : [ "plum", "caramel", "peach", "chocolate", "cherries" ],
+    "topRegions" : [ "Rwenzori Mountains", "Upper Bukyabo", "Luwero District", "Mount Elgon" ],
+    "avgPricePer100g" : 11.87,
+    "productCount" : 13,
+    "priceRange" : {
+      "min" : 8.25,
+      "max" : 16.50
+    }
+  }, {
+    "country" : "Mexico",
+    "topProcesses" : [ "Washed", "Washed/Sun-dried", "Natural Mountain Water Process" ],
+    "topFlavors" : [ "chocolate", "cinnamon", "berry", "nutty almond", "ripe plum" ],
+    "topRegions" : [ "Los Altos de Chiapas", "Chiapas", "Jaltenango, Chiapas", "Mixteca, Oaxaca", "La Cañada" ],
+    "avgPricePer100g" : 11.29,
+    "productCount" : 13,
+    "priceRange" : {
+      "min" : 7.25,
+      "max" : 19.50
+    }
+  }, {
+    "country" : "Myanmar",
+    "topProcesses" : [ "Natural", "Washed", "Fully Washed" ],
+    "topFlavors" : [ "floral", "plum", "raspberry", "caramel", "fudge" ],
+    "topRegions" : [ "Pinlaung", "Mandalay Division", "Ywangan, Shan State", "Pyin Oo Lwin, Mandalay", "Ywangan" ],
+    "avgPricePer100g" : 13.04,
+    "productCount" : 11,
+    "priceRange" : {
+      "min" : 9.00,
+      "max" : 16.00
+    }
+  }, {
+    "country" : "Burundi",
+    "topProcesses" : [ "Washed", "Fully washed", "Natural" ],
+    "topFlavors" : [ "black tea", "caramel", "apple juice", "vanilla syrup", "raspberry" ],
+    "topRegions" : [ "Kayanza Province", "Bujumbura", "Muniya Hill, Muramvya", "Kirundo", "Migoti Mountain" ],
+    "avgPricePer100g" : 12.25,
+    "productCount" : 10,
+    "priceRange" : {
+      "min" : 8.50,
+      "max" : 17.00
+    }
+  }, {
+    "country" : "Ecuador",
+    "topProcesses" : [ "Washed", "Red Washed / Double Anaerobic", "Anaerobic Natural" ],
+    "topFlavors" : [ "complexity", "lime zest", "red wine", "white grape", "basil" ],
+    "topRegions" : [ "San Jose De Minas, Pichincha", "Cayambe-Coca National Park", "Pichincha", "Palanda", "Finca La Soledad" ],
+    "avgPricePer100g" : 599.04,
+    "productCount" : 8,
+    "priceRange" : {
+      "min" : 4.32,
+      "max" : 4700.00
+    }
+  }, {
+    "country" : "Brazil / Colombia / Ethiopia",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "zesty orange flambé", "warm cinnamon", "sweet stollen", "complex fruity edge", "decadent" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 48.75,
+    "productCount" : 4,
+    "priceRange" : {
+      "min" : 30.00,
+      "max" : 70.00
+    }
+  }, {
+    "country" : "Tanzania",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "raspberry", "berry", "toffee", "blackberry", "golden raisins" ],
+    "topRegions" : [ "Arusha", "Kilombero Valley", "Kilimanjaro & Arusha" ],
+    "avgPricePer100g" : 11.32,
+    "productCount" : 4,
+    "priceRange" : {
+      "min" : 8.29,
+      "max" : 13.00
+    }
+  }, {
+    "country" : "Yemen",
+    "topProcesses" : [ "Natural", "CO2 Decaf Natural" ],
+    "topFlavors" : [ "apricot", "malty", "raspberry", "milk chocolate", "lemon" ],
+    "topRegions" : [ "Al Hayma and Anis" ],
+    "avgPricePer100g" : 12.33,
+    "productCount" : 3,
+    "priceRange" : {
+      "min" : 12.00,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / Colombia",
+    "topProcesses" : [ "Natural" ],
+    "topFlavors" : [ "chocolate", "dried fruit", "caramel", "honey", "dark cocoa depth" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 16.63,
+    "productCount" : 3,
+    "priceRange" : {
+      "min" : 12.44,
+      "max" : 25.00
+    }
+  }, {
+    "country" : "Japan",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "matcha", "cinnamon", "grassy", "umami", "sweet" ],
+    "topRegions" : [ "Kyoto", "Uji" ],
+    "avgPricePer100g" : 48.63,
+    "productCount" : 3,
+    "priceRange" : {
+      "min" : 20.90,
+      "max" : 85.00
+    }
+  }, {
+    "country" : "Bolivia",
+    "topProcesses" : [ "Lactic ferment natural", "Washed", "Anaerobic" ],
+    "topFlavors" : [ "sencha", "apricot", "lemongrass", "honey", "grapefruit" ],
+    "topRegions" : [ "La Paz", "Caravani" ],
+    "avgPricePer100g" : 12.58,
+    "productCount" : 3,
+    "priceRange" : {
+      "min" : 9.75,
+      "max" : 14.00
+    }
+  }, {
+    "country" : "Colombia / Brazil",
+    "topProcesses" : [ "Natural", "Decaffeinated", "Anaerobic Natural / Natural" ],
+    "topFlavors" : [ "milk chocolate", "apricot", "cherry", "toffee", "tropical fruits" ],
+    "topRegions" : [ "Matas de Minas" ],
+    "avgPricePer100g" : 13.30,
+    "productCount" : 3,
+    "priceRange" : {
+      "min" : 10.95,
+      "max" : 14.95
+    }
+  }, {
+    "country" : "Brazil / Ethiopia",
+    "topProcesses" : [ "Natural / Washed", "Natural / Natural" ],
+    "topFlavors" : [ "hazelnut", "oxford marmalade", "caramel", "assam tea", "glacé cherry" ],
+    "topRegions" : [ "Cerrado Mineiro, Minas Gerais / Megadu, Shakisso Woreda, Guji" ],
+    "avgPricePer100g" : 8.86,
+    "productCount" : 3,
+    "priceRange" : {
+      "min" : 8.09,
+      "max" : 9.50
+    }
+  }, {
+    "country" : "Brazil / Peru",
+    "topProcesses" : [ "Natural Process / Washed Process" ],
+    "topFlavors" : [ "cherry", "butterscotch", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 8.00,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 6.50,
+      "max" : 9.50
+    }
+  }, {
+    "country" : "Papua New Guinea",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "cedar", "berry", "malt" ],
+    "topRegions" : [ "Goroka" ],
+    "avgPricePer100g" : 7.75,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 7.75,
+      "max" : 7.75
+    }
+  }, {
+    "country" : "El Salvador / Guatemala",
+    "topProcesses" : [ "Washed / Washed", "Washed" ],
+    "topFlavors" : [ "creamy sweetness", "crisp acidity", "toffee", "sustainable", "chocolate biscuit" ],
+    "topRegions" : [ "Apaneca-Ilamatepec / Jalapa" ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Colombia / Brazil / Indonesia / Ethiopia",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "smoky", "nuts", "nutty", "summer fruits", "sweet" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 8.13,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 7.75,
+      "max" : 8.50
+    }
+  }, {
+    "country" : "Brazil / Colombia / Peru",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "plum", "milk chocolate", "pecan", "caramel", "hint of bitterness" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 15.72,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 11.45,
+      "max" : 19.99
+    }
+  }, {
+    "country" : "Peru / Colombia",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "silky", "caramel", "sweet cherry", "almond", "blood orange" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 15.30,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 14.10,
+      "max" : 16.50
+    }
+  }, {
+    "country" : "USA",
+    "topProcesses" : [ "Elemental chlorine-free (ECF)" ],
+    "topFlavors" : [ "durability", "flavour clarity", "consistent extraction", "clean" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 30.00,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 30.00,
+      "max" : 30.00
+    }
+  }, {
+    "country" : "Brazil / El Salvador",
+    "topProcesses" : [ "Fully Washed & Honey" ],
+    "topFlavors" : [ "milk chocolate", "caramel", "fudge", "forest fruits", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.88,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 10.75,
+      "max" : 11.00
+    }
+  }, {
+    "country" : "Colombia / Brazil / Kenya / Ethiopia / India",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "smoky roasted almond", "caramelised", "smoky", "almond", "sweetness of caramelised demerara sugar" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 6.82,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 5.99,
+      "max" : 7.64
+    }
+  }, {
+    "country" : "Ethiopia / Nicaragua",
+    "topProcesses" : [ "Washed", "Natural" ],
+    "topFlavors" : [ "floral", "redcurrant", "citric", "lime", "fruity" ],
+    "topRegions" : [ "Sidama" ],
+    "avgPricePer100g" : 12.63,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.75
+    }
+  }, {
+    "country" : "Colombia / El Salvador",
+    "topProcesses" : [ "Washed / Natural", "Washed" ],
+    "topFlavors" : [ "caramel", "orange", "milk chocolate", "ripe plum", "red berries" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 11.88,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 10.25,
+      "max" : 13.50
+    }
+  }, {
+    "country" : "Scotland, UK",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "buttery", "delicately crisp", "sweet cranberries", "rich", "citrus" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 5.20,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 3.45,
+      "max" : 6.95
+    }
+  }, {
+    "country" : "Kenya / Peru",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "raspberry", "cherry", "clementine", "frangipane", "berry pick-and-mix notes" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 19.50,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 19.50,
+      "max" : 19.50
+    }
+  }, {
+    "country" : "null",
+    "topProcesses" : [ "null" ],
+    "topFlavors" : [ "caramel", "chocolate" ],
+    "topRegions" : [ "null" ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / Rwanda",
+    "topProcesses" : [ "Natural / Washed" ],
+    "topFlavors" : [ "caramel", "red fruits", "cacao", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 27.50,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 11.80,
+      "max" : 43.20
+    }
+  }, {
+    "country" : "Brazil / Mexico",
+    "topProcesses" : [ "Mountain Water Process Natural / Mountain Water Process Washed", "Pulped Natural / Fully Washed" ],
+    "topFlavors" : [ "dried fruit", "caramel", "toffee", "bittersweet cocoa", "fruity" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.75,
+    "productCount" : 2,
+    "priceRange" : {
+      "min" : 9.75,
+      "max" : 11.75
+    }
+  }, {
+    "country" : "Colombia / Ethiopia",
+    "topProcesses" : [ "Co-Fermentation / Washed" ],
+    "topFlavors" : [ "caramel", "juicy", "dragonfruit" ],
+    "topRegions" : [ "Quindio / Guji" ],
+    "avgPricePer100g" : 7.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 7.00,
+      "max" : 7.00
+    }
+  }, {
+    "country" : "Brazil / Democratic Republic of the Congo",
+    "topProcesses" : [ "Natural / Washed" ],
+    "topFlavors" : [ "milk chocolate", "raspberry candy", "orange rind" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 8.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 8.00,
+      "max" : 8.00
+    }
+  }, {
+    "country" : "Rwanda / Brazil",
+    "topProcesses" : [ "Washed & Pulped Natural" ],
+    "topFlavors" : [ "orange", "sweet caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.00,
+      "max" : 9.00
+    }
+  }, {
+    "country" : "Ethiopia / Colombia / Brazil",
+    "topProcesses" : [ "Washed / Washed Sugar Cane EA Decaffeination / Pulped natural" ],
+    "topFlavors" : [ "caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 35.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 35.00,
+      "max" : 35.00
+    }
+  }, {
+    "country" : "Colombia / Ethiopia / Kenya",
+    "topProcesses" : [ "Washed / Natural / Washed" ],
+    "topFlavors" : [ "ginger bread", "white chocolate", "golden syrup", "complex", "juicy" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 42.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 42.95,
+      "max" : 42.95
+    }
+  }, {
+    "country" : "Colombia / Brazil / Honduras",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "hazelnut", "fruits", "gentle acidity", "sweetness", "rich" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 8.09,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 8.09,
+      "max" : 8.09
+    }
+  }, {
+    "country" : "Honduras / Peru",
+    "topProcesses" : [ "Natural" ],
+    "topFlavors" : [ "plum", "chocolate truffle", "redcurrant", "candied lemon", "tangerine" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / Rwanda / Peru",
+    "topProcesses" : [ "Washed & Natural" ],
+    "topFlavors" : [ "caramel", "citrus", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 8.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 8.50,
+      "max" : 8.50
+    }
+  }, {
+    "country" : "El Salvador / Guatemala / India / Ethiopia",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "nutty", "earthy", "fruity", "citrus" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 7.75,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 7.75,
+      "max" : 7.75
+    }
+  }, {
+    "country" : "Zambia",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "milk chocolate", "pecan", "toffee" ],
+    "topRegions" : [ "Mbala" ],
+    "avgPricePer100g" : 10.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.00,
+      "max" : 10.00
+    }
+  }, {
+    "country" : "Colombia / Rwanda",
+    "topProcesses" : [ "Honey and Washed" ],
+    "topFlavors" : [ "honey", "pomegranate", "peach" ],
+    "topRegions" : [ "Pitalito and South Huila, Colombia and Kayanza, Rwanda" ],
+    "avgPricePer100g" : 14.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 14.50,
+      "max" : 14.50
+    }
+  }, {
+    "country" : "Colombia / Guyana / Costa Rica / Madagascar",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "cacao", "vanilla", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 36.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 36.00,
+      "max" : 36.00
+    }
+  }, {
+    "country" : "Brazil / Zambia / Uganda",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 8.78,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 8.78,
+      "max" : 8.78
+    }
+  }, {
+    "country" : "Colombia / China",
+    "topProcesses" : [ "Washed / Natural" ],
+    "topFlavors" : [ "cherry", "caramel", "blackcurrant", "forest fruits", "jam" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 43.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 43.95,
+      "max" : 43.95
+    }
+  }, {
+    "country" : "Kenya / Rwanda / India",
+    "topProcesses" : [ "CO2 decaffeination" ],
+    "topFlavors" : [ "rich", "malt", "smooth" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 45.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 45.00,
+      "max" : 45.00
+    }
+  }, {
+    "country" : "Brazil / Colombia / Guatemala / Indonesia",
+    "topProcesses" : [ "Natural / Washed / Wet-Hulled" ],
+    "topFlavors" : [ "apple", "citrus", "sugarcane", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 11.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 11.50,
+      "max" : 11.50
+    }
+  }, {
+    "country" : "Colombia / Mexico",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "milk chocolate", "hazlenut", "fig" ],
+    "topRegions" : [ "Antioquia / Chiapas" ],
+    "productCount" : 1
+  }, {
+    "country" : "Rwanda / Burundi",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "cherry", "honeycomb", "cocoa" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.95,
+      "max" : 9.95
+    }
+  }, {
+    "country" : "Thailand",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "bold chocolate", "spice" ],
+    "topRegions" : [ "Chiang Rai" ],
+    "avgPricePer100g" : 15.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 15.50,
+      "max" : 15.50
+    }
+  }, {
+    "country" : "Ecuador / Kenya / Colombia",
+    "topProcesses" : [ "Washed / Anaerobic" ],
+    "topFlavors" : [ "mandarin", "raspberry", "golden syrup", "hibiscus", "honey" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 29.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 29.95,
+      "max" : 29.95
+    }
+  }, {
+    "country" : "Brazil, Colombia",
+    "topProcesses" : [ "Natural, Washed" ],
+    "topFlavors" : [ "brown sugar", "hazelnut", "smooth mouthfeel", "full body", "low acidity" ],
+    "topRegions" : [ "Cerrado Mineiro, Huila" ],
+    "avgPricePer100g" : 15.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 15.00,
+      "max" : 15.00
+    }
+  }, {
+    "country" : "Malawi",
+    "topProcesses" : [ "Washed, Sun-dried" ],
+    "topFlavors" : [ "tropical fruits", "sweet", "citrus", "chocolate" ],
+    "topRegions" : [ "Southern Region" ],
+    "avgPricePer100g" : 7.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 7.95,
+      "max" : 7.95
+    }
+  }, {
+    "country" : "Colombia / Costa Rica",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "milk chocolate", "nectarine", "macadamia", "dried apricot", "custard" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.00,
+      "max" : 10.00
+    }
+  }, {
+    "country" : "Ethiopia / Honduras / Guatemala / Brazil",
+    "topProcesses" : [ "Natural / Washed / Pulped Natural" ],
+    "topFlavors" : [ "caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 45.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 45.00,
+      "max" : 45.00
+    }
+  }, {
+    "country" : "Brazil & Nicaragua",
+    "topProcesses" : [ "Natural & Washed" ],
+    "topFlavors" : [ "plum", "milk chocolate", "caramel" ],
+    "topRegions" : [ "Minas Gerais, Cerrado & Jinotega" ],
+    "avgPricePer100g" : 8.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 8.00,
+      "max" : 8.00
+    }
+  }, {
+    "country" : "Guatemala / Indonesia",
+    "topProcesses" : [ "Swiss water process" ],
+    "topFlavors" : [ "toffee", "biscuit", "cocoa" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.95,
+      "max" : 9.95
+    }
+  }, {
+    "country" : "Timor-Leste",
+    "topProcesses" : [ "Natural" ],
+    "topFlavors" : [ "creamy", "spiced shortbread", "perry" ],
+    "topRegions" : [ "Letefoho" ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Guatemala / Brazil / Nicaragua",
+    "topProcesses" : [ "Washed / Pulped Natural" ],
+    "topFlavors" : [ "milk chocolate", "caramel", "roasted nuts" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.95,
+      "max" : 10.95
+    }
+  }, {
+    "country" : "Brazil / Nicaragua",
+    "topProcesses" : [ "Natural & Washed" ],
+    "topFlavors" : [ "milk chocolate", "purple plums", "macadamia" ],
+    "topRegions" : [ "Mogiana & Jinotega" ],
+    "avgPricePer100g" : 8.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 8.50,
+      "max" : 8.50
+    }
+  }, {
+    "country" : "Brazil / Honduras",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "chocolatey", "nutty", "smooth" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 41.90,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 41.90,
+      "max" : 41.90
+    }
+  }, {
+    "country" : "Colombia / Kenya / Ethiopia",
+    "topProcesses" : [ "Washed / Natural" ],
+    "topFlavors" : [ "berry", "marzipan", "vanilla" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 11.25,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 11.25,
+      "max" : 11.25
+    }
+  }, {
+    "country" : "Brazil / DR Congo",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "sweet spice", "blackberry", "syrupy" ],
+    "topRegions" : [ "South Kivu" ],
+    "avgPricePer100g" : 11.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 11.00,
+      "max" : 11.00
+    }
+  }, {
+    "country" : "Brazil / Costa Rica / El Salvador / Mexico",
+    "topProcesses" : [ "Natural / Washed" ],
+    "topFlavors" : [ "grapefruit", "biscotti", "almond", "orange liqueur", "cranberry" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.00,
+      "max" : 10.00
+    }
+  }, {
+    "country" : "Colombia / Uganda / Mexico",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "mandarin", "hazelnut", "caramel", "pineapple", "lime" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 48.99,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 48.99,
+      "max" : 48.99
+    }
+  }, {
+    "country" : "Rwanda / India",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "orange", "cranberry", "gingerbread cookie" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Uganda / Indonesia / Guatemala",
+    "topProcesses" : [ "Natural / Wet-Hulled / Washed" ],
+    "topFlavors" : [ "berry", "caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 13.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 13.50,
+      "max" : 13.50
+    }
+  }, {
+    "country" : "El Salvador / Tanzania",
+    "topProcesses" : [ "50% Honey / 50% Washed" ],
+    "topFlavors" : [ "juicy", "bold", "fruity" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.40,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.40,
+      "max" : 10.40
+    }
+  }, {
+    "country" : "Ethiopia / India",
+    "topProcesses" : [ "Natural" ],
+    "topFlavors" : [ "apricot", "toasted rice", "nutmeg" ],
+    "topRegions" : [ "Jimma Zone, Ethiopia / Chikmagular, India" ],
+    "avgPricePer100g" : 13.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 13.00,
+      "max" : 13.00
+    }
+  }, {
+    "country" : "Brazil / Ethiopia / Colombia",
+    "topProcesses" : [ "Natural and washed" ],
+    "topFlavors" : [ "cinnamon", "forest fruits", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 8.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 8.50,
+      "max" : 8.50
+    }
+  }, {
+    "country" : "El Salvador / Colombia / Honduras / Guatemala",
+    "topProcesses" : [ "Natural / Washed / Honey" ],
+    "topFlavors" : [ "caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 49.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 49.00,
+      "max" : 49.00
+    }
+  }, {
+    "country" : "Guatemala / Ethiopia",
+    "topProcesses" : [ "Washed / Kickstart Natural" ],
+    "topFlavors" : [ "sticky sweet", "vibrant", "creamy", "highly drinkable", "almondy" ],
+    "topRegions" : [ "Huehuetenango / Sidama" ],
+    "avgPricePer100g" : 10.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.00,
+      "max" : 10.00
+    }
+  }, {
+    "country" : "Colombia / Guatemala / Brazil",
+    "topProcesses" : [ "Washed / Natural" ],
+    "topFlavors" : [ "roasted almond", "caramel", "dark chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 40.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 40.00,
+      "max" : 40.00
+    }
+  }, {
+    "country" : "Central America",
+    "topProcesses" : [ "CO2 process" ],
+    "topFlavors" : [ "luxurious", "lots of sweetness", "gentle acidity", "velvety smooth body", "great aroma of warming spices" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 59.88,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 59.88,
+      "max" : 59.88
+    }
+  }, {
+    "country" : "Honduras / Peru / Colombia",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "caramel", "citrus", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Peru / Honduras / Ethiopia",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "cinnamon", "caramel", "treacle", "bourbon biscuit", "marzipan" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Malaysia",
+    "topProcesses" : [ "Sun-dried Natural" ],
+    "topFlavors" : [ "cacao", "assam tea", "liquorice", "dried longan", "jackfruit" ],
+    "topRegions" : [ "Johor" ],
+    "avgPricePer100g" : 13.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 13.50,
+      "max" : 13.50
+    }
+  }, {
+    "country" : "Ethiopia / El Salvador",
+    "topProcesses" : [ "Washed / Natural" ],
+    "topFlavors" : [ "bright", "rich", "sweet", "nutty warmth of marzipan", "lively cranberry acidity" ],
+    "topRegions" : [ "Sidamo / El Bálsamo Quetzaltepec" ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / Uganda / Vietnam / India",
+    "topProcesses" : [ "Wet Polished" ],
+    "topFlavors" : [ "bittersweetness", "nuts", "dark chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 5.15,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 5.15,
+      "max" : 5.15
+    }
+  }, {
+    "country" : "Costa Rica / Guatemala / Nicaragua / Rwanda / Burundi",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "cherry", "caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Colombia / Brazil / Rwanda",
+    "topProcesses" : [ "Washed / Natural / Natural" ],
+    "topFlavors" : [ "grapefruit", "malted milk biscuits", "red apple", "dark chocolate", "citrus" ],
+    "topRegions" : [ "San Agustin, Huila / Patrocinio, The Cerrado, Minas Gerais / Nyamasheke, Western Rwanda" ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Costa Rica / Nicaragua",
+    "topProcesses" : [ "Honey" ],
+    "topFlavors" : [ "orange", "milk chocolate", "dried fruit", "honeycomb", "white grape" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / India / Ethiopia",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "brown sugar", "cherry", "milk chocolate", "ruby grapefruit tartness", "hazelnut" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 45.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 45.00,
+      "max" : 45.00
+    }
+  }, {
+    "country" : "Brazil / Costa Rica",
+    "topProcesses" : [ "Natural / Washed" ],
+    "topFlavors" : [ "environmental harmony", "crowd pleaser", "gender equality", "classic profile" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 11.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 11.00,
+      "max" : 11.00
+    }
+  }, {
+    "country" : "Costa Rica / Rwanda",
+    "topProcesses" : [ "Honey / Natural / Washed" ],
+    "topFlavors" : [ "orange", "fig", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.84,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.84,
+      "max" : 10.84
+    }
+  }, {
+    "country" : "Guatemala / Colombia",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "milk chocolate", "red fruits", "hazelnut", "cocoa nib", "caramel" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 26.60,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 26.60,
+      "max" : 26.60
+    }
+  }, {
+    "country" : "UK",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "quality ingredients", "delicious" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Ethiopia / Guatemala",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "exotic fruit", "lemon", "hint of hazelnut", "bright crisp acidity", "sweet caramel" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 11.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 11.50,
+      "max" : 11.50
+    }
+  }, {
+    "country" : "Nicaragua / Uganda",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "orange", "figs", "caramel", "chocolate" ],
+    "topRegions" : [ "Nicaragua - Matagalpa / Uganda - Sipi Falls" ],
+    "avgPricePer100g" : 10.80,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.80,
+      "max" : 10.80
+    }
+  }, {
+    "country" : "Brazil / Brazil",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "milk chocolate", "hazelnut", "caramel" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.80,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.80,
+      "max" : 10.80
+    }
+  }, {
+    "country" : "Brazil / El Salvador / Colombia",
+    "topProcesses" : [ "Natural and semi-washed" ],
+    "topFlavors" : [ "milk chocolate", "caramel", "red grapes" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.00,
+      "max" : 9.00
+    }
+  }, {
+    "country" : "Guatemala / Peru",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "sweet", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.68,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.68,
+      "max" : 9.68
+    }
+  }, {
+    "country" : "Colombia / Guatemala",
+    "topProcesses" : [ "Washed/Ethyl-Acetate" ],
+    "topFlavors" : [ "milk chocolate", "fruit cake", "cranberry", "raisin", "blood orange" ],
+    "topRegions" : [ "Cauca Region / Fraijanes" ],
+    "avgPricePer100g" : 10.75,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.75,
+      "max" : 10.75
+    }
+  }, {
+    "country" : "Ethiopia / Mexico",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "molasses", "fruitcake", "cocoa" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.95,
+      "max" : 9.95
+    }
+  }, {
+    "country" : "Colombia / Peru",
+    "topProcesses" : [ "Carbonic Natural" ],
+    "topFlavors" : [ "tangerine", "toffee", "chocolate" ],
+    "topRegions" : [ "Huila / Cajamarca" ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Kenya / Brazil / India",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "floral", "spice", "fruity", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 5.99,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 5.99,
+      "max" : 5.99
+    }
+  }, {
+    "country" : "Colombia / Guatemala / Sumatra / Brazil",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "creamy body", "rich layers of chocolate", "delicious sweetness", "lightly spiced", "soft acidity" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 17.99,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 17.99,
+      "max" : 17.99
+    }
+  }, {
+    "country" : "Costa Rica / Brazil",
+    "topProcesses" : [ "Natural" ],
+    "topFlavors" : [ "cherry", "strawberry", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.75,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.75,
+      "max" : 10.75
+    }
+  }, {
+    "country" : "Brazil / Colombia / Rwanda",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "bergamot", "dried fruits", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 13.75,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 13.75,
+      "max" : 13.75
+    }
+  }, {
+    "country" : "Peru / Rwanda",
+    "topProcesses" : [ "Sparkling Water Decaf" ],
+    "topFlavors" : [ "apple", "cinnamon", "raisin" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 22.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 22.50,
+      "max" : 22.50
+    }
+  }, {
+    "country" : "Rwanda / Sumatra",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "plum", "redcurrant", "tangerine", "caramel", "orange blossom" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / Colombia / El Salvador",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "caramel", "pomegranate", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.00,
+      "max" : 12.00
+    }
+  }, {
+    "country" : "DR Congo",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 8.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 8.00,
+      "max" : 8.00
+    }
+  }, {
+    "country" : "Colombia / Guatemala / Kenya",
+    "topProcesses" : [ "Cinnamon Co-Ferment / Washed / Washed" ],
+    "topFlavors" : [ "redcurrant jelly", "toffee", "gingerbread" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 31.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 31.50,
+      "max" : 31.50
+    }
+  }, {
+    "country" : "Mexico / Uganda",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "milk chocolate", "hazelnut", "fig" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.74,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.74,
+      "max" : 12.74
+    }
+  }, {
+    "country" : "Brazil / El Salvador / Mexico",
+    "topProcesses" : [ "Pulped Natural / Washed" ],
+    "topFlavors" : [ "brown sugar", "orange", "roasted almond", "milk chocolate", "stewed plum" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / Indonesia / Peru / Ethiopia / India / Colombia / El Salvador / Kenya",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "milk chocolate", "hazelnut", "chocolate", "cherry", "cinnamon" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.75,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.75,
+      "max" : 9.75
+    }
+  }, {
+    "country" : "Brazil / Uganda",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "berry", "strawberry", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 13.17,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 13.17,
+      "max" : 13.17
+    }
+  }, {
+    "country" : "Central America / South America / Africa",
+    "topProcesses" : [ "Swiss Water" ],
+    "topFlavors" : [ "variety of central, south american and african flavours", "medium-dark roast" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 20.25,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 20.25,
+      "max" : 20.25
+    }
+  }, {
+    "country" : "Indonesia / Brazil / Colombia",
+    "topProcesses" : [ "Pulped Natural / Wet Hulled" ],
+    "topFlavors" : [ "warm spice", "cinnamon", "stollen sweetness", "rich, sweet, confectionery flavours", "sweet brown sugar aromas" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Sumatra / Uganda",
+    "topProcesses" : [ "Wet Hulled & Natural" ],
+    "topFlavors" : [ "orange", "hazelnut", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.00,
+      "max" : 9.00
+    }
+  }, {
+    "country" : "Guatemala / Kenya / Ethiopia",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "floral", "sweet", "fruity" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 7.75,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 7.75,
+      "max" : 7.75
+    }
+  }, {
+    "country" : "Brazil / Colombia / Ethiopia / El Salvador",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "hazelnut", "caramel", "fruity", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 34.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 34.95,
+      "max" : 34.95
+    }
+  }, {
+    "country" : "Uganda / Rwanda / Brazil",
+    "topProcesses" : [ "Natural / Washed / Pulped Natural" ],
+    "topFlavors" : [ "freshly roasted", "unique coffees", "great gift" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Ecuador / Colombia",
+    "topProcesses" : [ "Washed / Anaerobic" ],
+    "topFlavors" : [ "mandarin", "raspberry", "golden syrup", "hibiscus", "honey" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 52.95,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 52.95,
+      "max" : 52.95
+    }
+  }, {
+    "country" : "Brazil / Guatemala / Ethiopia",
+    "topProcesses" : [ "Natural / Washed" ],
+    "topFlavors" : [ "caramel", "peanut", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 11.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 11.50,
+      "max" : 11.50
+    }
+  }, {
+    "country" : "Colombia / Brazil / Ethiopia",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "nuts", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 7.75,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 7.75,
+      "max" : 7.75
+    }
+  }, {
+    "country" : "Uganda / Brazil",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "walnut", "caramel", "dark chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.00,
+      "max" : 12.00
+    }
+  }, {
+    "country" : "Honduras / Colombia",
+    "topProcesses" : [ "Washed, Natural & Co-Fermentation" ],
+    "topFlavors" : [ "milk chocolate", "cinnamon", "strawberry" ],
+    "topRegions" : [ "Marcala & Armenia" ],
+    "avgPricePer100g" : 7.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 7.00,
+      "max" : 7.00
+    }
+  }, {
+    "country" : "Rwanda / Brazil / Uganda",
+    "topProcesses" : [ "Natural / Washed / Pulped Natural" ],
+    "topFlavors" : [ "nuts", "sweet caramel", "dark chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.00,
+      "max" : 9.00
+    }
+  }, {
+    "country" : "Guatemala / Brazil",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "nutty", "rich", "sweet" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 9.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 9.00,
+      "max" : 9.00
+    }
+  }, {
+    "country" : "Ethiopia / Costa Rica / Rwanda / Guatemala / Brazil",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / Colombia / DR Congo",
+    "topProcesses" : [ "Natural / Washed" ],
+    "topFlavors" : [ "caramel", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 10.00,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 10.00,
+      "max" : 10.00
+    }
+  }, {
+    "country" : "Ethiopia / Peru",
+    "topProcesses" : [ ],
+    "topFlavors" : [ "butterscotch", "berries", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 11.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 11.50,
+      "max" : 11.50
+    }
+  }, {
+    "country" : "El Salvador / India",
+    "topProcesses" : [ "Dark Roast" ],
+    "topFlavors" : [ "orange", "earthy", "spicy", "chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 16.75,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 16.75,
+      "max" : 16.75
+    }
+  }, {
+    "country" : "Ethiopia / Brazil",
+    "topProcesses" : [ "Natural / Pulped Natural / Fully Washed" ],
+    "topFlavors" : [ "cacao", "blueberry", "liquorice", "blackberry", "forest fruits" ],
+    "topRegions" : [ "Yirgacheffe" ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  }, {
+    "country" : "Brazil / Colombia / Papua New Guinea",
+    "topProcesses" : [ "Natural / Washed" ],
+    "topFlavors" : [ "red toffee", "molasses", "cocoa", "dark chocolate" ],
+    "topRegions" : [ ],
+    "avgPricePer100g" : 11.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 11.50,
+      "max" : 11.50
+    }
+  }, {
+    "country" : "Guatemala / Honduras",
+    "topProcesses" : [ "Washed" ],
+    "topFlavors" : [ "pecan", "cocoa", "vanilla" ],
+    "topRegions" : [ "Huehuetenango, Guatemala / Marcala, Honduras" ],
+    "avgPricePer100g" : 12.50,
+    "productCount" : 1,
+    "priceRange" : {
+      "min" : 12.50,
+      "max" : 12.50
+    }
+  } ]
+}

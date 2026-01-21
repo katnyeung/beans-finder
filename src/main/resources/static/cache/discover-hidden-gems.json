@@ -1,0 +1,84 @@
+{
+  "gems" : [ {
+    "reason" : "5.0 flavor notes avg at £8.86/100g",
+    "avgPrice" : 8.86,
+    "name" : "Brazil / Ethiopia",
+    "type" : "origin",
+    "productCount" : 3,
+    "avgComplexity" : 5.0,
+    "gemScore" : 0.407
+  }, {
+    "reason" : "5.5 flavor notes avg at £12.33/100g",
+    "avgPrice" : 12.33,
+    "name" : "Yemen",
+    "type" : "origin",
+    "productCount" : 3,
+    "avgComplexity" : 5.5,
+    "gemScore" : 0.322
+  }, {
+    "reason" : "3.3 flavor notes avg at £11.32/100g",
+    "avgPrice" : 11.32,
+    "name" : "Tanzania",
+    "type" : "origin",
+    "productCount" : 4,
+    "avgComplexity" : 3.25,
+    "gemScore" : 0.178
+  }, {
+    "reason" : "3.0 flavor notes avg at £12.58/100g",
+    "avgPrice" : 12.58,
+    "name" : "Bolivia",
+    "type" : "origin",
+    "productCount" : 3,
+    "avgComplexity" : 3.0,
+    "gemScore" : 0.172
+  }, {
+    "reason" : "3.0 flavor notes avg at £13.30/100g",
+    "avgPrice" : 13.30,
+    "name" : "Colombia / Brazil",
+    "type" : "origin",
+    "productCount" : 3,
+    "avgComplexity" : 3.0,
+    "gemScore" : 0.163
+  }, {
+    "reason" : "3.3 flavor notes avg at £16.63/100g",
+    "avgPrice" : 16.63,
+    "name" : "Brazil / Colombia",
+    "type" : "origin",
+    "productCount" : 3,
+    "avgComplexity" : 3.33,
+    "gemScore" : 0.145
+  }, {
+    "reason" : "3.3 flavor notes avg at £10.07/100g",
+    "avgPrice" : 10.07,
+    "name" : "India",
+    "type" : "origin",
+    "productCount" : 15,
+    "avgComplexity" : 3.27,
+    "gemScore" : 0.117
+  }, {
+    "reason" : "3.9 flavor notes avg at £11.07/100g",
+    "avgPrice" : 11.07,
+    "name" : "Indonesia",
+    "type" : "origin",
+    "productCount" : 20,
+    "avgComplexity" : 3.85,
+    "gemScore" : 0.114
+  }, {
+    "reason" : "3.0 flavor notes avg at £12.25/100g",
+    "avgPrice" : 12.25,
+    "name" : "Burundi",
+    "type" : "origin",
+    "productCount" : 10,
+    "avgComplexity" : 3.0,
+    "gemScore" : 0.102
+  }, {
+    "reason" : "3.0 flavor notes avg at £11.87/100g",
+    "avgPrice" : 11.87,
+    "name" : "Uganda",
+    "type" : "origin",
+    "productCount" : 13,
+    "avgComplexity" : 3.0,
+    "gemScore" : 0.096
+  } ],
+  "generatedAt" : 1768841031611
+}

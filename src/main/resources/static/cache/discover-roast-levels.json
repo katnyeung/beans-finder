@@ -1,0 +1,16 @@
+{
+  "generatedAt" : 1768841031444,
+  "roastLevels" : [ {
+    "typicalFlavors" : [ "chocolate", "caramel", "milk chocolate", "orange", "floral" ],
+    "name" : "Light",
+    "productCount" : 362
+  }, {
+    "typicalFlavors" : [ "chocolate", "caramel", "citrus", "milk chocolate", "dark chocolate" ],
+    "name" : "Medium",
+    "productCount" : 81
+  }, {
+    "typicalFlavors" : [ "chocolate", "caramel", "dark chocolate", "hazelnut", "milk chocolate" ],
+    "name" : "Dark",
+    "productCount" : 152
+  } ]
+}

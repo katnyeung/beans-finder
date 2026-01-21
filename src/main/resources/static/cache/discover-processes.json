@@ -1,0 +1,289 @@
+{
+  "processes" : [ {
+    "typicalFlavors" : [ "caramel", "chocolate", "orange", "brown sugar", "milk chocolate" ],
+    "name" : "Washed",
+    "description" : "Bright, clean cup with pronounced acidity. Highlights origin terroir.",
+    "productCount" : 453
+  }, {
+    "typicalFlavors" : [ "chocolate", "caramel", "milk chocolate", "strawberry", "blueberry" ],
+    "name" : "Natural",
+    "description" : "Fruity, wine-like, complex fermentation notes. Full body.",
+    "productCount" : 279
+  }, {
+    "typicalFlavors" : [ "peach", "caramel", "honey", "lychee", "raspberry" ],
+    "name" : "Honey",
+    "description" : "Sweet, balanced, fruit-forward. Between washed and natural.",
+    "productCount" : 70
+  }, {
+    "typicalFlavors" : [ "grape", "raisin", "hazelnut", "blueberry", "orange" ],
+    "name" : "Anaerobic",
+    "description" : "Unique fermentation flavors, often tropical or wine-like.",
+    "productCount" : 18
+  }, {
+    "typicalFlavors" : [ "toasted walnuts", "sweet banoffee", "banoffee", "caramel sweetness", "hint of honey" ],
+    "name" : "Wet-processed",
+    "description" : "",
+    "productCount" : 4
+  }, {
+    "typicalFlavors" : [ "chocolate", "caramel", "toffee", "spice", "biscuit" ],
+    "name" : "Swiss water process",
+    "description" : "",
+    "productCount" : 3
+  }, {
+    "typicalFlavors" : [ "chocolate", "cherry", "caramel", "sweet", "vanilla" ],
+    "name" : "Sugar cane ethyl acetate",
+    "description" : "",
+    "productCount" : 3
+  }, {
+    "typicalFlavors" : [ "caramel", "chocolate" ],
+    "name" : "Null",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "strong", "tangy jammy berry compote", "creamy butterscotch", "smooth milk chocolate", "nostalgic cereal milk" ],
+    "name" : "C02",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "apple", "cinnamon", "raisin" ],
+    "name" : "Sparkling water decaf",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "brown sugar", "herbal", "spice", "earthy", "spicy" ],
+    "name" : "Giling basah (wet-hulled)",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "butter", "mild", "green tea", "balanced", "muscat" ],
+    "name" : "Yeast fermentation",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "caramelised pineapple", "earthy", "treacle sponge", "spiced rum" ],
+    "name" : "Wet hulled",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "cacao", "vanilla", "chocolate" ],
+    "name" : "Hot brewing and flash chilling",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "orange", "orchid oolong", "lemongrass", "ginger", "peach" ],
+    "name" : "Symbiotic process",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "apple", "passion fruit", "oolong tea", "bright", "smooth" ],
+    "name" : "Culturing",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "round", "candy", "sweet", "cranberry jam", "bubble gum" ],
+    "name" : "Acai most fermentation",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "warm caramel", "rich cocoa", "deep caramel", "milk chocolate", "nutty undertones" ],
+    "name" : "Mountain water process decaf",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "red fruits", "maple", "grape", "dark chocolate", "vanilla" ],
+    "name" : "Sugarcane decaf",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "brown sugar", "cherry", "persimmon", "orange wine", "sea buckthorn" ],
+    "name" : "Carbonic Maceration",
+    "description" : "Bubbly, fruity, candy-like sweetness.",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "black forest berries", "variety of central, south american and african flavours", "blackcurrant", "elegantly sweet", "juicy" ],
+    "name" : "Swiss water",
+    "description" : "",
+    "productCount" : 2
+  }, {
+    "typicalFlavors" : [ "bittersweetness", "nuts", "dark chocolate" ],
+    "name" : "Wet polished",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "panela", "dried red fruits", "toffee", "citric acidity", "blackberries" ],
+    "name" : "Sugarcane e.a decaf",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "milk chocolate", "ripe papaya", "tropical fruit drops", "madeira sherry", "pineapple lumps" ],
+    "name" : "Anoxic \"water pillow\"",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "whisky", "macadamia", "cherry liqueur" ],
+    "name" : "Yeast fermentation (72hr, 70% overripe)",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "caramel", "dark chocolate", "orange rind" ],
+    "name" : "Sugar cane ea decaffeination",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "orange", "vanilla fudge" ],
+    "name" : "Sugarcane ea",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "caramel", "chocolate" ],
+    "name" : "Flash-brewing",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "orange", "earthy", "spicy", "chocolate" ],
+    "name" : "Dark roast",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "milk chocolate", "hazelnut", "praline" ],
+    "name" : "Sugarcane",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "turkish delight", "parma violets", "soft sweetness", "rose-kissed", "lavender" ],
+    "name" : "Culture process",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "nutty", "chocolate" ],
+    "name" : "Sparkling water",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "brown sugar", "herbal", "spicy", "woody", "chocolate" ],
+    "name" : "Giling basah",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "warm spice", "raspberry truffles", "poached plums", "wine" ],
+    "name" : "Hybrid",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "good agricultural practices", "high quality" ],
+    "name" : "Ethyl acetate",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "red fruits", "spice", "malt", "vanilla", "chocolate" ],
+    "name" : "Swiss water / sugarcane",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "caramel", "citrus", "chocolate" ],
+    "name" : "Mountain water process",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "cedar", "smoky", "chocolate" ],
+    "name" : "Monsooned",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "luxurious", "lots of sweetness", "gentle acidity", "velvety smooth body", "great aroma of warming spices" ],
+    "name" : "Co2 process",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "rich", "malt", "smooth" ],
+    "name" : "Co2 decaffeination",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "candied apple", "warm spice", "prune", "almond", "wine" ],
+    "name" : "Bespoke hybrid processing",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ ],
+    "name" : "Elemental chlorine-free (ecf)",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "celebrating ethiopia’s heritage", "exceptional", "high-altitude terroir expression" ],
+    "name" : "168-hour fermented",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "raspberry", "mandarin orange", "juicy", "american cherry" ],
+    "name" : "Oxidative process",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "strawberry cornetto", "dragonfruit", "dark chocolate" ],
+    "name" : "Advanced process 1440hr bioreactor",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "milk chocolate", "toffee", "biscuit" ],
+    "name" : "Decaffeinated",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "brown sugar", "orange", "milk chocolate", "butter", "hazelnut" ],
+    "name" : "Co2 decaf",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "brown sugar", "spice", "herbs", "chocolate" ],
+    "name" : "Giling basah (wet-hulled), sun-dried",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "complexity", "clarity", "sweetness" ],
+    "name" : "Tyoxidator",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "floral", "tarragon", "blackcurrant" ],
+    "name" : "Low-caf fermentation method",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "milk chocolate", "toffee" ],
+    "name" : "Decaf",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "syrupy texture", "rich complexity", "prominent berry flavours" ],
+    "name" : "Aerated fermentation",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "sweet", "fruity" ],
+    "name" : "Mountain water decaf process",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "fizzy watermelon" ],
+    "name" : "Watermelon co-ferment",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "floral", "honeysuckle", "strawberry" ],
+    "name" : "Red bomb, double fermentation",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "apple", "caramel", "chocolate" ],
+    "name" : "Sugarcane process",
+    "description" : "",
+    "productCount" : 1
+  }, {
+    "typicalFlavors" : [ "caramel", "fruit", "chocolate" ],
+    "name" : "Sugarcane decaffeination",
+    "description" : "",
+    "productCount" : 1
+  } ],
+  "generatedAt" : 1768841031360
+}

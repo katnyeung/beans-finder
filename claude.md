@@ -40,6 +40,42 @@ This document provides context for Claude Code when working on the beans-finder 
 
 ## Critical Implementation Details
 
+### 0. Neon Serverless Cold Start (CRITICAL)
+**Problem**: HikariCP keepalive causes `UnknownHostException` during Neon scale-to-zero (3:00-6:00 AM)
+**Root Cause**: `keepalive-time=30000` sends keepalive queries every 30s. When Neon scales to zero, DNS lookup fails → app crashes
+
+**Solution (Two-Part)**:
+
+1. **Disable keepalive to prevent crashes**:
+```properties
+spring.datasource.hikari.keepalive-time=0          # DISABLED - no DNS lookups when Neon sleeps
+spring.datasource.hikari.idle-timeout=600000       # 10 min (allow pool to drain)
+spring.datasource.hikari.max-lifetime=1800000      # 30 min (prevent stale connections)
+```
+
+2. **Graceful degradation with fast failure** (NEW - Jan 2026):
+```properties
+spring.datasource.hikari.connection-timeout=15000  # 15s (fail fast, return 503)
+resilience4j.retry.instances.database.max-attempts=2
+resilience4j.retry.instances.database.wait-duration=2s
+```
+
+**GlobalExceptionHandler** (`controller/GlobalExceptionHandler.java`):
+- Catches `DataAccessResourceFailureException` and HikariPool timeouts
+- Returns HTTP 503 Service Unavailable with `Retry-After: 10` header
+- **CRITICAL**: All responses use `MediaType.TEXT_PLAIN` to avoid `HttpMediaTypeNotAcceptableException`
+  - Bots often send `Accept: text/html` which rejects JSON → causes recursive exception in handler
+- **Bot Traffic Handling** (no logging to reduce noise):
+  - `HttpRequestMethodNotSupportedException` → 405 Method Not Allowed (bot scanners)
+  - `HttpMediaTypeNotAcceptableException` → 406 Not Acceptable (weird Accept headers)
+  - `NoResourceFoundException` → 404 Not Found (wp-admin scans, etc.)
+- Frontend can show friendly "Database waking up, please retry" message
+
+**Why this works**:
+- No keepalive = no DNS lookups when Neon is suspended
+- Fast failure (15s timeout) + 503 response = better UX than 170s hang
+- Neon typically wakes in 1-3s on retry
+
 ### 1. JSON Serialization
 **Problem**: Circular references cause `IllegalStateException`
 **Solution**: @JsonIgnore on both CoffeeBrand.products and CoffeeProduct.brand
